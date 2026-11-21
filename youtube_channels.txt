@@ -1,0 +1,7 @@
+# v3.4: kis naam ke liye KAUN se YouTube channel se clip leni hai (sirf yahi channel, koi aur nahi)
+# Format:  Naam = @handle, @handle2, UCxxxxxxxxxxxxxxxxxxxxxx
+# Naam me space / chhota-bada akshar farak nahi padta. Jo naam yahan nahi hai uske liye tool khud
+# official channel dhoondhta hai (Wikidata + channel ka naam wahi ho + 1 lakh+ subscribers).
+# '#' ke baad likha hua ignore hota hai.
+
+CarryMinati = @CarryMinati, @CarryisLive

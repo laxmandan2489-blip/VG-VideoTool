@@ -1,0 +1,12 @@
+whoosh\cinematic_whoosh_1.wav: sirf 10 ms awaaz, baaki 99% bilkul khaali – Pixabay se dobara download karo
+whoosh\cinematic_whoosh_2.wav: sirf 10 ms awaaz, baaki 99% bilkul khaali – Pixabay se dobara download karo
+whoosh\cinematic_whoosh_3.wav: sirf 10 ms awaaz, baaki 99% bilkul khaali – Pixabay se dobara download karo
+whoosh\cinematic_whoosh_4.wav: sirf 10 ms awaaz, baaki 99% bilkul khaali – Pixabay se dobara download karo
+whoosh\swoosh_purana.wav: sirf 10 ms awaaz, baaki 94% bilkul khaali – Pixabay se dobara download karo
+whoosh\whoosh_01.wav: sirf 10 ms awaaz, baaki 94% bilkul khaali – Pixabay se dobara download karo
+ding\correct_01.wav: sirf 10 ms awaaz, baaki 99% bilkul khaali – Pixabay se dobara download karo
+ding\ding_purana.wav: sirf 10 ms awaaz, baaki 99% bilkul khaali – Pixabay se dobara download karo
+ding\notification_01.wav: sirf 10 ms awaaz, baaki 99% bilkul khaali – Pixabay se dobara download karo
+click\mouse_click.wav: sirf 9 ms awaaz, baaki 91% bilkul khaali – Pixabay se dobara download karo
+riser\riser_01.wav: sirf 10 ms awaaz, baaki 100% bilkul khaali – Pixabay se dobara download karo
+riser\suspense_buildup.wav: sirf 10 ms awaaz, baaki 100% bilkul khaali – Pixabay se dobara download karo

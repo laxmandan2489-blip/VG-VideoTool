@@ -1,0 +1,4 @@
+{"name": "whip_in", "about": "Naye fact pe tez whip-pan (camera jhatke se ghoome)", "use_on": "any",
+ "trigger": ["fact"], "transition": true, "sound": "whoosh", "steps": [
+  {"block": "whip", "start": 0, "dur": 0.24, "dir": "left"},
+  {"block": "shake", "start": 0.18, "dur": 0.22, "amount": 0.2}]}

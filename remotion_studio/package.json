@@ -1,0 +1,11 @@
+{
+  "name": "vg-remotion-studio",
+  "version": "3.30.0",
+  "private": true,
+  "dependencies": {
+    "react": "^18.2.0",
+    "react-dom": "^18.2.0",
+    "remotion": "^4.0.150",
+    "@remotion/cli": "^4.0.150"
+  }
+}

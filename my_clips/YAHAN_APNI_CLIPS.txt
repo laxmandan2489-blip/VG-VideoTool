@@ -1,0 +1,3 @@
+(Zaroori nahi) Kisi line ke liye apni photo/clip lagani ho to yahan daalo.
+Naam line number se rakho:  01.jpg = pehli line,  05.mp4 = paanchvi line.
+Nayi video banane se pehle purani files hata dena.

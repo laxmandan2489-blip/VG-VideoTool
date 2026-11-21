@@ -1,0 +1,4 @@
+{"name": "3d_photo", "about": "Photo me AI gehraai – camera andar jaata hua (asli 3D jaisa)", "use_on": "image",
+ "trigger": ["person", "place", "photo"], "steps": [
+  {"block": "depth3d", "start": 0, "dur": 3, "push": 0.16},
+  {"block": "vignette", "start": 0, "dur": 3, "strength": 0.35}]}

@@ -1,0 +1,5 @@
+{"name": "danger_sparks", "about": "Khatre wali line pe chingari + garam glow + halka jhatka", "use_on": "any",
+ "trigger": ["danger"], "sound": "boom", "steps": [
+  {"block": "particles", "start": 0, "dur": 3, "kind": "embers", "amount": 0.5},
+  {"block": "glow", "start": 0, "dur": 0.9, "strength": 0.35, "color": "#ff7040"},
+  {"block": "shake", "start": 0, "dur": 0.3, "amount": 0.25}]}

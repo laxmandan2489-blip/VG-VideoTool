@@ -1,0 +1,6 @@
+edge-tts>=7.0
+requests>=2.31
+pillow>=10.0
+numpy>=1.26
+psutil>=5.9
+yt-dlp[default]>=2025.11

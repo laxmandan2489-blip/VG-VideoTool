@@ -1,0 +1,7 @@
+.env
+api keys.txt
+*.token
+seekha/youtube_token.json
+temp/
+output/
+__pycache__/

@@ -1,0 +1,10 @@
+v3.12 me kya naya:
+
+✅ "Mera kaam" button (ya /kaam) – tool khud jaanch ke batata hai aapko kya karna baaki hai: kaunsi key nahi hai, sound files theek hain ya nahi, HyperFrames laga ya nahi, pichhli video ke Review me kya kami thi.
+🔑 Key Telegram se lagao: /key GROQ aapki_key (PEXELS, OPENROUTER, YOUTUBE, GEMINI, PIXABAY bhi). Key wala message bot khud mita deta hai.
+🧠 Gemini ki roz ki limit khatam -> ab tool Groq / OpenRouter (free) se kaam chalata hai (script samajhna, footage words, jaanch). Iske liye GROQ key lagao.
+🔒 Groq/OpenRouter key bhi log me chhupi rehti hai.
+
+Pehle se: v3.11 naya script prompt (MERA TOPIC) • v3.10 crash fix, photo full screen • v3.9 text card kam • v3.8 Ram ki line pe Ravan nahi • v3.7 tez • v3.6 HyperFrames, EDL, Review • v3.5 whoosh, jhar-jhar fix.
+
+Ab sabse pehle: ✅ Mera kaam dabao.

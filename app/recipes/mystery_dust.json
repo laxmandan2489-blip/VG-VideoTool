@@ -1,0 +1,5 @@
+{"name": "mystery_dust", "about": "Hawa me udti dhool + andhera kinara – rahasya / purani baat", "use_on": "any",
+ "trigger": ["danger", "fact", "place"], "steps": [
+  {"block": "particles", "start": 0, "dur": 3, "kind": "dust", "amount": 0.35},
+  {"block": "vignette", "start": 0, "dur": 3, "strength": 0.5},
+  {"block": "colorpop", "start": 0, "dur": 3, "sat": 0.8}]}

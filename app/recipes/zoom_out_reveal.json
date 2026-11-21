@@ -1,0 +1,4 @@
+{"name": "zoom_out_reveal", "about": "Bahut paas se peeche aakar poori cheez dikhti hai – bada khulasa", "use_on": "any",
+ "trigger": ["number", "fact", "hook"], "steps": [
+  {"block": "card3d", "start": 0, "dur": 0.9, "from": {"scale": 1.6}, "to": {"scale": 0.95}, "ease": "out"},
+  {"block": "vignette", "start": 0, "dur": 2, "strength": 0.3}]}

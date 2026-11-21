@@ -1,0 +1,7 @@
+v3.1: Ye sab awaazein doosre logon ki REELS se kaati gayi thi.
+Inme insaan ki awaaz / music ke chhote tukde the – isi wajah se video ke beech "kisi aur video jaisi"
+chhoti awaaz aati thi. Copyright ka khatra bhi hai. Isliye tool inhe ab use NAHI karta.
+
+Agar koi awaaz aapne khud sun ke pakki ki hai aur aap uske maalik/license wale ho, to use
+mere_sounds\<type>\ me daalo aur naam badal do (naam "reel" ya "auto_" se shuru NA ho).
+style.txt me  reel_sfx = haan  karne se purana tareeka wapas aa jayega (salaah nahi).

@@ -1,0 +1,49 @@
+=================================================================
+  THE VIRAL GYAAN VIDEOTOOL v3.45 — FULL FREE CLOUD AUTO SETUP
+  (Telegram se Script -> GitHub Cloud -> Telegram + Google Drive)
+  ZERO Card | ZERO Laptop | 24/7 Phone Control!
+=================================================================
+
+=== PART 1: Private GitHub Repo (3 Minute) ===
+1. https://github.com par free account banao aur ek PRIVATE repo banao:
+   Naam: VideoTool-Cloud (Private zaroor select karna!)
+2. Is ZIP ko extract karke saari files/folders repo me upload kar do.
+3. Repo -> Settings -> Secrets and variables -> Actions -> New repository secret:
+   - GEMINI_KEY   = aapki Gemini API key
+   - PIXABAY_KEY  = aapki Pixabay API key
+   - TG_TOKEN     = aapke Telegram bot ka token
+   - TG_CHAT_ID   = aapki Telegram numeric chat ID
+   - RCLONE_CONF  = (Optional — Part 3 me Google Drive auto-upload ke liye)
+
+=== PART 2: Telegram -> Cloud Bridge (Cloudflare Worker, 2 Minute) ===
+1. GitHub -> Settings -> Developer settings -> Personal access tokens ->
+   Fine-grained tokens -> Generate new token:
+   - Repository access: Only select repositories -> VideoTool-Cloud
+   - Permissions -> Actions: Read and write  AUR  Contents: Read and write
+     (Isse Telegram par `update` ZIP aur `/purana` bhi chalenge!)
+   - Token copy kar lo (ye GH_TOKEN hai).
+2. https://dash.cloudflare.com par free account banao (NO card needed!).
+3. Workers & Pages -> Create -> Create Worker -> Naam: videotool-bot -> Deploy.
+4. "Edit code" dabao -> is ZIP ki `cloudflare_worker.js` ka poora code paste
+   karke "Deploy" dabao.
+5. Worker Settings -> Variables and Secrets -> 4 variables add karo (Encrypt):
+   - TG_TOKEN        = Telegram Bot Token
+   - ALLOWED_CHAT_ID = Aapki Telegram numeric Chat ID
+   - GH_TOKEN        = Step 1 wala GitHub token
+   - GH_REPO         = aapka_github_username/VideoTool-Cloud
+6. Apne browser me ye URL ek baar khol lo (apna token aur worker URL daalkar):
+   https://api.telegram.org/bot<TG_TOKEN>/setWebhook?url=https://<aapka-worker-url>.workers.dev
+   ("Webhook was set" dikhega — DONE!)
+7. Laptop ka `6_telegram_bot.bat` BAND kar do. Ab seedha Telegram par script
+   bhejo — 24/7 cloud par video bankar Telegram par aayegi!
+
+=== PART 3 (Optional): Google Drive Auto-Upload (50MB+ Long Videos) ===
+1. Laptop par https://rclone.org/downloads/ se rclone download karo.
+2. Command Prompt me chalao:  rclone config
+   - n (New remote) -> Naam: gdrive -> Storage: drive -> Enter dabate jao ->
+     Browser me apna Google account login karo -> Done!
+3. Command Prompt me chalao:  rclone config show
+   Jo text aaye use copy karke GitHub Secret `RCLONE_CONF` me paste kar do!
+   Ab har video (chahe 20 MB ho ya 300 MB) aapke Google Drive `VG Videos`
+   folder me bhi auto-save hogi aur uska link Telegram par aa jayega!
+=================================================================

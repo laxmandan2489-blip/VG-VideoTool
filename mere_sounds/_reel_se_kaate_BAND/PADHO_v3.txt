@@ -1,0 +1,7 @@
+Ye 23 awaazein reels se kaati gayi thi, lekin kisi folder me nahi thi, isliye KABHI use nahi hoti thi.
+Maine inhe automatic nahi lagaya – kuch me insaan ki awaaz / music ka tukda ho sakta hai.
+Ek-ek sun ke jo achhi lage use sahi folder me daal do (whoosh, riser, pop, click, ding...).
+Mere analysis ka sujhaav (sun ke pakka karna):
+  chhoti tak/click jaisi (0.16-0.32 sec): reel1_..._01, reel1_..._03, reel1_..._08, reel7_..._11  -> click ya pop
+  chamakdaar (shimmer) 0.35-1 sec:        reel1_..._09, reel1_..._10, reel1_..._12               -> whoosh (halka)
+  bahut bhaari neeche wali (bhat jaisi):  reel1_..._02                                               -> mat lagao

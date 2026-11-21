@@ -1,0 +1,111 @@
+name: 📦 Apply Telegram Update / Rollback
+
+on:
+  workflow_dispatch:
+    inputs:
+      action:
+        description: "update or rollback"
+        required: true
+        default: "update"
+      file_id:
+        description: "Telegram ZIP file_id"
+        required: false
+        default: ""
+
+permissions:
+  contents: write
+
+jobs:
+  cloud-update:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout Repo
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 5
+
+      - name: Setup Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+
+      - name: Run Update or Rollback
+        env:
+          ACTION: ${{ inputs.action }}
+          FILE_ID: ${{ inputs.file_id }}
+          TG_TOKEN: ${{ secrets.TG_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+        run: |
+          pip install -q requests
+          python - << 'PY'
+          import os, pathlib, py_compile, shutil, subprocess, sys, zipfile, requests
+
+          token = os.environ["TG_TOKEN"].strip()
+          chat = os.environ["TG_CHAT_ID"].strip()
+          action = os.environ["ACTION"].strip()
+
+          def tg(msg):
+              requests.post(f"https://api.telegram.org/bot{token}/sendMessage", data={"chat_id": chat, "text": msg}, timeout=30)
+
+          if action == "rollback":
+              r = subprocess.run(["git", "revert", "--no-edit", "HEAD"], capture_output=True, text=True)
+              if r.returncode != 0:
+                  tg("❌ Rollback fail ho gaya: " + r.stderr[:200])
+                  sys.exit(1)
+              subprocess.run(["git", "push"], check=True)
+              ver = pathlib.Path("app/VERSION").read_text().strip() if pathlib.Path("app/VERSION").exists() else "?"
+              tg(f"✅ Purana version (v{ver}) wapas restore ho gaya!")
+              sys.exit(0)
+
+          fid = os.environ["FILE_ID"].strip()
+          info = requests.get(f"https://api.telegram.org/bot{token}/getFile?file_id={fid}", timeout=30).json()
+          fpath = info["result"]["file_path"]
+          zdata = requests.get(f"https://api.telegram.org/file/bot{token}/{fpath}", timeout=120).content
+          zpath = pathlib.Path("tg_update.zip")
+          zpath.write_bytes(zdata)
+
+          tmp = pathlib.Path("_upd_tmp")
+          if tmp.exists(): shutil.rmtree(tmp)
+          with zipfile.ZipFile(zpath, "r") as zf:
+              zf.extractall(tmp)
+
+          # Find root (handle optional wrapper folder)
+          src = tmp
+          if not (src / "app").exists():
+              subs = [d for d in tmp.iterdir() if d.is_dir() and (d / "app").exists()]
+              if subs: src = subs[0]
+
+          # Compile-check all Python files before touching repo
+          if (src / "app").exists():
+              for p in (src / "app").rglob("*.py"):
+                  try:
+                      py_compile.compile(str(p), doraise=True)
+                  except Exception as e:
+                      tg(f"❌ Update ZIP me syntax error hai ({p.name}) — kuch nahi badla!")
+                      sys.exit(1)
+
+          FORBID = {".env", "api keys.txt", "api_keys.txt", "style.txt"}
+          for item in src.iterdir():
+              if item.name.lower() in FORBID or item.name == ".github":
+                  continue
+              dst = pathlib.Path(item.name)
+              if item.is_dir():
+                  shutil.copytree(item, dst, dirs_exist_ok=True)
+              else:
+                  shutil.copy2(item, dst)
+
+          shutil.rmtree(tmp, ignore_errors=True)
+          zpath.unlink(missing_ok=True)
+
+          subprocess.run(["git", "config", "user.name", "VideoTool Cloud Bot"], check=True)
+          subprocess.run(["git", "config", "user.email", "bot@videotool.local"], check=True)
+          subprocess.run(["git", "add", "-A"], check=True)
+          st = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True).stdout.strip()
+          ver = pathlib.Path("app/VERSION").read_text().strip() if pathlib.Path("app/VERSION").exists() else "?"
+          if st:
+              subprocess.run(["git", "commit", "-m", f"Telegram cloud update v{ver}"], check=True)
+              subprocess.run(["git", "push"], check=True)
+              tg(f"✅ Cloud VideoTool update ho gaya! (v{ver})\nAb naya video bana sakte ho.")
+          else:
+              tg(f"ℹ️ Koi naya badlav nahi mila (abhi v{ver} hi hai).")
+          PY

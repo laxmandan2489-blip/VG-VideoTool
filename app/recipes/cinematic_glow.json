@@ -1,0 +1,5 @@
+{"name": "cinematic_glow", "about": "Dheema 3D push + garam glow – wonder / space / bada fact (shant, bina jhatke)", "use_on": "image",
+ "trigger": ["place", "photo", "fact"], "steps": [
+  {"block": "depth3d", "start": 0, "dur": 3, "push": 0.12},
+  {"block": "glow", "start": 0, "dur": 1.6, "strength": 0.25, "color": "#ffd9a0"},
+  {"block": "vignette", "start": 0, "dur": 3, "strength": 0.3}]}

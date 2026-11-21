@@ -1,0 +1,5 @@
+{"name": "zoom_hit", "about": "Hook / bade number pe zoom-blur jhatka + halka flash + rang tez", "use_on": "any",
+ "trigger": ["hook", "number"], "transition": true, "sound": "boom", "steps": [
+  {"block": "zoomblur", "start": 0, "dur": 0.32, "amount": 0.32},
+  {"block": "flash", "start": 0, "dur": 0.12, "strength": 0.55, "color": "#ffffff"},
+  {"block": "colorpop", "start": 0, "dur": 0.8, "sat": 1.3}]}
