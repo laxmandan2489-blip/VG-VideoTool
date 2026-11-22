@@ -19,7 +19,7 @@ on:
 jobs:
   render-video:
     runs-on: ubuntu-latest
-    timeout-minutes: 55
+    timeout-minutes: 100
     steps:
       - name: 0. Disk khali karo (No space left error kabhi na aaye)
         run: |
@@ -79,6 +79,7 @@ jobs:
           GROQ_KEY: ${{ secrets.GROQ_KEY }}
           OPENROUTER_KEY: ${{ secrets.OPENROUTER_KEY }}
           BRAVE_KEY: ${{ secrets.BRAVE_KEY }}
+          VG_HARD_LIMIT_MIN: "90"
           YT_COOKIES: ${{ secrets.YT_COOKIES }}
           X_COOKIES: ${{ secrets.X_COOKIES }}
           YTDLP_PROXY: ${{ secrets.YTDLP_PROXY }}
