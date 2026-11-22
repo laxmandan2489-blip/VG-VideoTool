@@ -1,3 +1,5 @@
+v3.79 🎛 SCRIPT BHEJO -> BOT POOCHHEGA: 📱 Short | 📺 Long | 🎙 Short + meri awaaz | 🎙 Long + meri awaaz | ❌ Cancel. "meri awaaz" chuno -> phir voice note / mp3 bhejo -> aapki awaaz se video (Whisper timing). Script ki pehli line LONG/SHORT likhi ho to seedha banegi (puraana tareeka).
+
 v3.78 ⚡ TEZ (quality wahi): (1) har line ki aam stock khoj pehle 2 baar hoti thi (sources + visual picker) – ab ek baar, picker se kuch na mile to purani poori khoj backup. (2) thumbnail aur 3-frame jaanch dobara nahi (cache). (3) cloud pe 5 lines ek saath (pehle RAM ki wajah se 2), 2 shots ek saath. (4) log me "⏱ footage khoj" ka hisaab. (5) /status me is mahine ke GitHub minute.
 
 v3.77 🎯 QUALITY LOOP (target 90/100): video banne ke baad Video Review score dekhta hai. 90 se kam -> kamzor lines ki nayi (behtar) footage dhoondh ke dobara banata hai – jab tak 90 na ho ya samay khatam. Nayi footage purani se behtar na ho to purani hi rehti hai. Shuru ke 3 sec me 2 visual (hook). Caption me "🎯 Visual score".

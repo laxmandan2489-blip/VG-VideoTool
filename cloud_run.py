@@ -244,6 +244,26 @@ def main():
         print("ERROR: Script khali hai!")
         sys.exit(1)
 
+    # v3.79: "meri awaaz" – worker script ke upar VOICE_FILE_ID line jodta hai -> Telegram se recording
+    voice_path = None
+    _lines0 = script_text.splitlines()
+    if _lines0 and _lines0[0].strip().upper().startswith("VOICE_FILE_ID:"):
+        _vid = _lines0[0].split(":", 1)[1].strip()
+        script_text = "\n".join(_lines0[1:]).strip()
+        try:
+            info = requests.get(f"https://api.telegram.org/bot{tg_token}/getFile", params={"file_id": _vid}, timeout=30).json()
+            fp = (info.get("result") or {}).get("file_path") or ""
+            if fp:
+                ext = Path(fp).suffix or ".ogg"
+                vp_ = JOBS / f"meri_awaaz{ext}"
+                rr = requests.get(f"https://api.telegram.org/file/bot{tg_token}/{fp}", timeout=120)
+                if rr.ok and len(rr.content) > 2000:
+                    vp_.write_bytes(rr.content); voice_path = vp_
+        except Exception as e:
+            print("voice download error:", e)
+        if not voice_path:
+            tg_send_text(tg_token, tg_chat, "⚠️ Aapki awaaz download nahi hui – AI awaaz se bana raha hoon.")
+
     if video_mode == "LONG" and not script_text.upper().startswith("LONG"):
         script_text = "LONG\n" + script_text
 
@@ -298,7 +318,10 @@ def main():
     env["VG_RESULT"] = str(res)
     env["PYTHONIOENCODING"] = "utf-8"
     env["PYTHONUNBUFFERED"] = "1"
-    env["VG_STYLE_JSON"] = json.dumps({"remotion_beats": "haan", "blender_doc_stage": "haan", "ek_saath_shots": "2"})
+    _sty = {"remotion_beats": "haan", "blender_doc_stage": "haan", "ek_saath_shots": "2"}
+    if voice_path:                                    # v3.79: aapki recording -> voice = meri (Whisper se timing)
+        _sty["voice"] = "meri"; env["VG_VOICE"] = str(voice_path)
+    env["VG_STYLE_JSON"] = json.dumps(_sty)
     env.setdefault("VG_VISUAL_THREADS", "5")   # v3.78: cloud pe 5 lines ek saath (RAM 7 GB pe pehle 2 hi chalti thi)
     # v3.77: quality loop ko kitna samay mil sakta hai (GitHub job limit se pehle video bhejni hai)
     _hl = float(os.environ.get("VG_HARD_LIMIT_MIN", "46"))

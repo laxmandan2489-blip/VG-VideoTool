@@ -92,6 +92,11 @@ export default {
     } catch {
       return new Response("ok", { status: 200 });
     }
+    // v3.79: buttons (Short / Long / meri awaaz) ka jawab
+    if (update.callback_query) {
+      await handleChoice(env, update.callback_query);
+      return new Response("ok", { status: 200 });
+    }
     const msg = update.message || update.edited_message;
     if (!msg) return new Response("ok", { status: 200 });
 
@@ -121,6 +126,27 @@ export default {
         ? `🍪 ${kind === "x" ? "X/Twitter" : "YouTube"} cookies mil gayi ✓ Agli video se apne aap lagengi.\n` +
           "Is message ko DELETE mat karna. Jaanch ke liye: SYSTEM JAANCH KARO"
         : "❌ Cookies save nahi hui – GH_TOKEN ko Contents: Read and write permission chahiye.", true);
+      return new Response("ok", { status: 200 });
+    }
+
+    // v3.79: aapki awaaz (voice note / audio file) -> pehle chuni hui script ke saath video
+    const aud = msg.voice || msg.audio || (doc && /^(audio|video)\//.test(doc.mime_type || "") ? doc : null);
+    if (aud && update.message) {
+      const pend = await readPending(env);
+      if (!pend || !pend.script || Date.now() - (pend.ts || 0) > 6 * 3600e3) {
+        await tgReply(env.TG_TOKEN, chatId, "🎙 Awaaz mil gayi, par koi script intezaar me nahi hai.\nPehle script bhejo -> '🎙 meri awaaz' button dabao -> phir awaaz bhejo.", true);
+        return new Response("ok", { status: 200 });
+      }
+      if ((aud.file_size || 0) > 20 * 1024 * 1024) {
+        await tgReply(env.TG_TOKEN, chatId, "❌ Awaaz ki file 20 MB se badi hai (Telegram bot limit). Voice note ya chhoti mp3/m4a bhejo.", true);
+        return new Response("ok", { status: 200 });
+      }
+      const sc = `VOICE_FILE_ID: ${aud.file_id}\n` + pend.script;
+      const ok = await dispatchGH(env, "make_video.yml", { script: sc, mode: pend.mode === "L" ? "LONG" : "SHORT" });
+      await clearPending(env);
+      await tgReply(env.TG_TOKEN, chatId, ok
+        ? `🚀 Aapki AWAAZ ke saath ${pend.mode === "L" ? "LONG" : "SHORT"} video shuru ho gayi!\nBante hi download link + video yahin aayegi.`
+        : "❌ GitHub render trigger fail ho gaya.", true);
       return new Response("ok", { status: 200 });
     }
 
@@ -183,6 +209,14 @@ export default {
       return new Response("ok", { status: 200 });
     }
 
+    // 6b) v3.79: script aayi -> pehle poochho: Short / Long / meri awaaz (pehle seedha Short ban jaati thi)
+    const firstUp = text.split("\n")[0].trim().toUpperCase();
+    const explicit = /^(LONG|LAMBI|SHORT|SHORTS)\b/.test(firstUp) || /^(SYSTEM JAANCH|YTDLP JAANCH|SYSTEM CHECK)/.test(firstUp);
+    if (!explicit && update.message) {
+      await askChoice(env, chatId, msg.message_id, text);
+      return new Response("ok", { status: 200 });
+    }
+
     // 7) Multi-script (====) or Single Script Render!
     const parts = text.split(/\n\s*={3,}\s*\n/).map(s => s.trim()).filter(s => s.length >= 25);
     const scripts = parts.length >= 2 ? parts : [text];
@@ -211,6 +245,96 @@ async function ghFetch(env, path, method = "GET", body = null) {
   };
   if (body) opts.body = JSON.stringify(body);
   return fetch(`https://api.github.com/repos/${env.GH_REPO}${path}`, opts);
+}
+
+// ---------------- v3.79: Short / Long / meri awaaz chunav ----------------
+const CHOICE_KB = {
+  inline_keyboard: [
+    [{ text: "📱 Short", callback_data: "mk:S" }, { text: "📺 Long video", callback_data: "mk:L" }],
+    [{ text: "🎙 Short + meri awaaz", callback_data: "mv:S" }, { text: "🎙 Long + meri awaaz", callback_data: "mv:L" }],
+    [{ text: "❌ Cancel", callback_data: "mk:X" }],
+  ],
+};
+
+async function tgApi(env, method, payload) {
+  return fetch(`https://api.telegram.org/bot${env.TG_TOKEN}/${method}`, {
+    method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(payload),
+  });
+}
+
+async function askChoice(env, chatId, replyTo, text) {
+  const n = text.split(/\n\s*={3,}\s*\n/).filter(s => s.trim().length >= 25).length;
+  await tgApi(env, "sendMessage", {
+    chat_id: chatId, reply_to_message_id: replyTo,
+    text: `🎬 Script mil gayi${n >= 2 ? ` (${n} scripts)` : ""}! Kaunsi video banaun?`,
+    reply_markup: CHOICE_KB,
+  });
+}
+
+function splitScripts(text) {
+  const parts = text.split(/\n\s*={3,}\s*\n/).map(s => s.trim()).filter(s => s.length >= 25);
+  return parts.length >= 2 ? parts : [text];
+}
+
+async function handleChoice(env, cq) {
+  const chatId = String(cq.message && cq.message.chat ? cq.message.chat.id : "");
+  await tgApi(env, "answerCallbackQuery", { callback_query_id: cq.id });
+  if (env.ALLOWED_CHAT_ID && chatId !== String(env.ALLOWED_CHAT_ID).trim()) return;
+  const data = cq.data || "";
+  const orig = (cq.message.reply_to_message && (cq.message.reply_to_message.text || "")) || "";
+  const edit = (t) => tgApi(env, "editMessageText", { chat_id: chatId, message_id: cq.message.message_id, text: t });
+  if (data === "mk:X") { await edit("❌ Cancel – koi video nahi banegi."); return; }
+  if (!orig.trim()) { await edit("⚠️ Script nahi mili (purana message). Script dobara bhejo."); return; }
+  const mode = data.endsWith(":L") ? "L" : "S";
+  if (data.startsWith("mv:")) {
+    const ok = await savePending(env, { script: orig, mode, ts: Date.now() });
+    await edit(ok
+      ? `🎙 ${mode === "L" ? "LONG" : "SHORT"} + aapki awaaz.\nAb POORI script padh ke apni awaaz bhejo (voice note ya mp3/m4a file, 20 MB tak).\nShaant jagah, saaf awaaz – lines ki timing isi se banegi.`
+      : "❌ Script save nahi hui – GH_TOKEN ko Contents: Read and write chahiye.");
+    return;
+  }
+  let launched = 0;
+  for (const sc of splitScripts(orig)) {
+    const ok = await dispatchGH(env, "make_video.yml", { script: sc, mode: mode === "L" ? "LONG" : "SHORT" });
+    if (ok) launched++;
+  }
+  await edit(launched > 0
+    ? `🚀 ${launched} ${mode === "L" ? "LONG" : "SHORT"} video cloud par shuru!\nBante hi download link + video yahin aayegi. /status se haal dekho, /rok se roko.`
+    : "❌ GitHub render trigger fail ho gaya. GH_TOKEN aur GH_REPO check karo.");
+}
+
+function b64e(str) {
+  const bytes = new TextEncoder().encode(str); let bin = "";
+  for (let i = 0; i < bytes.length; i++) bin += String.fromCharCode(bytes[i]);
+  return btoa(bin);
+}
+function b64d(b) {
+  const bin = atob((b || "").replace(/\n/g, "")); const bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return new TextDecoder().decode(bytes);
+}
+
+const PENDING = "/contents/seekha/pending_voice.json";
+async function readPending(env) {
+  try {
+    const g = await ghFetch(env, PENDING);
+    if (!g.ok) return null;
+    const j = await g.json();
+    const d = JSON.parse(b64d(j.content) || "{}");
+    d._sha = j.sha; return d;
+  } catch (e) { return null; }
+}
+async function savePending(env, obj) {
+  const cur = await readPending(env);
+  const body = { message: "pending voice script", content: b64e(JSON.stringify(obj)), branch: "main" };
+  if (cur && cur._sha) body.sha = cur._sha;
+  const r = await ghFetch(env, PENDING, "PUT", body);
+  return r.ok;
+}
+async function clearPending(env) {
+  const cur = await readPending(env);
+  if (!cur || !cur._sha) return;
+  await ghFetch(env, PENDING, "PUT", { message: "pending voice used", content: b64e("{}"), sha: cur._sha, branch: "main" });
 }
 
 async function saveCookieRef(env, kind, fileId) {
