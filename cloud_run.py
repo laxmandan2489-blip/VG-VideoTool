@@ -1,9 +1,10 @@
-"""v3.63 Cloud Runner for The Viral Gyaan VideoTool (GitHub Actions -> Instant Telegram + 5TB Google Drive)."""
+"""v3.64 Cloud Runner for The Viral Gyaan VideoTool (Live Telegram Progress Card + Instant Drive & Telegram Delivery)."""
 import datetime
 import json
 import os
 import subprocess
 import sys
+import time
 from pathlib import Path
 import requests
 
@@ -14,15 +15,55 @@ JOBS.mkdir(parents=True, exist_ok=True)
 
 def tg_send_text(token, chat_id, text):
     if not token or not chat_id:
-        return
+        return None
     try:
-        requests.post(
+        r = requests.post(
             f"https://api.telegram.org/bot{token}/sendMessage",
             data={"chat_id": chat_id, "text": text[:4000]},
             timeout=30,
         )
+        if r.ok:
+            return r.json().get("result", {}).get("message_id")
     except Exception as e:
         print("TG text error:", e)
+    return None
+
+
+def tg_edit_text(token, chat_id, msg_id, text):
+    if not (token and chat_id and msg_id):
+        return
+    try:
+        requests.post(
+            f"https://api.telegram.org/bot{token}/editMessageText",
+            data={"chat_id": chat_id, "message_id": msg_id, "text": text[:4000]},
+            timeout=20,
+        )
+    except Exception:
+        pass
+
+
+def _stage_from_line(line):
+    lo = line.lower()
+    if "2)" in line or "awaaz" in lo or "whisper" in lo or "voice" in lo:
+        return "🎙️ आवाज़ और Whisper टाइमिंग बन रही है..."
+    if "3)" in line or "visuals:" in lo or "footage" in lo or "dhoondh" in lo:
+        if "visuals:" in lo:
+            return f"🎬 फुटेज और AI विज़ुअल्स ढूँढ रहा है ({line.strip()[-18:]})..."
+        return "🎬 स्क्रिप्ट के हिसाब से फुटेज और विज़ुअल्स ढूँढ रहा है..."
+    if "4)" in line or "shot " in lo or "shots" in lo or "blender" in lo or "remotion" in lo:
+        return "✂️ शॉट्स, कार्ड्स और इफेक्ट्स एडिट हो रहे हैं..."
+    if "5)" in line or "captions" in lo or "sound" in lo or "music" in lo:
+        return "🎵 कैप्शन, साउंड इफेक्ट्स और म्यूज़िक लग रहे हैं..."
+    if "final video" in lo or "final_mux" in lo:
+        return "🎞️ फाइनल 1080p HD वीडियो रेंडर हो रही है..."
+    if "thumbnail" in lo or "upload kit" in lo:
+        return "🖼️ थंबनेल और Upload Kit तैयार हो रही है..."
+    return None
+
+
+def _fmt_elapsed(sec):
+    m, s = divmod(int(sec), 60)
+    return f"{m}:{s:02d}"
 
 
 def _make_tg_copy(video_path):
@@ -79,7 +120,6 @@ def _prepare_rclone():
     conf = (os.environ.get("RCLONE_CONF") or "").strip()
     if not conf:
         return None, "RCLONE_CONF secret khali hai"
-    # Clean any accidental PowerShell header lines before [gdrive]
     idx = conf.find("[gdrive]")
     if idx != -1:
         conf = conf[idx:]
@@ -127,6 +167,7 @@ def upload_extras_background(video_path):
 
 
 def main():
+    t0 = time.time()
     script_text = (os.environ.get("INPUT_SCRIPT") or "").strip()
     video_mode = (os.environ.get("INPUT_MODE") or "SHORT").strip().upper()
     tg_token = (os.environ.get("TG_TOKEN") or "").strip()
@@ -139,7 +180,6 @@ def main():
     if video_mode == "LONG" and not script_text.upper().startswith("LONG"):
         script_text = "LONG\n" + script_text
 
-    # Build api keys.txt safely from GitHub Secrets at runtime
     keys_lines = []
     for env_k, file_k in [
         ("GEMINI_KEY", "GEMINI_API_KEY"),
@@ -160,18 +200,42 @@ def main():
     res = JOBS / "result_cloud.json"
     sp.write_text(script_text + "\n", encoding="utf-8")
 
-    first_line = next((l.strip() for l in script_text.splitlines() if l.strip() and l.strip().upper() not in ("LONG", "SHORT")), "Cloud Video")[:60]
+    first_line = next((l.strip() for l in script_text.splitlines() if l.strip() and l.strip().upper() not in ("LONG", "SHORT")), "Cloud Video")[:55]
+
+    # v3.64: Create ONE live-updating Telegram progress card for THIS video!
+    status_id = tg_send_text(
+        tg_token, tg_chat,
+        f"🎬 [{video_mode}] {first_line}\n⏳ क्लाउड सर्वर तैयार हो गया — काम शुरू हो रहा है..."
+    )
 
     env = dict(os.environ)
     env["VG_SCRIPT"] = str(sp)
     env["VG_RESULT"] = str(res)
     env["PYTHONIOENCODING"] = "utf-8"
-    # v3.63 Cloud Pro Mode: enable Remotion 3D + HyperFrames + fast Blender EEVEE cleanly on Cloud!
-    cloud_style = {"remotion_beats": "haan", "blender_doc_stage": "haan"}
-    env["VG_STYLE_JSON"] = json.dumps(cloud_style)
+    env["PYTHONUNBUFFERED"] = "1"
+    env["VG_STYLE_JSON"] = json.dumps({"remotion_beats": "haan", "blender_doc_stage": "haan"})
 
-    proc = subprocess.run([sys.executable, str(ROOT / "app" / "make_video.py")], cwd=str(ROOT), env=env)
-    rc = proc.returncode
+    proc = subprocess.Popen(
+        [sys.executable, "-u", str(ROOT / "app" / "make_video.py")],
+        cwd=str(ROOT), env=env,
+        stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
+    )
+    last_stage = "⏳ स्क्रिप्ट पढ़ी जा रही है..."
+    last_edit = 0.0
+    for raw_line in proc.stdout:
+        sys.stdout.write(raw_line)
+        sys.stdout.flush()
+        st = _stage_from_line(raw_line)
+        now = time.time()
+        if st and (st != last_stage or (now - last_edit) >= 18):
+            last_stage = st
+            if (now - last_edit) >= 8:
+                tg_edit_text(
+                    tg_token, tg_chat, status_id,
+                    f"🎬 [{video_mode}] {first_line}\n{last_stage}\n⏱ समय: {_fmt_elapsed(now - t0)}"
+                )
+                last_edit = now
+    rc = proc.wait()
     print("make_video.py exit code:", rc)
 
     out_mp4 = None
@@ -194,25 +258,46 @@ def main():
         art.write_bytes(out_mp4.read_bytes())
         size_mb = out_mp4.stat().st_size / (1024 * 1024)
 
+        tg_edit_text(
+            tg_token, tg_chat, status_id,
+            f"🎬 [{video_mode}] {first_line}\n☁️ वीडियो बन गई ({size_mb:.1f} MB)! 5 TB Google Drive और Telegram पर भेज रहा हूँ...\n⏱ समय: {_fmt_elapsed(time.time() - t0)}"
+        )
+
         # STEP 1: INSTANT Master MP4 upload to Google Drive FIRST!
         drive_info, drive_err = upload_video_first(out_mp4)
-        cap = f"✅ Cloud Video Ready ({size_mb:.1f} MB)\n{first_line}"
+        _gh_srv = os.environ.get("GITHUB_SERVER_URL", "https://github.com").rstrip("/")
+        _gh_repo = os.environ.get("GITHUB_REPOSITORY", "").strip()
+        _gh_rid = os.environ.get("GITHUB_RUN_ID", "").strip()
+        _gh_url = f"{_gh_srv}/{_gh_repo}/actions/runs/{_gh_rid}" if (_gh_repo and _gh_rid) else ""
+        cap = f"✅ Cloud Video Ready ({size_mb:.1f} MB • {_fmt_elapsed(time.time() - t0)})\n{first_line}"
         if drive_info:
             cap += f"\n📁 Drive HD: {drive_info}"
-        elif drive_err:
-            cap += f"\n⚠️ Drive upload error: {drive_err[:140]}"
+        if _gh_url:
+            cap += f"\n⬇️ Direct HD Download: {_gh_url}"
+        if not drive_info and drive_err:
+            cap += f"\n⚠️ Drive: {drive_err[:100]}"
 
         # STEP 2: INSTANT playable video in Telegram (auto-compressed <45MB if master >48MB!)
         sent_vid = tg_send_video(tg_token, tg_chat, out_mp4, caption=cap)
         if not sent_vid:
             tg_send_text(tg_token, tg_chat, cap + "\n(Telegram video upload fail — upar Drive link ya GitHub Actions se download kar lo)")
 
+        tg_edit_text(
+            tg_token, tg_chat, status_id,
+            f"✅ [{video_mode}] {first_line}\nपूरा हो गया! ({size_mb:.1f} MB • {_fmt_elapsed(time.time() - t0)})\n📦 अब बैकग्राउंड में _EDIT_KIT और थंबनेल Drive पर सेव हो रहे हैं..."
+        )
+
         # STEP 3: Upload _EDIT_KIT & thumbnails in background AFTER user already received the video!
         upload_extras_background(out_mp4)
+        tg_edit_text(
+            tg_token, tg_chat, status_id,
+            f"✅ [{video_mode}] {first_line}\nसब कुछ पूरा हो गया! ({size_mb:.1f} MB • {_fmt_elapsed(time.time() - t0)})\n📁 वीडियो + थंबनेल + _EDIT_KIT आपकी 5 TB Drive में सेव ✓"
+        )
         sys.exit(0)
     else:
         log_file = ROOT / "log.txt"
         tail = "\n".join(log_file.read_text(encoding="utf-8", errors="ignore").splitlines()[-25:]) if log_file.exists() else "No log.txt"
+        tg_edit_text(tg_token, tg_chat, status_id, f"❌ [{video_mode}] {first_line}\nवीडियो नहीं बन पाई (rc={rc}).")
         tg_send_text(tg_token, tg_chat, f"❌ Cloud video nahi ban payi (rc={rc}).\nLast log:\n{tail}")
         sys.exit(rc or 1)
 

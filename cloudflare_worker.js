@@ -1,4 +1,4 @@
-// v3.63 Cloudflare Worker: FULL Telegram Control for Viral Gyaan Cloud VideoTool (24/7, $0/mo)
+// v3.64 Cloudflare Worker: FULL Telegram Control for Viral Gyaan Cloud VideoTool (24/7, $0/mo)
 // Features:
 //  - Persistent Menu Keyboard (Aaj shuru karo, Long Prompt, Status, /rok, /log, /purana, /guide)
 //  - Instant 5-Shorts Micro-Beat Master Prompt & Long News+Fact Documentary Prompt
@@ -84,7 +84,7 @@ const GUIDE_TEXT = `📖 VIRAL GYAAN CLOUD BOT (24×7)
 export default {
   async fetch(request, env) {
     if (request.method !== "POST") {
-      return new Response("VideoTool Cloud Bridge v3.63 is LIVE!", { status: 200 });
+      return new Response("VideoTool Cloud Bridge v3.64 is LIVE!", { status: 200 });
     }
     let update;
     try {
@@ -103,7 +103,8 @@ export default {
     // 1) Telegram ZIP auto-update (caption: update)
     const doc = msg.document;
     const cap = (msg.caption || "").trim().toLowerCase();
-    if (doc && doc.file_name && doc.file_name.toLowerCase().endsWith(".zip") && cap.includes("update")) {
+    const fnLo = (doc && doc.file_name ? doc.file_name.toLowerCase() : "");
+    if (doc && fnLo.endsWith(".zip") && (cap.includes("update") || fnLo.startsWith("vg_"))) {
       const ok = await dispatchGH(env, "apply_update.yml", { action: "update", file_id: doc.file_id });
       await tgReply(env.TG_TOKEN, chatId, ok
         ? "📦 Update ZIP mil gayi! Cloud par compile aur install kar raha hoon (~40 sec)..."
@@ -118,7 +119,7 @@ export default {
     // 2) Start / Menu / Guide
     if (tl === "/start" || tl === "/menu") {
       await tgReply(env.TG_TOKEN, chatId,
-        "☁️ VideoTool Cloud v3.63 LIVE hai!\nNeeche ke buttons use karo ya seedha script bhejo:", true);
+        "☁️ VideoTool Cloud v3.64 LIVE hai!\nNeeche ke buttons use karo ya seedha script bhejo:", true);
       return new Response("ok", { status: 200 });
     }
     if (tl === "/guide" || text.includes("/guide")) {
