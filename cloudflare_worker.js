@@ -107,12 +107,17 @@ const GUIDE_TEXT = `📖 VIRAL GYAAN CLOUD BOT (24×7)
 export default {
   async fetch(request, env) {
     if (request.method !== "POST") {
-      return new Response("VideoTool Cloud Bridge v3.83 is LIVE!", { status: 200 });
+      return new Response("VideoTool Cloud Bridge v3.86 is LIVE!", { status: 200 });
     }
     let update;
     try {
       update = await request.json();
     } catch {
+      return new Response("ok", { status: 200 });
+    }
+    // v3.86 AUTO-QUEUE: cloud_run.py calls /queue-next when current video finishes
+    if (update && update._vg_queue_next && env.TG_TOKEN && update.auth === env.TG_TOKEN.slice(0, 16)) {
+      await popAndStartNext(env, update.chat_id || env.ALLOWED_CHAT_ID);
       return new Response("ok", { status: 200 });
     }
     // v3.83: buttons (Short / Long / meri awaaz) ka jawab
@@ -202,11 +207,12 @@ export default {
       return new Response("ok", { status: 200 });
     }
 
-    // 4) REAL /rok -> Cancel running & queued GitHub Actions jobs!
+    // 4) REAL /rok -> Cancel running & queued GitHub Actions jobs + clear FIFO queue!
     if (tl === "/rok" || text.includes("/rok") || tl === "rok" || tl === "stop") {
       const canceled = await cancelActiveRuns(env);
-      await tgReply(env.TG_TOKEN, chatId, canceled > 0
-        ? `🛑 ${canceled} chal rahi cloud video rok (cancel) di gayi hai!`
+      const qCleared = await clearQueue(env);
+      await tgReply(env.TG_TOKEN, chatId, (canceled > 0 || qCleared > 0)
+        ? `🛑 ${canceled} chal rahi video roki + ${qCleared} line (queue) me lagi scripts hata di gayi hain!`
         : "ℹ️ Abhi cloud par koi video nahi chal rahi hai.", true);
       return new Response("ok", { status: 200 });
     }
@@ -316,14 +322,18 @@ async function handleChoice(env, cq) {
       : "❌ Script save nahi hui – GH_TOKEN ko Contents: Read and write chahiye.");
     return;
   }
-  let launched = 0;
-  for (const sc of splitScripts(orig)) {
-    const ok = await dispatchGH(env, "make_video.yml", { script: sc, mode: mode === "L" ? "LONG" : "SHORT" });
-    if (ok) launched++;
+  const vmode = mode === "L" ? "LONG" : "SHORT";
+  const items = splitScripts(orig).map(sc => ({ script: sc, mode: vmode, ts: Date.now() }));
+  const res = await enqueueOrStart(env, items);
+  if (res.started > 0 && res.queued > 0) {
+    await edit(`🚀 1 ${vmode} video abhi shuru ho gayi + ${res.queued} videos line (queue) me lag gayi!\nEk ke baad ek apne aap banengi. /status se haal dekho, /rok se sab roko.`);
+  } else if (res.started > 0) {
+    await edit(`🚀 ${vmode} video cloud par shuru!\nBante hi haatho-haath video + download link yahin aayegi. /status se haal dekho, /rok se roko.`);
+  } else if (res.queued > 0) {
+    await edit(`📋 Line (Queue) me lag gayi! (Abhi queue me ${res.queueLen} script)\nPehli video complete hote hi apne aap shuru hogi. /rok se sab cancel kar sakte ho.`);
+  } else {
+    await edit("❌ GitHub render trigger fail ho gaya. GH_TOKEN aur GH_REPO check karo.");
   }
-  await edit(launched > 0
-    ? `🚀 ${launched} ${mode === "L" ? "LONG" : "SHORT"} video cloud par shuru!\nBante hi download link + video yahin aayegi. /status se haal dekho, /rok se roko.`
-    : "❌ GitHub render trigger fail ho gaya. GH_TOKEN aur GH_REPO check karo.");
 }
 
 function b64e(str) {
@@ -335,6 +345,74 @@ function b64d(b) {
   const bin = atob((b || "").replace(/\n/g, "")); const bytes = new Uint8Array(bin.length);
   for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
   return new TextDecoder().decode(bytes);
+}
+
+// ---------------- v3.86: 1-by-1 Automatic Multi-Script FIFO Queue ----------------
+const QUEUE_PATH = "/contents/seekha/video_queue.json";
+async function readQueue(env) {
+  try {
+    const g = await ghFetch(env, QUEUE_PATH);
+    if (!g.ok) return { items: [], sha: undefined };
+    const j = await g.json();
+    const arr = JSON.parse(b64d(j.content) || "[]");
+    return { items: Array.isArray(arr) ? arr : [], sha: j.sha };
+  } catch (e) { return { items: [], sha: undefined }; }
+}
+async function saveQueue(env, items, sha) {
+  const body = { message: `queue update (${items.length})`, content: b64e(JSON.stringify(items)), branch: "main" };
+  if (sha) body.sha = sha;
+  const r = await ghFetch(env, QUEUE_PATH, "PUT", body);
+  return r.ok;
+}
+async function clearQueue(env) {
+  const q = await readQueue(env);
+  if (!q.items.length) return 0;
+  await saveQueue(env, [], q.sha);
+  return q.items.length;
+}
+async function hasActiveVideoRun(env) {
+  for (const st of ["in_progress", "queued"]) {
+    const r = await ghFetch(env, `/actions/workflows/make_video.yml/runs?status=${st}&per_page=3`);
+    if (r.ok) {
+      const j = await r.json();
+      if ((j.workflow_runs || []).length > 0) return true;
+    }
+  }
+  return false;
+}
+async function enqueueOrStart(env, newItems) {
+  const busy = await hasActiveVideoRun(env);
+  let started = 0, toQueue = [];
+  if (!busy && newItems.length > 0) {
+    const ok = await dispatchGH(env, "make_video.yml", { script: newItems[0].script, mode: newItems[0].mode });
+    if (ok) { started = 1; toQueue = newItems.slice(1); }
+    else { return { started: 0, queued: 0, queueLen: 0 }; }
+  } else {
+    toQueue = newItems;
+  }
+  let qLen = 0;
+  if (toQueue.length > 0) {
+    const q = await readQueue(env);
+    const merged = q.items.concat(toQueue).slice(0, 15);
+    const saved = await saveQueue(env, merged, q.sha);
+    qLen = saved ? merged.length : q.items.length;
+    if (!saved && started === 0) return { started: 0, queued: 0, queueLen: q.items.length };
+  }
+  return { started, queued: toQueue.length, queueLen: qLen };
+}
+async function popAndStartNext(env, chatId) {
+  const q = await readQueue(env);
+  if (!q.items.length) return;
+  const next = q.items[0];
+  const rest = q.items.slice(1);
+  await saveQueue(env, rest, q.sha);
+  const ok = await dispatchGH(env, "make_video.yml", { script: next.script, mode: next.mode || "SHORT" });
+  if (chatId) {
+    const firstLn = (next.script || "").split("\n").find(l => l.trim() && !/^(MODE|TITLE|LONG)/i.test(l.trim())) || "Agli video";
+    await tgReply(env.TG_TOKEN, chatId, ok
+      ? `▶️ Queue se agli ${next.mode || "SHORT"} video shuru ho gayi! (Baaki ${rest.length} line me)\n${firstLn.slice(0, 60)}`
+      : "⚠️ Queue se agli video start nahi ho paayi.", true);
+  }
 }
 
 const PENDING = "/contents/seekha/pending_voice.json";

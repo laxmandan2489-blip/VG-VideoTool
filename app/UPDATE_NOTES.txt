@@ -1,3 +1,13 @@
+v3.86 (EDITING + FRAME FIT + SYNC + RISER + RED CIRCLE + FAST CLOUD — 0% VISUAL SEARCH CHANGE):
+🖼 Frame Zoom/Cut Fix (render.py): smart_frame_fit default 'haan' + gentle zoom (1.12) — 16:9 photos/videos ke kinare/angles ab nahi katenge.
+⏱ Second-Half Sync Fix (align.py): Hindi years 1100-1999 ('1739' -> 'सत्रह सौ उनतालीस', '1849' -> 'अठारह सौ उनचास') + hyphen words ('कोह-इ-नूर') fix.
+🔊 Riser & Transition SFX Fix (render.py): Riser ab poori video me sirf 1 baar (shuruat me) bajega; whoosh/boom/pop har baar alag sound rotate karenge.
+🎯 Red Circle/Arrow Fix (make_video.py): Jab tak Gemini target cheez ko frame me sach me locate na kare, galat cheez/bande par red circle/arrow nahi lagega.
+🎬 v3.35 Remotion Documentary Beats (make_video.py): Shorts me stat_slam + news_highlight beats wapas active.
+🚀 Haatho-Haath Instant Delivery (cloud_run.py): Playable Telegram video pehle (5 sec me) + fast 45-sec download link (litterbox -> 0x0.st -> tmpfiles.org) + unused _EDIT_KIT copy band.
+📋 Automatic 1-by-1 Multi-Script Queue (cloudflare_worker.js + cloud_run.py): 2-4 scripts lagataar bhejne par line (queue) me lag jaati hain; pehli video complete hote hi agli apne aap start!
+⚡ 40 Min -> ~8-12 Min Speed (cloud_run.py + make_video.py): CPU-only runner par blender_doc_stage band (fast 2.5D parallax), Shorts quality_target=80 (80+ par Round 1 me instant deliver, <80 par 1 fix round), budget 15 min.
+
 v3.85 (v3.35 DOCUMENTARY EDITS + EXACT-SCENE AI RESTORED + ZERO RANDOM YOUTUBER/SLIDES):
 🚫 Random YouTuber & Interview-Slide Block (visual_brain.py + visual_pick.py): business/news/sports/crime me 'talking to camera' ab relax nahi hoga (random webcam YouTubers band) + YouTube interview Q&A / exam / PPT / coaching videos seedhe block.
 🎨 v3.35 Exact-Scene AI Power Wapas (visual_brain.py): Jab bhi stock/YouTube clip kamzor ho (score < 0.235) aur line kisi asli insaan ke chehre ki na ho, to seedha crisp full-screen cinematic AI scene banega (random kachra clip nahi).

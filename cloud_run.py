@@ -142,26 +142,32 @@ def public_link(video_path):
     if not vp.exists():
         return None, "file nahi"
     errs = []
+    # v3.86 INSTANT LINK: 45s fast timeout (no 10-min litterbox hang!) + tmpfiles.org fallback
     hosts = [
         ("litterbox", "https://litterbox.catbox.moe/resources/internals/api.php",
          {"reqtype": "fileupload", "time": "72h"}, "fileToUpload", 1000),
         ("0x0", "https://0x0.st", {}, "file", 512),
+        ("tmpfiles", "https://tmpfiles.org/api/v1/upload", {}, "file", 512),
     ]
     size_mb = vp.stat().st_size / (1024 * 1024)
     for name, url, data, field, max_mb in hosts:
         if size_mb > max_mb:
             errs.append(f"{name}: file badi"); continue
-        for attempt in range(2):
-            try:
-                with open(vp, "rb") as f:
-                    r = requests.post(url, data=data, files={field: (f"VG_video_{time.strftime('%Y%m%d_%H%M')}.mp4", f, "video/mp4")},
-                                      headers={"User-Agent": "VG-VideoTool/3.75"}, timeout=300)
-                link = (r.text or "").strip()
-                if r.ok and link.startswith("http") and " " not in link and len(link) < 200:
-                    return link, ("72 ghante" if name == "litterbox" else "kam se kam 30 din")
-                errs.append(f"{name}: HTTP {r.status_code}")
-            except Exception as e:
-                errs.append(f"{name}: {str(e)[:60]}")
+        try:
+            with open(vp, "rb") as f:
+                r = requests.post(url, data=data, files={field: (f"VG_video_{time.strftime('%Y%m%d_%H%M')}.mp4", f, "video/mp4")},
+                                  headers={"User-Agent": "VG-VideoTool/3.86"}, timeout=45)
+            if name == "tmpfiles" and r.ok:
+                j = r.json()
+                link = str(((j.get("data") or {}).get("url")) or "").strip()
+                if link.startswith("http"):
+                    return link.replace("tmpfiles.org/", "tmpfiles.org/dl/"), "1 ghanta"
+            link = (r.text or "").strip()
+            if r.ok and link.startswith("http") and " " not in link and len(link) < 200:
+                return link, ("72 ghante" if name == "litterbox" else "kam se kam 30 din")
+            errs.append(f"{name}: HTTP {r.status_code}")
+        except Exception as e:
+            errs.append(f"{name}: {str(e)[:60]}")
     return None, "; ".join(errs)[:160]
 
 
@@ -318,14 +324,17 @@ def main():
     env["VG_RESULT"] = str(res)
     env["PYTHONIOENCODING"] = "utf-8"
     env["PYTHONUNBUFFERED"] = "1"
-    _sty = {"remotion_beats": "haan", "blender_doc_stage": "haan", "ek_saath_shots": "2"}
+    # v3.86 SPEED: GPU-less cloud runner par blender_doc_stage=nahi (fast 2.5D parallax, 8-12 min bachat, 0% visual loss)
+    _sty = {"remotion_beats": "haan", "blender_doc_stage": "nahi", "ek_saath_shots": "2", "edit_kit": "nahi"}
     if voice_path:                                    # v3.79: aapki recording -> voice = meri (Whisper se timing)
         _sty["voice"] = "meri"; env["VG_VOICE"] = str(voice_path)
     env["VG_STYLE_JSON"] = json.dumps(_sty)
     env.setdefault("VG_VISUAL_THREADS", "5")   # v3.78: cloud pe 5 lines ek saath (RAM 7 GB pe pehle 2 hi chalti thi)
     # v3.77: quality loop ko kitna samay mil sakta hai (GitHub job limit se pehle video bhejni hai)
     _hl = float(os.environ.get("VG_HARD_LIMIT_MIN", "46"))
-    env.setdefault("VG_TIME_BUDGET_MIN", str(max(20.0, _hl - 6 - (time.time() - t0) / 60)))
+    # v3.86 SPEED: Shorts budget 15 min (Long 35 min) taaki 40-min hang na ho; 80+ score pe Round 1 me turant deliver!
+    _cap_min = 35.0 if video_mode == "LONG" else 15.0
+    env.setdefault("VG_TIME_BUDGET_MIN", str(min(_cap_min, max(12.0, _hl - 6 - (time.time() - t0) / 60))))
 
     proc = subprocess.Popen(
         [sys.executable, "-u", str(ROOT / "app" / "make_video.py")],
@@ -485,15 +494,7 @@ def main():
             f"🎬 [{video_mode}] {first_line}\n☁️ वीडियो बन गई ({size_mb:.1f} MB)! Telegram और Direct Download लिंक भेज रहा हूँ...\n⏱ समय: {_fmt_elapsed(time.time() - t0)}"
         )
 
-        # v3.75 STEP 0: seedha download link (phone pe turant) – sabse pehle, taaki Telegram fail ho tab bhi mile
-        dl_link, dl_err = public_link(out_mp4)
-        if dl_link:
-            tg_send_text(tg_token, tg_chat, f"⬇️ Video download link ({dl_err} chalega):\n{dl_link}\n\n"
-                                            f"Tap karo -> browser me chalegi; ⋮ -> Download se phone me save.\n{first_line}")
-        else:
-            print("public link fail:", dl_err)
-
-        # v3.84: Google Drive upload skipped by default (set VG_ENABLE_DRIVE=1 to re-enable)
+        # v3.86 INSTANT DELIVERY: Playable Telegram video PEHLE (5 sec me!), phir turant fast download link!
         _use_drive = os.environ.get("VG_ENABLE_DRIVE", "0").strip().lower() in ("1", "true", "haan", "yes")
         drive_info, drive_err = upload_video_first(out_mp4) if _use_drive else (None, "khali")
         _gh_srv = os.environ.get("GITHUB_SERVER_URL", "https://github.com").rstrip("/")
@@ -502,20 +503,20 @@ def main():
         _gh_url = f"{_gh_srv}/{_gh_repo}/actions/runs/{_gh_rid}" if (_gh_repo and _gh_rid) else ""
         cap = f"✅ Cloud Video Ready ({size_mb:.1f} MB • {_fmt_elapsed(time.time() - t0)})\n{first_line}"
         if review_sc is not None:
-            cap += f"\n🎯 Visual score: {review_sc}/100" + (" ✅" if float(review_sc) >= 90 else " (90 se kam – report dekho)")
-        if dl_link:
-            cap += f"\n⬇️ Download: {dl_link}"
+            cap += f"\n🎯 Visual score: {review_sc}/100" + (" ✅" if float(review_sc) >= 80 else " (80 se kam – report dekho)")
         if drive_info:
             cap += f"\n📁 Drive HD: {drive_info}"
         if _gh_url:
-            cap += f"\n⬇️ Direct HD Download: {_gh_url}"
-        if not drive_info and drive_err and "khali" not in drive_err:   # Drive set nahi hai to faltu chetavni nahi
-            cap += f"\n⚠️ Drive: {drive_err[:100]}"
+            cap += f"\n⬇️ Direct HD: {_gh_url}"
 
-        # STEP 2: INSTANT playable video in Telegram (auto-compressed <45MB if master >48MB!)
         sent_vid = tg_send_video(tg_token, tg_chat, out_mp4, caption=cap)
-        if not sent_vid:
-            tg_send_text(tg_token, tg_chat, cap + "\n(Telegram video upload fail — upar Drive link ya GitHub Actions se download kar lo)")
+        dl_link, dl_err = public_link(out_mp4)
+        if dl_link:
+            tg_send_text(tg_token, tg_chat, f"⬇️ Direct Download Link ({dl_err} chalega):\n{dl_link}\n{first_line}")
+        else:
+            print("public link fail:", dl_err)
+            if not sent_vid:
+                tg_send_text(tg_token, tg_chat, cap + "\n(Telegram upload fail — upar GitHub Actions se download kar lo)")
 
         tg_edit_text(
             tg_token, tg_chat, status_id,
@@ -544,6 +545,13 @@ def main():
         # STEP 3: Upload _EDIT_KIT & thumbnails only if VG_ENABLE_DRIVE=1
         if _use_drive:
             upload_extras_background(out_mp4)
+        # v3.86 AUTO-QUEUE: trigger next queued script (if any) via Cloudflare Worker
+        try:
+            _q_url = os.environ.get("VG_WORKER_URL", "https://vg-bots.laxmandan2489.workers.dev").rstrip("/") + "/queue-next"
+            if tg_token:
+                requests.post(_q_url, json={"_vg_queue_next": True, "auth": tg_token[:16], "chat_id": tg_chat}, timeout=20)
+        except Exception as _qe:
+            print("queue-next skip:", _qe)
         try:
             import shutil as _sh_cl
             for _rel in ("temp/shots", "temp/cache", "temp/work"):

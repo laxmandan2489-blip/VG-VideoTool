@@ -76,7 +76,7 @@ def text_card(text, path, W, H, idx=0):
 
 
 # ------------------------------------------------------------------ one shot
-def _prep_image(path, W, H, S=1.25):
+def _prep_image(path, W, H, S=1.12):  # v3.86: gentler zoom so portrait/archival edges never chop off
     """Cover-fit if the photo shape is close to the frame, else show it whole on a blurred copy.
     v3.13: zoom ke baad bhi poori photo dikhe – foreground poori chaudai ka (zoom 6% tak kinare nahi katte)."""
     im = Image.open(path).convert("RGB")
@@ -205,7 +205,8 @@ def video_frame_vf(src, W, H, style):
     # v3.21 SMART FRAME FIT: Stop brutal 3.16x center-crop on 16:9 videos (chops off rockets/trains/hands).
     # When smart_frame_fit = haan (default), wide landscape clips use clean 1.18x documentary framing over
     # a dark blurred backdrop so the full subject stays visible. Set smart_frame_fit = nahi for old hard crop.
-    if yes(style.get("smart_frame_fit", "nahi")) and W < H and ar >= 1.35 and fit != "bhar":
+    # v3.86 FIX: smart_frame_fit default "haan" (stops brutal 3.16x center-crop on 16:9 clips/photos!)
+    if yes(style.get("smart_frame_fit", "haan")) and W < H and ar >= 1.35 and fit != "bhar":
         fit = "auto"
     elif fit != "poora":
         fit = "bhar"
@@ -1023,6 +1024,28 @@ def pick_sfx(cat):
     return x, peak
 
 
+def pick_sfx_pool(cat, limit=5):
+    """v3.86: Return up to `limit` clean distinct sounds so transitions/whooshes rotate instead of repeating 1 file."""
+    from common import TOOL
+    exts = (".wav", ".mp3", ".m4a", ".ogg", ".aac", ".flac")
+    dirs = [TOOL / "mere_sounds" / cat, ASSETS / "sfx_cinematic" / cat, ASSETS / "sfx" / cat]
+    if cat in USER_ONLY: dirs = dirs[:2]
+    groups = [[p for p in d.iterdir() if p.suffix.lower() in exts and _sfx_allowed(p)] for d in dirs if d.exists()]
+    if cat not in USER_ONLY and (ASSETS / "sfx" / f"{cat}.wav").exists():
+        groups.append([ASSETS / "sfx" / f"{cat}.wav"])
+    lo, hi = SFX_LEN.get(cat, (0.05, 5))
+    good = []
+    for files in groups:
+        good = [g_ for g_ in (_load_sfx(p, cat, hi) for p in files) if g_ is not None]
+        if good: break
+    if not good:
+        return []
+    good.sort(key=lambda t: t[2])
+    pool = [(x, pk) for x, pk, _ in good[:max(1, min(limit, len(good)))]]
+    random.shuffle(pool)
+    return pool
+
+
 _file_snd = {}
 
 
@@ -1135,7 +1158,18 @@ def mix_audio(voice_wav, sents, effects, cap_times, style, out_wav, total, extra
         g = num(style, "sfx_awaaz", 0, 100) / 100
         bank = {}
 
+        _rot = {}
         def get(cat):
+            # v3.86: rotate across distinct sounds for whoosh/boom/pop/click so same sound never repeats back-to-back
+            if cat in ("whoosh", "boom", "pop", "click", "flash"):
+                if cat not in bank:
+                    bank[cat] = pick_sfx_pool(cat, limit=5)
+                    _rot[cat] = 0
+                pool = bank[cat]
+                if not pool: return None
+                snd = pool[_rot[cat] % len(pool)]
+                _rot[cat] += 1
+                return snd
             if cat not in bank:
                 bank[cat] = pick_sfx(cat)
             return bank[cat]
@@ -1169,22 +1203,23 @@ def mix_audio(voice_wav, sents, effects, cap_times, style, out_wav, total, extra
 
         tg_ = num(style, "transition_awaaz", 0, 200) / 100          # v2.14: alag-alag volume
         ig_ = num(style, "intro_awaaz", 0, 200) / 100
+        # v3.86 FIX: Riser plays ONLY ONCE (at opening hook) — never repeats 2-3 times in one Short!
+        _sfx_last = -99.0
+        _cat_last = {}
+        _cat_cnt = {}
+        _CAT_CD = {"riser": 25.0, "boom": 8.0, "ding": 8.0, "whoosh": 2.5, "paper": 3.5, "click": 3.0, "pop": 3.0}
+        _CAT_MAX = {"riser": 1, "ding": 2}
         if yes(style.get("intro_sound", "haan")):
             # v3.45 PRO OPENING HOOK RISER: smooth cinematic riser under opening hook swelling into hook peak hit!
             _hook_end = float(sents[0].get("end", 1.8)) if sents else 1.8
             _hook_peak = min(max(1.15, _hook_end - 0.10), 2.35)
             if get("riser"):
                 put("riser", _hook_peak, 0.42 * ig_)          # gentle buildup under voice
+                _cat_cnt["riser"] = 1; _cat_last["riser"] = _hook_peak
                 if get("boom"):
                     put("boom", _hook_peak + 0.02, 0.45 * ig_) # subtle impact right at hook reveal
             elif get("intro"):
                 put("intro", 0.05 + get("intro")[1], 0.55 * ig_)
-        # v3.42 GLOBAL SFX ANTI-COLLISION GUARD: never pile SFX together; always sync whoosh behind transitions!
-        _sfx_last = -99.0
-        _cat_last = {}
-        _cat_cnt = {}
-        _CAT_CD = {"riser": 12.0, "boom": 8.0, "ding": 8.0, "whoosh": 2.5, "paper": 3.5, "click": 3.0, "pop": 3.0}
-        _CAT_MAX = {"riser": 2, "ding": 2}
 
         def _sfx_ok(cat_nm, t_at, force=False):
             nonlocal _sfx_last

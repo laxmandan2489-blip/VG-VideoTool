@@ -133,6 +133,10 @@ def _int_to_hindi(n):
         return "माइनस " + _int_to_hindi(-n)
     if n < 100:
         return _HI_0_99[n]
+    # v3.86 FIX: Hindi years 1100-1999 are spoken as "सत्रह सौ उनतालीस" / "अठारह सौ उनचास" / "उन्नीस सौ इक्यानवे"
+    if 1100 <= n <= 1999:
+        hi, lo = divmod(n, 100)
+        return f"{_HI_0_99[hi]} सौ" + (f" {_HI_0_99[lo]}" if lo else "")
     parts = []
     if n >= 10000000:
         parts.append(_int_to_hindi(n // 10000000) + " करोड़")
@@ -183,6 +187,8 @@ def _expand_token(tok):
 
 
 def _norm(t, phonetic=False):
+    # v3.86 FIX: hyphenated words like "कोह-इ-नूर" / "Koh-i-Noor" match Whisper's "कोहिनूर"
+    t = re.sub(r"(?<=[A-Za-z\u0900-\u097f])[-–—](?=[A-Za-z\u0900-\u097f])", "", str(t or ""))
     t = _expand_token(t)
     t = t.lower()
     t = re.sub(r"[\u093c\u0902\u0901]", "", t)            # nukta / anusvara / chandrabindu

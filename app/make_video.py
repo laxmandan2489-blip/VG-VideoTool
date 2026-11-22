@@ -254,7 +254,9 @@ def build_fx(sents, events, eng, total, W, H, style, work, joined, gkey, ink_tim
         where = {k: p for (k, _), p in zip(ok, pts)}
         for k, (a, b, subj) in enumerate(golas):
             p = where.get(k)
-            cx, cy = (int(p[0] * W), int(p[1] * H)) if p else (W // 2, int(H * (0.45 if H > W else 0.5)))
+            if not p:                                # v3.86 FIX: target frame me nahi mila -> galat cheez par red circle/arrow mat lagao!
+                continue
+            cx, cy = int(p[0] * W), int(p[1] * H)
             out += fx.gola_events(a, b, cx, cy, W, H, at); busy.append((a, b))
         log(f"   gola: {len(golas)} ({sum(1 for k in range(len(golas)) if where.get(k))} pe Gemini ne jagah dhoondhi)", show=False)
     # v2.17: ink (laal dhuan) band
@@ -1055,7 +1057,7 @@ def main():
     qc_rounds = int(num(style, "check_bot_round", 0, 3)) if yes(style.get("check_bot", "haan")) else 0
     # v3.84 SPEED + QUALITY LOOP: Shorts me default 1 targeted fix round (target 82, budget 12 min)
     # taaki GitHub Actions 38 min na khaye (~6-8 min me ready). style.txt se kabhi bhi badha sakte hain.
-    _def_qtarget = 85.0 if LONG else 82.0
+    _def_qtarget = 85.0 if LONG else 80.0  # v3.86: Shorts me 80+ pe turant deliver; <80 pe hi 1 fix round
     _def_qrounds = 2 if LONG else 1
     _def_qmin = 25 if LONG else 12
     QL = {"on": yes(style.get("quality_loop", "haan")),
@@ -1224,7 +1226,8 @@ def main():
                         _pal_b = _bible.build(lines, eng, style)["palette"]
                         # v3.62: In Shorts (or when real footage exists), NEVER black-out real footage with a dark Stat card —
                         # let the real footage play full-screen with animated stat overlay on top! (Use Stat card only if no footage or LONG mode)
-                        _stat_cap = (3 if LONG else 0) if (items and not yes(style.get("black_stat_cards", "nahi"))) else (3 if LONG else 1)
+                        # v3.86 (v3.35 Remotion DocumentaryBeat): Shorts me 1 crisp stat_slam beat on big-number lines
+                        _stat_cap = 3 if LONG else 1
                         # v3.85 (v3.35 Remotion DocumentaryBeat restored): Shorts me 1 crisp Remotion news_highlight beat
                         # (sirf historical/fact line par, action/launch line par nahi); LONG me up to 3 beats.
                         _is_action_line = bool(re.search(r"(लॉन्च|उड़ान|क्रैश|हमला|विस्फोट|launch|liftoff|crash|explosion|blast|attack)", _ltxt, re.I))
