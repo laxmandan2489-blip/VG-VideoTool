@@ -1,3 +1,9 @@
+v3.73 CHAUKIDAAR (watchdog):
+⏰ Video 10 min tak aage na badhe -> Telegram par chetavni (kahan atki + aakhri lines).
+🛑 22 min atki rahe ya 46 min ho jaayen -> khud band, wajah + poori log file Telegram par (Claude/Gemini ko forward karo).
+💓 Har 2.5 min card par samay + "aakhri hal-chal X sec pehle" – pata rahega video zinda hai.
+📄 Ek baar workflow paste (GITHUB_PE_HAATH_SE_BADLO/PADHO.txt): disk khali + install fail pe bhi Telegram message.
+
 v3.72: X/Pinterest search FIX – Groq ke CHALU models ki list khud lekar web-search wala model (compound / gpt-oss + browser search) use hota hai (pehle purane naam -> 404). Free Gemini key pe Google Search na mile to turant band (samay bachta hai).
 
 v3.71: CLOUD FIX "No space left on device" – Whisper ke liye CPU wala PyTorch (~200 MB) lagta hai, GPU wala (4-5 GB) nahi. Video ka koi aur hissa nahi badla.

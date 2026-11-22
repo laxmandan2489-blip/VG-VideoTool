@@ -272,10 +272,53 @@ def main():
     )
     last_stage = "⏳ स्क्रिप्ट पढ़ी जा रही है..."
     last_edit = 0.0
+    # v3.73 WATCHDOG: atke / bahut der chale to KHUD Telegram par batao + log bhejo (raat ko bhi pata chale)
+    import collections, threading
+    W = {"last_out": time.time(), "tail": collections.deque(maxlen=40), "killed": "", "warned": False,
+         "stage": last_stage}
+    STALL_WARN = float(os.environ.get("VG_STALL_WARN_MIN", "10")) * 60
+    STALL_KILL = float(os.environ.get("VG_STALL_KILL_MIN", "22")) * 60
+    HARD_LIMIT = float(os.environ.get("VG_HARD_LIMIT_MIN", "46")) * 60   # GitHub job 55 min pe chupchaap katta hai
+
+    def watchdog():
+        last_beat = time.time()
+        while proc.poll() is None:
+            time.sleep(max(1.0, min(20.0, STALL_WARN / 3)))
+            now_ = time.time()
+            idle = now_ - W["last_out"]; el = now_ - t0
+            if idle >= STALL_WARN and not W["warned"]:
+                W["warned"] = True
+                tg_send_text(tg_token, tg_chat,
+                             f"⚠️ [{video_mode}] {first_line}\n{int(idle // 60)} minute se koi progress nahi.\n"
+                             f"Kahan atka: {W['stage']}\nAakhri lines:\n" + "".join(list(W["tail"])[-8:])[-1500:] +
+                             f"\n(Agar {int(STALL_KILL // 60)} min tak aise raha to main khud band karke log bhejunga.)")
+            if idle < min(60.0, STALL_WARN / 2) and W["warned"]:      # nayi hal-chal aayi -> agli baar phir chetavni
+                W["warned"] = False
+            reason = ""
+            if idle >= STALL_KILL:
+                reason = f"{int(idle // 60)} minute se atki hui thi ({W['stage']})"
+            elif el >= HARD_LIMIT:
+                reason = f"{int(el // 60)} minute ho gaye – GitHub 55 min pe chupchaap kaat deta, isliye pehle hi roki"
+            if reason:
+                W["killed"] = reason
+                try:
+                    proc.kill()
+                except Exception:
+                    pass
+                return
+            if now_ - last_beat >= 150:                    # har 2.5 min: card par 'zinda hai' + samay
+                last_beat = now_
+                tg_edit_text(tg_token, tg_chat, status_id,
+                             f"🎬 [{video_mode}] {first_line}\n{W['stage']}\n⏱ समय: {_fmt_elapsed(el)}"
+                             f" | आखिरी हलचल: {int(idle)} सेकंड पहले")
+
+    threading.Thread(target=watchdog, daemon=True).start()
     for raw_line in proc.stdout:
         sys.stdout.write(raw_line)
         sys.stdout.flush()
+        W["last_out"] = time.time(); W["tail"].append(raw_line[:300])
         st = _stage_from_line(raw_line)
+        if st: W["stage"] = st
         now = time.time()
         if st and (st != last_stage or (now - last_edit) >= 18):
             last_stage = st
@@ -364,8 +407,19 @@ def main():
     else:
         log_file = ROOT / "log.txt"
         tail = "\n".join(log_file.read_text(encoding="utf-8", errors="ignore").splitlines()[-25:]) if log_file.exists() else "No log.txt"
-        tg_edit_text(tg_token, tg_chat, status_id, f"❌ [{video_mode}] {first_line}\nवीडियो नहीं बन पाई (rc={rc}).")
-        tg_send_text(tg_token, tg_chat, f"❌ Cloud video nahi ban payi (rc={rc}).\nLast log:\n{tail}")
+        why = W.get("killed") or f"program band ho gaya (rc={rc})"
+        try: (JOBS / "tg_notified").write_text("1")      # workflow ka 'fail' step dobara message na bheje
+        except Exception: pass
+        tg_edit_text(tg_token, tg_chat, status_id, f"❌ [{video_mode}] {first_line}\nवीडियो नहीं बन पाई – {why}")
+        tg_send_text(tg_token, tg_chat, f"❌ Cloud video nahi ban payi – {why}\nAakhri stage: {W.get('stage')}\n"
+                                         f"Last log:\n{tail}"[:3900])
+        if log_file.exists():                          # v3.73: poori log file – seedha Claude/Gemini ko forward karo
+            try:
+                lp = JOBS / "log_for_fix.txt"
+                lp.write_text(log_file.read_text(encoding="utf-8", errors="ignore")[-400000:], encoding="utf-8")
+                tg_send_document(tg_token, tg_chat, lp, "📋 Poori log file – ye file Claude/Gemini ko bhej do, wo wajah pakad lenge.")
+            except Exception as e:
+                print("log send skip:", e)
         sys.exit(rc or 1)
 
 
