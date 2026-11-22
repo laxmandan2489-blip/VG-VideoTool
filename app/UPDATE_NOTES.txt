@@ -1,3 +1,7 @@
+v3.83 📌 PINTEREST REAL PIN FIX + x_cookies.txt FIX (cumulative, includes ALL of v3.80–v3.82):
+• Pinterest search fix (social_visuals.py): ab sirf asli numeric Pinterest /pin/<number>/ IDs hi chuni jaati hain (404 nakli slugs band) + direct Pinterest search + alag Groq Pinterest query.
+• Telegram worker fix (cloudflare_worker.js): 'x_cookies.txt' naam ab seedha X/Twitter cookies me hi save hoga.
+
 v3.82 🛠️ ZOMBIE CHROME HANG FIX + SPACE DARK-FRAME FIX (includes ALL of v3.80 + v3.81):
 • BADA FIX (cloud_run.py): video 100% banne ke baad zombie Chrome lagataar DBus error bhej kar download link aur Telegram delivery ko 10+ min atka raha tha – ab make_video khatam hote hi 3 sec me Chrome kill + turant link!
 • Space/Night fix (visual_pick.py): NASA / Chandrayaan / space ki asli clips ab 'andhera / kaala frame' keh kar reject nahi hongi (roshni seema 28 -> 5 sirf space/night scenes ke liye).

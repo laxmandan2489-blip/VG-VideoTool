@@ -133,7 +133,7 @@ STATUS = {"x": {"n": 0, "fail": 0, "blocked": 0, "why": ""}, "pin": {"n": 0, "fa
 LIMITS = {"budget": 360.0, "max": 24, "secs": 6.0}
 _SL = _th.Lock()
 _X_RE = re.compile(r"https?://(?:www\.|mobile\.)?(?:x|twitter)\.com/([A-Za-z0-9_]{1,20})/status/(\d{5,25})")
-_PIN_RE = re.compile(r"https?://(?:[a-z]{2,3}\.)?pinterest\.[a-z.]{2,6}/pin/([\w-]{5,40})")
+_PIN_RE = re.compile(r"https?://(?:[a-z]{2,3}\.)?pinterest\.[a-z.]{2,6}/pin/(?:[^/\s\"\'?]*--)?(\d{6,25})")
 _BLOCK = ("login", "log in", "sign in", "not a bot", "rate-limit", "rate limit", "http error 429", "http error 403",
           "requires authentication", "nsfw", "use --cookies")
 
@@ -346,6 +346,26 @@ def _groq_pages(q, prompt):
     return []
 
 
+
+def _pinterest_direct_pins(q, limit=10):
+    """v3.83: Extract real numeric Pinterest /pin/<id>/ URLs directly from public Pinterest search page."""
+    urls = []
+    try:
+        r = _S.get("https://www.pinterest.com/search/pins/", params={"q": f"{q} video"}, timeout=10)
+        if r.ok and r.text:
+            for pid in dict.fromkeys(re.findall(r'"/pin/(\d{10,22})/"|"id":"(\d{15,22})"', r.text)):
+                num = pid[0] or pid[1]
+                if num:
+                    u = f"https://www.pinterest.com/pin/{num}/"
+                    if u not in urls:
+                        urls.append(u)
+                if len(urls) >= limit:
+                    break
+        _search_mark("pin-direct", bool(urls), "" if urls else f"HTTP {r.status_code}")
+    except Exception as e:
+        _search_mark("pin-direct", False, str(e)[:80])
+    return urls
+
 def find_pages(q, kind="x", limit=5):
     """kind = x / pin -> asli post page URLs (status / pin)."""
     rx = _X_RE if kind == "x" else _PIN_RE
@@ -360,7 +380,13 @@ def find_pages(q, kind="x", limit=5):
             else:
                 nu = f"https://www.pinterest.com/pin/{m.group(1)}/"
             if nu not in out: out.append(nu)
-    take(_ai_pages(q))                                 # v3.69/70: Gemini Google Search -> Groq web search (bina card)
+    if kind == "pin":
+        # v3.83: Direct public Pinterest search first (real numeric pin IDs, zero quota!) + dedicated Groq Pinterest query
+        take(_pinterest_direct_pins(q, limit=limit * 2))
+        if len(out) < limit:
+            take(_groq_pages(f"pin:{q}", f"Search the web specifically for public Pinterest VIDEO pins (URLs like https://www.pinterest.com/pin/1234567890/) about: {q}. Return ONLY exact numeric pinterest.com/pin/ URLs, one per line, max 8."))
+    else:
+        take(_ai_pages(q))                             # v3.69/70: Gemini Google Search -> Groq web search (bina card)
     if len(out) < limit:
         take(_brave_web(qq, 15))
     if len(out) < limit:

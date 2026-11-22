@@ -1,4 +1,4 @@
-// v3.81 Cloudflare Worker: FULL Telegram Control for Viral Gyaan Cloud VideoTool (24/7, $0/mo)
+// v3.83 Cloudflare Worker: FULL Telegram Control for Viral Gyaan Cloud VideoTool (24/7, $0/mo)
 // Features:
 //  - Persistent Menu Keyboard (Aaj shuru karo, Long Prompt, Status, /rok, /log, /purana, /guide)
 //  - Instant 5-Shorts Micro-Beat Master Prompt & Long News+Fact Documentary Prompt
@@ -107,7 +107,7 @@ const GUIDE_TEXT = `📖 VIRAL GYAAN CLOUD BOT (24×7)
 export default {
   async fetch(request, env) {
     if (request.method !== "POST") {
-      return new Response("VideoTool Cloud Bridge v3.81 is LIVE!", { status: 200 });
+      return new Response("VideoTool Cloud Bridge v3.83 is LIVE!", { status: 200 });
     }
     let update;
     try {
@@ -115,7 +115,7 @@ export default {
     } catch {
       return new Response("ok", { status: 200 });
     }
-    // v3.81: buttons (Short / Long / meri awaaz) ka jawab
+    // v3.83: buttons (Short / Long / meri awaaz) ka jawab
     if (update.callback_query) {
       await handleChoice(env, update.callback_query);
       return new Response("ok", { status: 200 });
@@ -143,7 +143,7 @@ export default {
     // 1b) v3.69: cookies.txt (YouTube / X) phone se -> sirf file_id repo me (cookies khud repo me NAHI jaati)
     if (doc && (fnLo.endsWith(".txt") || fnLo.endsWith(".json")) && (fnLo.includes("cookie") || cap.includes("cookie"))) {
       const both = fnLo + " " + cap;
-      const kind = (both.includes("x.com") || both.includes("twitter") || /(^|[^a-z])x([^a-z]|$)/.test(cap)) ? "x" : "youtube";
+      const kind = (both.includes("x.com") || both.includes("twitter") || /(^|[^a-z])x([^a-z]|$)/.test(both)) ? "x" : "youtube";
       const ok = await saveCookieRef(env, kind, doc.file_id);
       await tgReply(env.TG_TOKEN, chatId, ok
         ? `🍪 ${kind === "x" ? "X/Twitter" : "YouTube"} cookies mil gayi ✓ Agli video se apne aap lagengi.\n` +
@@ -152,7 +152,7 @@ export default {
       return new Response("ok", { status: 200 });
     }
 
-    // v3.81: aapki awaaz (voice note / audio file) -> pehle chuni hui script ke saath video
+    // v3.83: aapki awaaz (voice note / audio file) -> pehle chuni hui script ke saath video
     const aud = msg.voice || msg.audio || (doc && /^(audio|video)\//.test(doc.mime_type || "") ? doc : null);
     if (aud && update.message) {
       const pend = await readPending(env);
@@ -180,7 +180,7 @@ export default {
     // 2) Start / Menu / Guide
     if (tl === "/start" || tl === "/menu") {
       await tgReply(env.TG_TOKEN, chatId,
-        "☁️ VideoTool Cloud v3.81 LIVE hai!\nNeeche ke buttons use karo ya seedha script bhejo:", true);
+        "☁️ VideoTool Cloud v3.83 LIVE hai!\nNeeche ke buttons use karo ya seedha script bhejo:", true);
       return new Response("ok", { status: 200 });
     }
     if (tl === "/guide" || text.includes("/guide")) {
@@ -232,7 +232,7 @@ export default {
       return new Response("ok", { status: 200 });
     }
 
-    // 6b) v3.81: script aayi -> pehle poochho: Short / Long / meri awaaz (pehle seedha Short ban jaati thi)
+    // 6b) v3.83: script aayi -> pehle poochho: Short / Long / meri awaaz (pehle seedha Short ban jaati thi)
     const firstUp = text.split("\n")[0].trim().toUpperCase();
     const explicit = /^(LONG|LAMBI|SHORT|SHORTS)\b/.test(firstUp) || /^(SYSTEM JAANCH|YTDLP JAANCH|SYSTEM CHECK)/.test(firstUp);
     if (!explicit && update.message) {
@@ -270,7 +270,7 @@ async function ghFetch(env, path, method = "GET", body = null) {
   return fetch(`https://api.github.com/repos/${env.GH_REPO}${path}`, opts);
 }
 
-// ---------------- v3.81: Short / Long / meri awaaz chunav ----------------
+// ---------------- v3.83: Short / Long / meri awaaz chunav ----------------
 const CHOICE_KB = {
   inline_keyboard: [
     [{ text: "📱 Short", callback_data: "mk:S" }, { text: "📺 Long video", callback_data: "mk:L" }],
