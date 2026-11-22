@@ -482,7 +482,7 @@ def main():
 
         tg_edit_text(
             tg_token, tg_chat, status_id,
-            f"🎬 [{video_mode}] {first_line}\n☁️ वीडियो बन गई ({size_mb:.1f} MB)! 5 TB Google Drive और Telegram पर भेज रहा हूँ...\n⏱ समय: {_fmt_elapsed(time.time() - t0)}"
+            f"🎬 [{video_mode}] {first_line}\n☁️ वीडियो बन गई ({size_mb:.1f} MB)! Telegram और Direct Download लिंक भेज रहा हूँ...\n⏱ समय: {_fmt_elapsed(time.time() - t0)}"
         )
 
         # v3.75 STEP 0: seedha download link (phone pe turant) – sabse pehle, taaki Telegram fail ho tab bhi mile
@@ -493,8 +493,9 @@ def main():
         else:
             print("public link fail:", dl_err)
 
-        # STEP 1: INSTANT Master MP4 upload to Google Drive FIRST!
-        drive_info, drive_err = upload_video_first(out_mp4)
+        # v3.84: Google Drive upload skipped by default (set VG_ENABLE_DRIVE=1 to re-enable)
+        _use_drive = os.environ.get("VG_ENABLE_DRIVE", "0").strip().lower() in ("1", "true", "haan", "yes")
+        drive_info, drive_err = upload_video_first(out_mp4) if _use_drive else (None, "khali")
         _gh_srv = os.environ.get("GITHUB_SERVER_URL", "https://github.com").rstrip("/")
         _gh_repo = os.environ.get("GITHUB_REPOSITORY", "").strip()
         _gh_rid = os.environ.get("GITHUB_RUN_ID", "").strip()
@@ -519,7 +520,7 @@ def main():
         tg_edit_text(
             tg_token, tg_chat, status_id,
             f"✅ [{video_mode}] {first_line}\nपूरा हो गया! ({size_mb:.1f} MB • {_fmt_elapsed(time.time() - t0)})"
-            + (f"\n⬇️ {dl_link}" if dl_link else "") + "\n📦 अब बैकग्राउंड में _EDIT_KIT और थंबनेल Drive पर सेव हो रहे हैं..."
+            + (f"\n⬇️ {dl_link}" if dl_link else "")
         )
 
         # v3.66: Visual Report (har line: kya samjha, kya chuna, kyun, kya reject) – Telegram par file
@@ -540,8 +541,9 @@ def main():
             except Exception as _e:
                 print("visual report send skip:", _e)
 
-        # STEP 3: Upload _EDIT_KIT & thumbnails in background AFTER user already received the video!
-        upload_extras_background(out_mp4)
+        # STEP 3: Upload _EDIT_KIT & thumbnails only if VG_ENABLE_DRIVE=1
+        if _use_drive:
+            upload_extras_background(out_mp4)
         try:
             import shutil as _sh_cl
             for _rel in ("temp/shots", "temp/cache", "temp/work"):

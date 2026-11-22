@@ -1,3 +1,10 @@
+v3.84 (SYNC + VISUAL INTELLIGENCE + SPEED FIX):
+⏱ Audio-Locked Sync (align.py): 1.5-3.5 sec early caption & visual drift khatam! Hindi number expansion (2023, 615, 3,84,000, 6:04), dual-script (Hindi+Hinglish) alignment, stray 1-char matra match filter, outlier anchor guard aur spoken-weight interpolation.
+🎬 Word-Exact Beat Cuts (visual_brain.py): beat_cut_times() me 'w' key bug fix + cross-script matching + multi-beat search (ek line ke alag-alag arth ka alag visual).
+🚫 Galat Visual Rok (visual_pick.py + visual_brain.py): 3D smiling cartoon mascot, science/news me bina matlab devotional poster ('Shiv Shakti Point' -> lunar landing site), aur dhundhle/andhere low-contrast frames ab reject.
+🧹 Raw Title & Paper Card Fix (make_video.py): Screen par ['CHANDRAYAAN...'] raw list text fix; Shorts me asli rocket/footage ke upar zabardasti safed paper card nahi aayega.
+⚡ Fast Cloud & Minutes Bachat (make_video.py + cloud_run.py): Shorts default quality loop 3->1 round (target 82, budget 12 min) taaki 38 min ki jagah ~6-8 min me video ready; Google Drive upload default band (seedha Telegram + Download link).
+
 v3.83 📌 PINTEREST REAL PIN FIX + x_cookies.txt FIX (cumulative, includes ALL of v3.80–v3.82):
 • Pinterest search fix (social_visuals.py): ab sirf asli numeric Pinterest /pin/<number>/ IDs hi chuni jaati hain (404 nakli slugs band) + direct Pinterest search + alag Groq Pinterest query.
 • Telegram worker fix (cloudflare_worker.js): 'x_cookies.txt' naam ab seedha X/Twitter cookies me hi save hoga.

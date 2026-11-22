@@ -32,6 +32,11 @@ JUNK = {"animal": ("a cat, dog or other animal", ("cat", "dog", "animal", "bird"
         "nature": ("a nature landscape with trees, mountains or sunset", ("nature", "forest", "tree", "sunset", "mountain", "landscape")),
         "abstract": ("abstract colorful light particles or bokeh", ("abstract", "particle", "bokeh")),
         "icons": ("simple cartoon icons, stick figures or pictograms", ("icon", "cartoon", "animation", "infographic")),
+        "cartoon_3d": ("a 3D rendered cartoon character, smiling animated mascot, or Pixar-style avatar holding a sign",
+                       ("cartoon", "mascot", "pixar", "animated character", "avatar", "comic")),
+        "religious_art": ("a Hindu deity painting, god statue, religious devotional poster, or mythological artwork",
+                          ("temple", "mandir", "god", "deity", "religion", "religious", "puja", "worship", "mythology",
+                           "ramayan", "mahabharat", "festival", "diwali", "holi", "shiva temple", "devotee")),
         "silhouette": ("plain white silhouettes of people", ("silhouette", "shadow")),
         "train": ("a moving train or film strip", ("train", "strip", "railway")),
         # v3.17 (NVIDIA video: Rubin spec sheet, GTC poster, kata hua 'EO ON COMPAN' slide): text bhari slide
@@ -480,12 +485,14 @@ def _junk_check(cands, idx, ims, sc, texts):
     for k, j in enumerate(idx):
         im = ims[k]
         try:
-            lum = float(np.asarray(im.convert("L").resize((64, 64))).mean())
+            _arr_g = np.asarray(im.convert("L").resize((64, 64)), dtype=np.float32)
+            lum = float(_arr_g.mean())
+            cstd = float(_arr_g.std())
         except Exception:
-            lum = 128.0
+            lum, cstd = 128.0, 40.0
         _dark_ok = bool(re.search(r"\b(space|moon|lunar|planet|star|galaxy|nasa|isro|chandrayaan|orbit|rocket|night|universe|black hole|deep sea|cosmos|earth from space|asteroid|satellite|telescope)\b", " ".join(texts or []), re.I))
-        if lum < (5 if _dark_ok else 28):
-            cands[j]["_junk"] = f"andhera / kaala frame (roshni {lum:.0f})"
+        if lum < (6 if _dark_ok else 28) or (lum < 22 and cstd < 14):
+            cands[j]["_junk"] = f"andhera / dhundhla frame (roshni {lum:.0f}, contrast {cstd:.0f})"
     labels += list(getattr(CTX, "neg", []) or [])            # v3.17: brand ka galat matlab (Copilot -> hawai jahaz)
     anon = TOPIC["lock"] or bool(getattr(CTX, "no_person", False))
     if not labels and not anon:
@@ -596,7 +603,16 @@ def improve(i, found, eng, line, keys, need, lock=None, film=None, shot=None):
     flabel = (film or {}).get("label", "") if film else ""
     parts = split_parts(eng, need)
     br = BRIEF.get(i) or {}
-    if br.get("parts") and need >= 2 and len(parts) < 2:          # AI ne line ko 2 matlab me toda
+    _vb_beats = []
+    try:
+        import visual_brain as _vb_p
+        _vb_beats = [b for b in (_vb_p.beats_for(i) or []) if isinstance(b, dict) and (b.get("query") or b.get("subject"))]
+    except Exception:
+        _vb_beats = []
+    if len(_vb_beats) >= 2 and need >= 2:
+        # v3.84: Line ke har arth (meaning beat) ka alag visual search
+        parts = [str(b.get("subject") or b.get("query") or eng) for b in _vb_beats[:min(3, max(2, need))]]
+    elif br.get("parts") and need >= 2 and len(parts) < 2:        # AI ne line ko 2 matlab me toda
         parts = [p_["text"] or eng for p_ in br["parts"]]
     hq = (HINT.get(i) or "").strip()
     if hq:                                                         # v3.18: aapka hint -> wahi hisse, wahi pehli query
@@ -605,12 +621,16 @@ def improve(i, found, eng, line, keys, need, lock=None, film=None, shot=None):
     pq = [line_queries(p, eng, main, flabel, sec) for p in parts]
     if hq:
         pq = [list(dict.fromkeys(hint_ladder(p) + qs))[:6] for p, qs in zip(parts, pq)]
-    if br and not hq:                                              # ADD-ON: AI ke "poora matlab" wale shabd sabse aage
+    if not hq:
         for k_, qs_ in enumerate(pq):
             extra = []
-            if br.get("parts") and len(br["parts"]) == len(parts): extra.append(br["parts"][k_]["q"])
-            extra += br.get("video_q", [])[:2] + br.get("image_q", [])[:1]
-            pq[k_] = list(dict.fromkeys([q for q in extra if q] + qs_))[:6]
+            if len(_vb_beats) >= 2 and k_ < len(_vb_beats) and _vb_beats[k_].get("query"):
+                extra.append(str(_vb_beats[k_]["query"]).strip())
+            if br:
+                if br.get("parts") and len(br["parts"]) == len(parts): extra.append(br["parts"][k_]["q"])
+                extra += br.get("video_q", [])[:2] + br.get("image_q", [])[:1]
+            if extra:
+                pq[k_] = list(dict.fromkeys([q for q in extra if q] + qs_))[:6]
     try:                                                           # v3.17: brand ka sahi matlab + line ka sandarbh
         import brand_sense
         senses = brand_sense.detect(line, eng, SCRIPT["all"])

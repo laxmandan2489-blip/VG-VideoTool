@@ -142,10 +142,11 @@ def _llm_plan(lines, eng, keys, main=""):
             " real: true if the line describes a REAL specific person/event/company/place (needs REAL footage, "
             "never AI-generated); false for general/abstract statements\n"
             " exact_q: 2-3 search queries (2-6 words) to find REAL footage/photos of exactly this person/event "
-            "(for YouTube / Wikimedia / news archives), e.g. 'Elon Musk Starship announcement 2025'\n"
+            "(for YouTube / Wikimedia / news archives), e.g. 'Elon Musk Starship announcement 2025'. "
+            "CRITICAL: ALWAYS anchor ambiguous names to the main story domain (e.g. 'Chandrayaan 3 Shiv Shakti Point lunar landing site' NEVER bare 'Shiv Shakti'; 'ISRO Sriharikota launch pad' NEVER generic 'launch center')\n"
             " stock_q: 2 short generic stock-video queries that honestly ILLUSTRATE the line without pretending to "
-            "be the real event (Pixabay/Pexels), anchored to this story world, never abstract trap words\n"
-            " avoid: 2-3 things that would be WRONG/misleading to show (different person, different war, wrong era)\n"
+            "be the real event (Pixabay/Pexels), anchored to this story world, never abstract trap words, never cartoon mascots or unrelated flags\n"
+            " avoid: 2-3 things that would be WRONG/misleading to show (3d cartoon mascot, devotional deity poster, unrelated flag, wrong person/event/era)\n"
             " emotion: one of neutral/shock/danger/wonder/proud/sad/curiosity\n"
             " must_show: short concrete English phrase of what MUST be visible on screen\n"
             " beats: 1-3 visual beats inside the line if it names 2+ distinct people/places/actions "
@@ -334,10 +335,21 @@ def emotion_for(i):
     return (PLAN.get(i) or {}).get("emotion") or "neutral"
 
 
+def _lat_norm(s):
+    try:
+        from translit import word as _tw
+        s = " ".join(_tw(x) for x in str(s or "").split())
+    except Exception:
+        s = str(s or "")
+    s = s.lower()
+    s = re.sub(r"aa+", "a", s); s = re.sub(r"ee+|ii+", "i", s); s = re.sub(r"oo+|uu+", "u", s)
+    return re.sub(r"[^a-z0-9]", "", s)
+
+
 def beat_cut_times(i, sent, st, en, k):
-    """v3.80: Align k cuts inside line i to exact Whisper word timestamps matching beat phrases."""
+    """v3.84: Align k cuts inside line i to exact Whisper word timestamps (reads w['w'] + cross-script match)."""
     dur = float(en) - float(st)
-    if k < 2 or dur < 2.0:
+    if k < 2 or dur < 1.8:
         return None
     beats = beats_for(i)
     words = (sent or {}).get("words") or []
@@ -346,14 +358,19 @@ def beat_cut_times(i, sent, st, en, k):
     cuts = [float(st)]
     for b in beats[1:k]:
         ph = str(b.get("phrase") or b.get("subject") or "").strip().lower()
-        toks = [w for w in re.findall(r"[a-z0-9ऀ-ॿ]{2,}", ph)]
+        toks = [w for w in re.findall(r"[a-z0-9\u0900-\u097f]{2,}", ph)]
+        ltoks = [_lat_norm(t) for t in toks if len(_lat_norm(t)) >= 3]
         hit = None
         for w in words:
-            wt = str(w.get("word") or w.get("text") or "").strip().lower()
+            # v3.84 FIX: voice.py/align.py store word text in key "w" (was missing before -> always None!)
+            wt = str(w.get("w") or w.get("word") or w.get("text") or "").strip().lower()
+            wlat = _lat_norm(wt)
             ws = float(w.get("start") or 0.0)
-            if ws <= cuts[-1] + 0.85 or ws >= float(en) - 0.85:
+            if ws <= cuts[-1] + 0.75 or ws >= float(en) - 0.75:
                 continue
-            if toks and any(t in wt or wt in t for t in toks if len(t) >= 3):
+            if (toks and any(t in wt or wt in t for t in toks if len(t) >= 3)) or (
+                ltoks and wlat and any(t in wlat or wlat in t for t in ltoks if len(t) >= 3)
+            ):
                 hit = ws
                 break
         if hit is not None:

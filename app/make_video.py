@@ -23,6 +23,14 @@ def log(msg, show=True):
     _log0(msg, show)
 
 
+def _clean_title(t, default="KEY FACT"):
+    """v3.84 FIX: Never render raw Python list string like ['CHANDRAYAAN...'] on video."""
+    if isinstance(t, (list, tuple)):
+        t = t[0] if t else ""
+    s = str(t or "").strip()
+    return s or default
+
+
 def _jsafe(o):
     """v3.10 FIX: numpy number (float32) JSON me – pehle isi se video banne ke BAAD crash -> bot ne safe mode me
     poori video DOBARA banayi (15 Nov log)."""
@@ -1045,14 +1053,17 @@ def main():
         style["check_bot"] = "nahi"; style["visual_gate_round"] = "1"
         log("   ⚡ jaldi mode: Gemini poori-video review + dobara render band")
     qc_rounds = int(num(style, "check_bot_round", 0, 3)) if yes(style.get("check_bot", "haan")) else 0
-    # v3.77 QUALITY LOOP: Video Review score target (default 90) tak kamzor lines ki footage badal ke dobara –
-    # jab tak samay bacha ho. style: quality_target = 90 | quality_rounds = 3 | quality_loop = haan
+    # v3.84 SPEED + QUALITY LOOP: Shorts me default 1 targeted fix round (target 82, budget 12 min)
+    # taaki GitHub Actions 38 min na khaye (~6-8 min me ready). style.txt se kabhi bhi badha sakte hain.
+    _def_qtarget = 85.0 if LONG else 82.0
+    _def_qrounds = 2 if LONG else 1
+    _def_qmin = 25 if LONG else 12
     QL = {"on": yes(style.get("quality_loop", "haan")),
-          "target": float(num(style, "quality_target", 50, 100)) if style.get("quality_target") else 90.0,
-          "budget": float(os.environ.get("VG_TIME_BUDGET_MIN") or style.get("quality_time_min") or 60) * 60,
+          "target": float(num(style, "quality_target", 50, 100)) if style.get("quality_target") else _def_qtarget,
+          "budget": float(os.environ.get("VG_TIME_BUDGET_MIN") or style.get("quality_time_min") or _def_qmin) * 60,
           "hist": [], "t_round": time.time(), "best": {}, "stuck": set()}
     if QL["on"]:
-        qc_rounds = max(qc_rounds, int(num(style, "quality_rounds", 0, 6)) if style.get("quality_rounds") else 3)
+        qc_rounds = max(qc_rounds, int(num(style, "quality_rounds", 0, 6)) if style.get("quality_rounds") else _def_qrounds)
     if FB and (FB["all_footage"] or FB["bad_lines"]): qc_rounds = max(qc_rounds, 2)
     name = None
     BEATS = []
@@ -1214,7 +1225,9 @@ def main():
                         # v3.62: In Shorts (or when real footage exists), NEVER black-out real footage with a dark Stat card —
                         # let the real footage play full-screen with animated stat overlay on top! (Use Stat card only if no footage or LONG mode)
                         _stat_cap = (3 if LONG else 0) if (items and not yes(style.get("black_stat_cards", "nahi"))) else (3 if LONG else 1)
-                        _news_cap = 3 if LONG else 1
+                        # v3.84 FIX: Shorts me asli footage ke upar zabardasti safed paper card (NewsHighlightCard) mat lagao!
+                        # Sirf LONG mode me ya jab real footage na mile (fallback) tabhi paper card.
+                        _news_cap = (3 if LONG else 0) if (items and not yes(style.get("force_news_cards", "nahi"))) else (3 if LONG else 1)
                         _px_cap = 2 if LONG else 1
                         # Beat A: Big number / money / percent -> StatCounterProCard
                         if _DOC_BEATS["stat"] < _stat_cap and re.search(r"(\d[\d,.]*\s*(?:%|प्रतिशत|लाख|करोड़|अरब|मिलियन|बिलियन|हजार|फीट|किलोमीटर|°C|डिग्री))", _ltxt):
@@ -1225,7 +1238,7 @@ def main():
                                 if not _bc.exists():
                                     _stmp = "ALERT" if re.search(r"(खतरनाक|स्कैम|scam|danger|हमला|माइनस|-\d)", _ltxt, re.I) else ""
                                     _rem_ok = None
-                                    _t_clean = (title[0] if isinstance(title, (list, tuple)) and title else str(title or "KEY FACT")).strip()
+                                    _t_clean = _clean_title(title, "KEY FACT")
                                     _sub_clean = _ltxt[:56].rsplit(" ", 1)[0] if len(_ltxt) > 56 else _ltxt
                                     if yes(style.get("remotion_beats", "haan")):
                                         from cine import remotion_bridge as _rb
@@ -1247,7 +1260,7 @@ def main():
                             _bc = work / "shots" / f"doc_news_{i:02d}.mp4"
                             if not _bc.exists():
                                 _rem_ok = None
-                                _t_clean = (title[0] if isinstance(title, (list, tuple)) and title else str(title or "FACT BRIEF")).strip()
+                                _t_clean = _clean_title(title, "FACT BRIEF")
                                 if yes(style.get("remotion_beats", "haan")):
                                     from cine import remotion_bridge as _rb
                                     _rem_ok = _rb.render_beat("news_highlight", {"source": _t_clean[:28], "headline": _ltxt[:115], "highlight": _hl, "dateStr": _dtag}, _dur_b, _bc, W, H, render.FPS)
@@ -1271,7 +1284,7 @@ def main():
                                     except Exception:
                                         _bl_ok = None
                                 if not _bl_ok:
-                                    _dc.render_cutout_parallax(items[0]["path"], (_kw_i or str(title or "FACT"))[:14],
+                                    _dc.render_cutout_parallax(items[0]["path"], (_kw_i or _clean_title(title, "FACT"))[:14],
                                                                _dur_b, _bc, W, H, style, _pal_b, fps=render.FPS)
                             _doc_forced = {"kind": "video", "path": _bc, "credit": "", "src": "kinetic card", "ss": 0.0}
                             _DOC_BEATS["parallax"] += 1; _DOC_BEATS["last_line"] = i
@@ -1302,7 +1315,7 @@ def main():
                                         _pal_d = _bibd.build(lines, eng, style)["palette"]
                                         _lt = str(s.get("script") or s["text"] or "")
                                         _kw_d = str(sources.KEYW.get(i) or "")
-                                        _dcd.render_news_highlight(str(title or "FACT BRIEF")[:28], _lt[:110],
+                                        _dcd.render_news_highlight(_clean_title(title, "FACT BRIEF")[:28], _lt[:110],
                                                                    _kw_d, max(1.0, pts[j + 1] - pts[j] + 0.15),
                                                                    _dup_mp4, W, H, style, _pal_d, fps=render.FPS)
                                     cand_it = {"kind": "video", "path": _dup_mp4, "credit": "", "src": "kinetic card", "ss": 0.0}
@@ -1333,7 +1346,7 @@ def main():
                             import cloud_visuals as _cv2
                             from cine import doc_cards as _dc2, bible as _bib2
                             _q_exact = str(USER_AI_HINT.get(i) or _rp_i.get("ai_prompt") or sources.SHOW.get(i) or (eng[i] if i < len(eng) and eng[i] else s.get("script") or s["text"]))
-                            _ai_ex = _cv2.generate_scene_image(_q_exact, work / "ai_visuals", topic=str(title or ""), W=W, H=H, keys=keys)
+                            _ai_ex = _cv2.generate_scene_image(_q_exact, work / "ai_visuals", topic=_clean_title(title, ""), W=W, H=H, keys=keys)
                             if _ai_ex:
                                 # v3.59: Full-screen immersive AI scene (smooth Ken Burns, no repetitive dark box!)
                                 it = {"kind": "image", "path": _ai_ex, "credit": "", "src": "cloud flux", "fullbleed": True}
@@ -1370,7 +1383,7 @@ def main():
                                 try:
                                     import cloud_visuals as _cv
                                     _q_desc = (eng[i] if i < len(eng) and eng[i] else _txt_line)
-                                    _ai_img = _cv.generate_scene_image(_q_desc, work / "ai_visuals", topic=str(title or ""), W=W, H=H, keys=keys)
+                                    _ai_img = _cv.generate_scene_image(_q_desc, work / "ai_visuals", topic=_clean_title(title, ""), W=W, H=H, keys=keys)
                                 except Exception as _cve:
                                     log(f"   (cloud visual skip: {_cve})", show=False)
                             if _ai_img:
@@ -1378,10 +1391,10 @@ def main():
                             elif yes(style.get("documentary_mode", "haan")):
                                 if re.search(r"\d", str(_kw)):
                                     _stmp = "ALERT" if re.search(r"(खतरनाक|danger|scam|बैन|ban)", _txt_line, re.I) else ""
-                                    _dc.render_stat_pro(str(_kw), (title[0] if isinstance(title, (list, tuple)) and title else str(title or "KEY FACT")).strip()[:28], _dur_k, kc, W, H, style, _pal,
+                                    _dc.render_stat_pro(str(_kw), _clean_title(title, "KEY FACT")[:28], _dur_k, kc, W, H, style, _pal,
                                                         sub=_txt_line[:52], stamp=_stmp, fps=render.FPS)
                                 else:
-                                    _dc.render_news_highlight(str(title or "FACT REPORT")[:30], _txt_line[:110],
+                                    _dc.render_news_highlight(_clean_title(title, "FACT REPORT")[:30], _txt_line[:110],
                                                               str(_kw), _dur_k, kc, W, H, style, _pal, fps=render.FPS)
                             else:
                                 _cards.render_word(_kw, "", _dur_k, kc, W, H, style, _pal, fps=render.FPS)
