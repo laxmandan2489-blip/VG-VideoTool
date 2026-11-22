@@ -49,6 +49,7 @@ FX = {}                # v2.15: line -> [("map", "Chamoli"), ("label", "1:14 PM"
 
 
 USER_HINT = {}   # v3.18: line -> aapka (English) hint
+CONTENT_MODE = {"v": None}  # v3.66: script me "MODE: history" (auto / news / influencer / history / science ...)
 USER_AI_HINT = {}  # v3.58: line -> explicit "|| AI: ..." cinematic AI scene prompt
 
 # v3.18: '/' ya '//' ke baad = visual hint ("लाइन / Voyager 1 spacecraft"). Hint NAHI maana jaata jab slash:
@@ -104,7 +105,7 @@ def part_cut_time(sent, eng_line, st, en):
 def read_script(path):
     raw = path.read_text(encoding="utf-8-sig", errors="replace")
     title = None; topic_kw = []; lines = []; hints = []
-    SECTIONS.clear(); FORMAT["v"] = None; MARKS.clear(); FX.clear()
+    SECTIONS.clear(); FORMAT["v"] = None; MARKS.clear(); FX.clear(); CONTENT_MODE["v"] = None
     import fx
     for ln in raw.splitlines():
         s = ln.strip()
@@ -123,6 +124,8 @@ def read_script(path):
             FORMAT["v"] = "short"; continue
         if up.startswith("TITLE:"):
             title = [x.strip() for x in s.split(":", 1)[1].split("|") if x.strip()]; continue
+        if up.startswith(("MODE:", "CATEGORY:", "CONTENT MODE:")):     # v3.66: content mode (bola nahi jaata)
+            CONTENT_MODE["v"] = s.split(":", 1)[1].strip().lower() or None; continue
         if up.startswith("KEYWORDS:"):
             topic_kw = [x.strip().lower() for x in s.split(":", 1)[1].split(",") if x.strip()]; continue
         if up.startswith(("HOOK TEXT", "FACT CHECK", "SCRIPT:")) or re.match(r"^\d+\.\s", s) and len(lines) > 3 and not re.search(r"[ऀ-ॿ]{3}", s):
@@ -666,6 +669,24 @@ def main():
             log(f"   🏷 line {i_+1}: {', '.join(_sn)} = brand/app (galat matlab NAHI: {'; '.join(_neg)[:80] or '-'})", show=False)
     except Exception as _bse:
         log(f"   (brand sense skip: {_bse})", show=False)
+    VBRAIN = None
+    if yes(style.get("visual_brain", "haan")):
+        try:                                           # v3.66: UNIVERSAL VISUAL BRAIN (category + asli insaan/event)
+            import visual_brain as _vbm
+            _vl = [s_.get("script") or s_["text"] for s_ in sents]
+            _vbm.build(_vl, eng, keys, mode=CONTENT_MODE["v"] or style.get("content_mode", "auto"),
+                       main=(LOCK or {}).get("main_subject") or "", raw_plan=sources.RAW_PLAN,
+                       use_ai=yes(style.get("visual_brain_ai", "haan")), work=work)
+            for i_ in range(len(sents)):
+                if _vbm.is_real_line(i_):
+                    sources.NO_AI_PHOTO.add(i_)        # asli insaan/event ki nakli AI photo kabhi nahi
+                _w = _vbm.who_for(i_)
+                if _w and not sources.WHO.get(i_) and _vbm.SCRIPT["how"] == "AI" and (_vbm.PLAN.get(i_) or {}).get("how") == "AI":
+                    sources.WHO[i_] = _w               # Wikidata/Commons/YouTube (asli) path chalu
+            _vbm.fact_check_async(_vl, keys, style)    # background – sirf report me (script kabhi nahi badalti)
+            VBRAIN = _vbm
+        except Exception as _vbe:
+            VBRAIN = None; log(f"   (visual brain skip: {_vbe})", show=False)
     AIPLAN = {}
     if yes(style.get("ai_plan", "haan")):
         try:                                           # v3.16: AI app (ChatGPT/Claude/Gemini) ka copy-paste plan
@@ -763,10 +784,23 @@ def main():
             log(f"   line {i+1}: ✨ direct AI scene hint -> {USER_AI_HINT[i][:55]}", show=False)
             return [{"kind": "image", "path": "", "credit": "", "src": "pending_ai_hint", "score": 0.0}], ""
         extra = gq[i] if gq and i < len(gq) else None
+        if VBRAIN is not None:                              # v3.66: is line ki category ke hisaab se AI aankh
+            try:
+                import aankh as _ak
+                _ak.set_line_relax(VBRAIN.neg_relax(i))
+            except Exception:
+                pass
         if LOCK and i < len(LOCK["scenes"]):               # v3.2: kahani ke context wali query sabse pehle
             extra = [LOCK["scenes"][i]["query"]] + [q_ for q_ in (extra or []) if q_ != LOCK["scenes"][i]["query"]]
         if SHOTS and i < len(SHOTS):                        # v3.8: shot list (action / close-up / wide) aage
             extra = list(dict.fromkeys(SHOTS[i]["queries"] + list(extra or [])))[:6]
+        if VBRAIN is not None:                              # v3.66: exact person/event queries, heuristics se pehle
+            try:
+                _bq = VBRAIN.queries(i)
+                if _bq:
+                    extra = list(dict.fromkeys(_bq[:3] + list(extra or [])))[:7]
+            except Exception:
+                pass
         if AIPLAN.get(i, {}).get("queries"):                # v3.16: aapke AI app ka plan SABSE pehle
             extra = list(dict.fromkeys(AIPLAN[i]["queries"] + list(extra or [])))[:7]
         if USER_HINT.get(i):                                # v3.18: script ka '/' ya '||' hint – sabse pehle, AI se bhi pehle
@@ -1231,8 +1265,17 @@ def main():
                     _vmode = str(_rp_i.get("visual_mode") or "").upper()
                     _needs_ai = bool(USER_AI_HINT.get(i)) or (_vmode == "AI_SCENE") or (_ft_ai in ("3d", "graphic", "ai"))
                     _weak_stock = (it is not None and it.get("score") is not None and float(it.get("score") or 1.0) < 0.30)
+                    # v3.66 FIX (sabse badi wajah "visual match nahi"): pehle score < 0.30 pe ASLI clip bhi AI photo se
+                    # badal jaati thi (CLIP me sahi clip bhi 0.22-0.30 hoti hai). Ab visual_brain tay karta hai.
+                    _ai_ok = (_needs_ai or _weak_stock)
+                    if _ai_ok and it is not None:
+                        try:
+                            import visual_brain as _vbr
+                            _ai_ok = _vbr.allow_ai_override(i, it, _needs_ai, bool(USER_AI_HINT.get(i)), style)
+                        except Exception:
+                            _ai_ok = bool(USER_AI_HINT.get(i))
                     if (it is not None and yes(style.get("ai_visual_auto", "haan"))
-                            and j == 0 and (_needs_ai or _weak_stock)
+                            and j == 0 and _ai_ok
                             and not str(it.get("src", "")).startswith(("kinetic", "map", "blender", "nasa", "cloud"))):
                         try:
                             import cloud_visuals as _cv2
@@ -1265,7 +1308,13 @@ def main():
                             _txt_line = str(s.get("script") or s["text"] or "")
                             # v3.22 FREE CLOUD AI VISUAL: generate exact scene visual (0% GPU load) + 2.5D Parallax!
                             _ai_img = None
-                            if yes(style.get("ai_visual_auto", "haan")) and not re.search(r"\d", str(_kw)):
+                            _fill_ok = True
+                            try:
+                                import visual_brain as _vbf
+                                _fill_ok = _vbf.allow_ai_fill(i, style)   # v3.66: asli insaan ki nakli photo nahi
+                            except Exception:
+                                pass
+                            if _fill_ok and yes(style.get("ai_visual_auto", "haan")) and not re.search(r"\d", str(_kw)):
                                 try:
                                     import cloud_visuals as _cv
                                     _q_desc = (eng[i] if i < len(eng) and eng[i] else _txt_line)
@@ -1819,6 +1868,18 @@ def main():
         log("   🧪 Quality gate: " + ("PASS ✓" if GATE["ok"] else "FAIL – " + "; ".join(GATE["why"])))
     except Exception as e:
         log(f"   (quality gate skip: {e})", show=False)
+    VREPORT = {}
+    try:                                               # v3.66: VISUAL REPORT – har line: samjha kya, chuna kya, kyun
+        import visual_brain as _vbw, visual_pick as _vpw
+        if _vbw.PLAN:
+            _vbw.fact_wait(40)
+            _jp, _mp, _vs = _vbw.write_report(Path(out).with_suffix(""), sents, plan, line_start, found, _vpw.TRACE,
+                                              sources.REJECTED, VREP)
+            VREPORT = {"json": str(_jp), "md": str(_mp), "summary": _vs}
+            QC_REPORT["visual_report"] = _vs
+            log("   🧾 Visual report: " + _vbw.one_line(_vs) + f" ({_mp.name})")
+    except Exception as _vre:
+        log(f"   (visual report skip: {_vre})", show=False)
     STYLE_NOTE = ""
     if LEARN.get("visual_badle_har") and not LONG:      # v2.16: bani video seekhe style se mili?
         try:
@@ -1909,6 +1970,7 @@ def main():
             "thumbs": [base + x for x in ("_thumbnail_short.jpg", "_thumbnail_ai_short.jpg", "_thumbnail_16x9.jpg",
                                           "_thumbnail_ai_16x9.jpg") if Path(base + x).exists()],
             "minutes": round(mins, 1), "script": str(sp), "items": items, "style_over": over,
+            "visual_report": VREPORT.get("md"), "visual_summary": VREPORT.get("summary"),
             "format": style.get("format", "short"), "gate": GATE, "qc": QC_REPORT,
             "review": {k: REVIEW.get(k) for k in ("score", "verdict", "issues", "not_done")} if REVIEW else {},
             "timing": (lambda tp: f"⏱ {tp[0]/60:.1f} min: " + ", ".join(f"{n_} {t_/60:.1f}" for n_, t_ in tp[1][:4] if t_ >= 5))(stage_report()),

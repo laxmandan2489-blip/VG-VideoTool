@@ -263,7 +263,7 @@ def gemini_queries(lines, key):
               "setting (e.g., for Mariana Trench: 'deep sea submarine', 'dark ocean abyss', "
               "'bioluminescent deep sea fish', 'ocean plastic waste underwater', 'underwater exploration rover'). "
               "NEVER pick clips with burned-in English subtitles or news logos (Tech Insider, etc.). "
-              "Only filmable real-world scenes inside THIS video's world. Also set visual_mode to 'AI_SCENE' whenever this line describes a specific comparison, metaphor, historical reconstruction, impossible scene, or precise action that generic stock libraries will NOT have (works for ANY topic: history, finance, crime, cricket, science, psychology, tech, etc.), and write a vivid 1-sentence photorealistic documentary scene description in ai_prompt; otherwise set visual_mode to 'STOCK'. "
+              "Only filmable real-world scenes inside THIS video's world. Set visual_mode to 'AI_SCENE' ONLY when the line is an abstract comparison, metaphor or an impossible/never-filmed scene that no real footage could show; NEVER for a line about a real named person, a real current or news event, a real company/product, a real sports moment or a real crime case (those need REAL footage – set visual_mode 'STOCK'). For AI_SCENE write a vivid 1-sentence photorealistic documentary scene description in ai_prompt; otherwise set visual_mode to 'STOCK'. "
               "Stock sites have NO celebrities/films/brands, so for those use generic visuals (e.g. 'film shooting set', "
               "'red carpet event', 'rocket launch').\n"
               " who: if the line is about a specific REAL famous person, place, building, film or company, its exact "
@@ -1069,8 +1069,10 @@ def verify(path, kind, text, extra=(), avoid=(), line_idx=None):
         log(f"   (verify skip: {e})", show=False); return None
 
 
-def best_rejected(line_idx, min_score=0.19):
-    """v3.13 (Bug B): line ki saari footage reject ho gayi -> sabse achhi (video pehle) wapas, wajah ke saath."""
+def best_rejected(line_idx, min_score=0.205):
+    """v3.13 (Bug B): line ki saari footage reject ho gayi -> sabse achhi (video pehle) wapas, wajah ke saath.
+    v3.66: seema 0.19 -> 0.205 (0.19 CLIP pe lagbhag random clip thi – "random visual" ki ek wajah). Isse kam ho to
+    line fallback (map / naam card / doc card) pe jaati hai, random clip pe nahi."""
     rows = [r for r in REJECTED.get(line_idx, []) if r["score"] >= min_score and Path(r["path"]).exists()
             and "text/logo" not in r["why"]]
     if not rows: return None

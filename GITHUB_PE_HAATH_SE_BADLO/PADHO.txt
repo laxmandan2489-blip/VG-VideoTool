@@ -1,0 +1,16 @@
+YE EK KAAM GITHUB PAR HAATH SE KARNA HAI (2 minute) – Telegram updater .github folder nahi badalta.
+
+1) GitHub repo kholo -> .github/workflows/make_video.yml -> pencil (Edit) dabao.
+2) Poora text hata ke is folder ki make_video.yml ka poora text paste karo -> "Commit changes".
+   Badlav sirf ye hain:
+   - GROQ_KEY, OPENROUTER_KEY, BRAVE_KEY secrets ab video banane wale step tak pahunchte hain
+   - AI aankh (CLIP) model cache hota hai (har video pe ~350 MB dobara download nahi)
+   - VISUAL_REPORT artifact me bhi save hota hai
+3) Repo -> Settings -> Secrets and variables -> Actions -> New repository secret:
+   - GROQ_KEY       = console.groq.com -> API Keys (FREE)   <- zaroor lagao
+   - OPENROUTER_KEY = openrouter.ai -> Keys (FREE, optional)
+   - PEXELS_KEY     = pexels.com/api (FREE, optional – zyada achha B-roll)
+   - BRAVE_KEY      = optional
+   Jo secret nahi hai wo khaali rahega – kuch tootega nahi.
+
+Ye file na badlo tab bhi v3.66 chalega – bas Groq backup cloud me chalu nahi hoga.

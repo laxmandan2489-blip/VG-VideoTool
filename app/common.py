@@ -158,6 +158,11 @@ def read_keys():
                         break
                     for name in ("PIXABAY", "GEMINI", "PEXELS", "TELEGRAM"):        # "Gemini key=" bhi chalega
                         if k.startswith(name) or (name == "GEMINI" and k.startswith("GOOGLE")): k = name
+                    # v3.66 FIX (cloud): cloud_run "GROQ_API_KEY=" likhta hai -> pehle "GROQAPIKEY" ban jaata tha aur
+                    # Groq/OpenRouter backup KABHI chalu nahi hota tha (Gemini limit khatam -> offline kamzor visuals)
+                    for name in ("GROQ", "OPENROUTER", "YOUTUBE", "SMITHSONIAN"):
+                        if k.startswith(name) and k in (name, name + "KEY", name + "APIKEY", name + "API", name + "TOKEN"):
+                            k = name
                     if k and v and " " not in v:
                         keys.setdefault(k, v)
                     break

@@ -1,10 +1,12 @@
-v3.12 me kya naya:
+v3.66 me kya naya (VISUAL FIX – script ke hisaab se visual):
 
-✅ "Mera kaam" button (ya /kaam) – tool khud jaanch ke batata hai aapko kya karna baaki hai: kaunsi key nahi hai, sound files theek hain ya nahi, HyperFrames laga ya nahi, pichhli video ke Review me kya kami thi.
-🔑 Key Telegram se lagao: /key GROQ aapki_key (PEXELS, OPENROUTER, YOUTUBE, GEMINI, PIXABAY bhi). Key wala message bot khud mita deta hai.
-🧠 Gemini ki roz ki limit khatam -> ab tool Groq / OpenRouter (free) se kaam chalata hai (script samajhna, footage words, jaanch). Iske liye GROQ key lagao.
-🔒 Groq/OpenRouter key bhi log me chhupi rehti hai.
+✅ Asli clip ab AI photo se NAHI badlegi. Pehle (v3.55) score < 0.30 hote hi pehli clip AI (Flux) photo ban jaati thi – sahi clip bhi. Ab AI photo sirf: aapka "|| AI:" hint, ya aam stock clip jo sach me bemel ho (score < 0.20). Asli insaan / event / company wali line pe nakli AI photo kabhi nahi.
+🧠 Naya Visual Brain: har line ki category (news / influencer / history / science / tech / business / crime / sports / geography / general) + asli insaan/event pehchaan -> pehle exact search (jaise "CarryMinati early videos"), phir stock.
+👁 AI aankh (CLIP) ab line ke hisaab se: YouTuber/news/business line pe "camera se baat karta insaan", "logo", "news banner" ab kharab nahi maane jaate (pehle sahi clip reject hoti thi).
+🔑 Cloud fix: GROQ_API_KEY / OPENROUTER / YOUTUBE key ab sahi pehchaani jaati hai (pehle "GROQAPIKEY" ban jaati thi – Gemini limit khatam hone pe backup kabhi nahi chalta tha).
+🎲 "Sab reject -> sabse achhi wapas" ki seema 0.19 -> 0.205 (random clip kam).
+🧾 Har video ke saath VISUAL_REPORT (.md + .json) – Telegram par file: har line kya samjha, kya search kiya, kya chuna, kyun, asli/AI/fallback, kya reject hua + fact warnings (script KABHI nahi badalti).
+🎛 Script ki pehli line me "MODE: history" (news / influencer / science ...) – na likho to AUTO.
+⚙️ style: ai_override = kam (default) / purana (v3.55 jaisa) / nahi • visual_brain = haan/nahi • fact_check = haan/nahi
 
-Pehle se: v3.11 naya script prompt (MERA TOPIC) • v3.10 crash fix, photo full screen • v3.9 text card kam • v3.8 Ram ki line pe Ravan nahi • v3.7 tez • v3.6 HyperFrames, EDL, Review • v3.5 whoosh, jhar-jhar fix.
-
-Ab sabse pehle: ✅ Mera kaam dabao.
+Pehle se: v3.65 aur pehle ka sab kuch waisa hi.

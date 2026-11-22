@@ -78,6 +78,8 @@ def _unit(v):
 
 _TXT_CACHE = {}
 _NEG_VECS = None
+_NEG_CACHE = {}
+LINE_CTX = threading.local()   # v3.66: .relax = NEG labels jo is line pe dheele
 
 
 def text_vecs(texts):
@@ -96,9 +98,21 @@ def text_vecs(texts):
 
 def _neg_vecs():
     global _NEG_VECS
+    drop = frozenset(getattr(LINE_CTX, "relax", None) or ())
+    if drop:                                   # v3.66: is line ki category me ye 'kharab' nahi (YouTuber = talking head)
+        keep = [n for n in NEG if n not in drop] or NEG[:1]
+        v = _NEG_CACHE.get(drop)
+        if v is None:
+            v = text_vecs([f"a photo of {n}" for n in keep]); _NEG_CACHE[drop] = v
+        return v
     if _NEG_VECS is None:
         _NEG_VECS = text_vecs([f"a photo of {n}" for n in NEG])
     return _NEG_VECS
+
+
+def set_line_relax(labels):
+    """v3.66: make_video.job(i) har line pe set karta hai (thread-local; line ki apni thread me hi asar)."""
+    LINE_CTX.relax = set(labels or ())
 
 
 def image_vecs(images):

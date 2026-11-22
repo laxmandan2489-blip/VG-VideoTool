@@ -1,0 +1,86 @@
+name: 🎬 Make Video (Online Cloud - Full Blender + Remotion)
+
+on:
+  workflow_dispatch:
+    inputs:
+      script:
+        description: "Apni Hindi/Hinglish script yahan paste karo"
+        required: true
+        type: string
+      mode:
+        description: "Video Type"
+        required: true
+        default: "SHORT"
+        type: choice
+        options:
+          - SHORT
+          - LONG
+
+jobs:
+  render-video:
+    runs-on: ubuntu-latest
+    timeout-minutes: 55
+    steps:
+      - name: 1. Download VideoTool Code
+        uses: actions/checkout@v4
+
+      - name: 2. Setup Python 3.11 & Node.js 20
+        uses: actions/setup-python@v5
+        with:
+          python-version: "3.11"
+          cache: "pip"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+
+      - name: 3. Cache Whisper Models & Remotion Studio
+        uses: actions/cache@v4
+        with:
+          path: |
+            ~/.cache/whisper
+            remotion_studio/node_modules
+            ai_aankh
+          key: vg-cloud-v2-${{ hashFiles('remotion_studio/package.json') }}
+          restore-keys: |
+            vg-cloud-v2-
+
+      - name: 4. Install FFmpeg, Blender, Headless Display (xvfb), Fonts & rclone
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg blender xvfb libgl1 libegl1 libxi6 libxrender1 fonts-noto-core fonts-noto-extra rclone
+
+      - name: 5. Install Python Packages & Remotion Dependencies
+        run: |
+          python -m pip install --upgrade pip -q
+          pip install -q -r app/requirements.txt openai-whisper
+          if [ -f remotion_studio/package.json ] && [ ! -d remotion_studio/node_modules ]; then
+            cd remotion_studio && npm install --no-audit --no-fund && cd ..
+          fi
+
+      - name: 6. Render FULL v3.45 Video (Blender + Remotion) & Send to Telegram + Drive
+        env:
+          INPUT_SCRIPT: ${{ inputs.script }}
+          INPUT_MODE: ${{ inputs.mode }}
+          GEMINI_KEY: ${{ secrets.GEMINI_KEY }}
+          PIXABAY_KEY: ${{ secrets.PIXABAY_KEY }}
+          PEXELS_KEY: ${{ secrets.PEXELS_KEY }}
+          YOUTUBE_KEY: ${{ secrets.YOUTUBE_KEY }}
+          GROQ_KEY: ${{ secrets.GROQ_KEY }}
+          OPENROUTER_KEY: ${{ secrets.OPENROUTER_KEY }}
+          BRAVE_KEY: ${{ secrets.BRAVE_KEY }}
+          TG_TOKEN: ${{ secrets.TG_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          RCLONE_CONF: ${{ secrets.RCLONE_CONF }}
+        run: xvfb-run -a -s "-screen 0 1280x720x24" python cloud_run.py
+
+      - name: 7. Save Video Artifact (7 days backup)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: rendered-video
+          path: |
+            cloud_output.mp4
+            log.txt
+            output/*_VISUAL_REPORT.*
+          if-no-files-found: ignore
+          retention-days: 7

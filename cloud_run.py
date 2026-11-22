@@ -85,6 +85,22 @@ def _make_tg_copy(video_path):
     return None
 
 
+def tg_send_document(token, chat_id, path, caption=""):
+    """v3.66: chhoti report file (VISUAL_REPORT.md) Telegram par."""
+    p = Path(path) if path else None
+    if not (token and chat_id and p and p.exists()) or p.stat().st_size > 45 * 1024 * 1024:
+        return False
+    try:
+        with open(p, "rb") as f:
+            r = requests.post(f"https://api.telegram.org/bot{token}/sendDocument",
+                              data={"chat_id": chat_id, "caption": caption[:950]},
+                              files={"document": (p.name, f, "text/markdown")}, timeout=120)
+        return r.ok
+    except Exception as e:
+        print("TG doc error:", e)
+        return False
+
+
 def tg_send_video(token, chat_id, video_path, caption=""):
     if not token or not chat_id:
         return False
@@ -187,6 +203,8 @@ def main():
         ("PEXELS_KEY", "PEXELS_API_KEY"),
         ("YOUTUBE_KEY", "YOUTUBE_API_KEY"),
         ("GROQ_KEY", "GROQ_API_KEY"),
+        ("OPENROUTER_KEY", "OPENROUTER_API_KEY"),   # v3.66: Gemini limit khatam -> free backup AI
+        ("BRAVE_KEY", "BRAVE_API_KEY"),             # v3.66: optional extra video/photo search
     ]:
         if os.environ.get(env_k):
             keys_lines.append(f"{file_k}={os.environ[env_k].strip()}")
@@ -239,10 +257,12 @@ def main():
     print("make_video.py exit code:", rc)
 
     out_mp4 = None
+    vrep_md = None; vrep_sum = None
     if res.exists():
         try:
             data = json.loads(res.read_text(encoding="utf-8"))
             cand = data.get("video") or data.get("out") or data.get("path")
+            vrep_md = data.get("visual_report"); vrep_sum = data.get("visual_summary")
             if cand and Path(cand).exists():
                 out_mp4 = Path(cand)
         except Exception as e:
@@ -286,6 +306,16 @@ def main():
             tg_token, tg_chat, status_id,
             f"✅ [{video_mode}] {first_line}\nपूरा हो गया! ({size_mb:.1f} MB • {_fmt_elapsed(time.time() - t0)})\n📦 अब बैकग्राउंड में _EDIT_KIT और थंबनेल Drive पर सेव हो रहे हैं..."
         )
+
+        # v3.66: Visual Report (har line: kya samjha, kya chuna, kyun, kya reject) – Telegram par file
+        if vrep_md:
+            try:
+                _s = vrep_sum or {}
+                _cap = (f"🧾 Visual Report: {_s.get('category', '?')} | asli/achha match {_s.get('real_or_good_pct', '?')}% | "
+                        f"AI photo {_s.get('ai_shots', 0)}" + (f" | ⚠️ {_s['fact_flags']} fact flag" if _s.get("fact_flags") else ""))
+                tg_send_document(tg_token, tg_chat, vrep_md, _cap)
+            except Exception as _e:
+                print("visual report send skip:", _e)
 
         # STEP 3: Upload _EDIT_KIT & thumbnails in background AFTER user already received the video!
         upload_extras_background(out_mp4)
