@@ -1,3 +1,5 @@
+v3.71: CLOUD FIX "No space left on device" – Whisper ke liye CPU wala PyTorch (~200 MB) lagta hai, GPU wala (4-5 GB) nahi. Video ka koi aur hissa nahi badla.
+
 v3.70:
 🍪 Cookies FIX: phone/Notepad se paste karte waqt TAB -> space ban jaata tha, isliye cookies "nahi" maani jaati thi. Ab dono chalte hain. SYSTEM JAANCH ab batata hai cookies kyun nahi mili (secret pahunchi ya nahi, format, galat site).
 🔎 X/Pinterest search: Gemini ke ek model ki limit pe poora band nahi – 2.5 Flash bhi try. Phir bhi na mile to aapki FREE Groq key ka web search (compound).

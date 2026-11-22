@@ -1,3 +1,7 @@
+# v3.71 FIX (cloud "No space left on device"): Whisper ke liye CPU wala PyTorch (~200 MB) -
+# GPU/CUDA wala (4-5 GB) GitHub server ki disk bhar deta tha. Cloud par GPU hai hi nahi.
+--extra-index-url https://download.pytorch.org/whl/cpu
+torch
 edge-tts>=7.0
 requests>=2.31
 pillow>=10.0
