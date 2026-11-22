@@ -4,12 +4,12 @@ Telegram updater .github folder nahi badalta, isliye ye kaam aapko khud karna ha
 STEP 1 – Workflow file badlo
   GitHub repo -> .github/workflows/make_video.yml -> pencil (Edit) -> poora text hatao ->
   is folder ki make_video.yml ka poora text paste -> "Commit changes".
-  Isme naya: Deno (YouTube ke liye zaroori), naya yt-dlp har baar, GROQ/OPENROUTER/BRAVE keys,
+  (v3.68: Deno + yt-dlp ab khud lagte hain.) Isme naya:, naya yt-dlp har baar, GROQ/OPENROUTER/BRAVE keys,
   YT_COOKIES / X_COOKIES / YTDLP_PROXY secrets, CLIP model cache.
 
 STEP 2 – Secrets (Settings -> Secrets and variables -> Actions -> New repository secret)
   GROQ_KEY     = console.groq.com -> API Keys (FREE)                      <- zaroor
-  BRAVE_KEY    = brave.com/search/api (free credit) – X/Pinterest ke post DHOONDHNE ke liye sabse pakka
+  BRAVE_KEY    = SKIP karo (card maangta hai – zaroori nahi)
   PEXELS_KEY   = pexels.com/api (FREE, optional)
 
 STEP 3 – YouTube cookies (YT_COOKIES)  <- yt-dlp ko cloud pe chalane ke liye

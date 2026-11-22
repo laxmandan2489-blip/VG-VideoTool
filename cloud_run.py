@@ -182,8 +182,26 @@ def upload_extras_background(video_path):
             print("Extra upload skip:", e)
 
 
+def auto_setup():
+    """v3.68: Deno (YouTube ke liye) + naya yt-dlp KHUD – workflow file badalne ki zaroorat nahi."""
+    import shutil
+    bindir = str(Path(sys.executable).parent)
+    if bindir not in os.environ.get("PATH", ""):
+        os.environ["PATH"] = bindir + os.pathsep + os.environ.get("PATH", "")
+    if shutil.which("deno"):
+        print("auto_setup: deno mila ✓")
+        return
+    try:
+        r = subprocess.run([sys.executable, "-m", "pip", "install", "-q", "-U", "deno", "yt-dlp[default]"],
+                           capture_output=True, text=True, timeout=240)
+        print("auto_setup:", "deno + yt-dlp lag gaye ✓" if r.returncode == 0 else r.stderr[-200:])
+    except Exception as e:
+        print("auto_setup skip:", e)
+
+
 def main():
     t0 = time.time()
+    auto_setup()
     script_text = (os.environ.get("INPUT_SCRIPT") or "").strip()
     video_mode = (os.environ.get("INPUT_MODE") or "SHORT").strip().upper()
     tg_token = (os.environ.get("TG_TOKEN") or "").strip()

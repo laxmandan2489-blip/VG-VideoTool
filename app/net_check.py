@@ -116,7 +116,7 @@ def run(full=True):
 
     add("FFmpeg", ffm)
     add("yt-dlp", ytdlp, "requirements me yt-dlp hai – workflow log dekho")
-    add("JS runtime", jsrt, "make_video.yml me setup-deno step (GITHUB_PE_HAATH_SE_BADLO)")
+    add("JS runtime", jsrt, "v3.68 khud lagata hai – agli baar apne aap theek ho jaayega")
     add("API keys", keyrow, "GitHub Secrets me GROQ_KEY / PIXABAY_KEY / GEMINI_KEY lagao")
     add("Cookies/proxy", cookies)
     add("Gemini", gemini, "key / quota check karo")
@@ -126,8 +126,8 @@ def run(full=True):
     if full:
         add("YouTube search (yt-dlp)", yt_search, "yt-dlp purana ya block – YT_COOKIES lagao")
         add("YouTube clip kaatna", yt_cut, "GitHub Secret YT_COOKIES lagao (PADHO.txt)")
-        add("Twitter/X clip", x_clip, "GitHub Secret X_COOKIES lagao; BRAVE_KEY se post dhoondhna pakka hota hai")
-        add("Pinterest clip", pin_clip, "BRAVE_KEY lagao (DuckDuckGo cloud pe aksar khaali)")
+        add("Twitter/X clip", x_clip, "X ko login chahiye – X_COOKIES (optional). Na lagao to baaki sources chalenge")
+        add("Pinterest clip", pin_clip, "cloud pe search khaali aaya – koi baat nahi, baaki sources chalenge")
         add("AI aankh (CLIP)", clip_eye, "pehli baar model download hota hai – dobara chalao")
     ok_n = sum(1 for r in rows if r[0])
     lines = [f"🩺 SYSTEM JAANCH: {ok_n}/{len(rows)} theek"]

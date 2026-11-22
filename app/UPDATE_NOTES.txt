@@ -1,3 +1,5 @@
+v3.68: Deno + naya yt-dlp ab KHUD lagte hain (workflow file badalne ki zaroorat nahi). Brave key zaroori NAHI.
+
 v3.67 me kya naya (CLOUD par yt-dlp + Twitter/X + Pinterest):
 
 🎞 YouTube (yt-dlp) cloud par: aapke ALAG account ki cookies (GitHub Secret YT_COOKIES) + Deno + har baar naya yt-dlp. YouTube "bot" bole to report me saaf wajah, aur 4 baar block pe samay barbaad nahi.
