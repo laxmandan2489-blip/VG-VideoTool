@@ -420,15 +420,16 @@ def main():
     def _stream():
         exited_at = None
         while True:
+            # v3.82 BIG FIX: check proc.poll() on EVERY loop (even when zombie Chrome spams DBus errors non-stop!)
+            if proc.poll() is not None:
+                exited_at = exited_at or time.time()
+                if time.time() - exited_at > 3.0:
+                    print("cloud_run: make_video khatam – zombie Chrome/child band kar raha hoon")
+                    _kill_all()
+                    return
             try:
-                ln = LQ.get(timeout=2)
+                ln = LQ.get(timeout=1.5)
             except queue.Empty:
-                if proc.poll() is not None:
-                    exited_at = exited_at or time.time()
-                    if time.time() - exited_at > 15:   # program khatam, par koi bachcha pipe pakde baitha -> mat ruko
-                        print("cloud_run: make_video khatam – bache hue process band kar raha hoon")
-                        _kill_all()
-                        return
                 continue
             if ln is None:
                 return
@@ -531,13 +532,23 @@ def main():
                 if _y or _so:
                     _cap += (f"\n🎞 YouTube clip {_y.get('clips', 0)}" + (f" (block {_y['blocked']})" if _y.get("blocked") else "")
                              + f" | X {_so.get('x', 0)} | Pinterest {_so.get('pinterest', 0)}")
-                    if _y.get("why") and not _y.get("clips"): _cap += f"\n⚠️ {_y['why'][:120]}"
+                    if _y.get("blocked") and not _y.get("clips"):
+                        _cap += "\n🍪 YouTube cookies purani ho gayi ya nahi lagi – nayi cookies.txt file Telegram bot ko bhejo"
+                    elif _y.get("why") and not _y.get("clips"):
+                        _cap += f"\n⚠️ {_y['why'][:120]}"
                 tg_send_document(tg_token, tg_chat, vrep_md, _cap)
             except Exception as _e:
                 print("visual report send skip:", _e)
 
         # STEP 3: Upload _EDIT_KIT & thumbnails in background AFTER user already received the video!
         upload_extras_background(out_mp4)
+        try:
+            import shutil as _sh_cl
+            for _rel in ("temp/shots", "temp/cache", "temp/work"):
+                _d = ROOT / _rel
+                if _d.exists(): _sh_cl.rmtree(_d, ignore_errors=True)
+        except Exception:
+            pass
         tg_edit_text(
             tg_token, tg_chat, status_id,
             f"✅ [{video_mode}] {first_line}\nसब कुछ पूरा हो गया! ({size_mb:.1f} MB • {_fmt_elapsed(time.time() - t0)})"

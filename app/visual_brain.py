@@ -76,6 +76,9 @@ _RELAX = {
 _NAME_RE = re.compile(r"\b[A-Z][a-z]+(?:[A-Z][a-z]+)+\b|\b[A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,}){1,2}\b")
 _YEAR_RE = re.compile(r"\b(1[0-9]{3}|20[0-9]{2})\b|[०-९]{4}")
 _NOT_NAMES = {"The", "This", "That", "When", "What", "India", "Indian", "Hindi", "English", "YouTube", "Instagram"}
+_PLACE_MULTI = {"south africa", "united states", "united kingdom", "saudi arabia", "sri lanka", "new zealand",
+                "north korea", "south korea", "west indies", "middle east", "south america", "north america",
+                "united arab emirates", "hong kong", "new york", "new delhi"}
 _GENERIC = {"first", "second", "third", "battle", "war", "empire", "kingdom", "dynasty", "world", "cup", "case",
             "telescope", "mission", "company", "group", "the", "of", "in", "on", "and", "great", "new", "old", "army",
             "government", "ministry", "university", "river", "ocean", "sea", "mountain", "temple", "fort", "palace"}
@@ -102,7 +105,7 @@ def _names(eng):
     for n in _NAME_RE.findall(eng or ""):
         n = n.strip()
         ws = n.split()
-        if ws[0] in _NOT_NAMES or n in out or n in ev: continue
+        if ws[0] in _NOT_NAMES or n.lower() in _PLACE_MULTI or n in out or n in ev: continue
         if any(w.lower() in _GENERIC for w in ws): continue
         out.append(n)
     return out[:3]
@@ -143,12 +146,17 @@ def _llm_plan(lines, eng, keys, main=""):
             " stock_q: 2 short generic stock-video queries that honestly ILLUSTRATE the line without pretending to "
             "be the real event (Pixabay/Pexels), anchored to this story world, never abstract trap words\n"
             " avoid: 2-3 things that would be WRONG/misleading to show (different person, different war, wrong era)\n"
+            " emotion: one of neutral/shock/danger/wonder/proud/sad/curiosity\n"
+            " must_show: short concrete English phrase of what MUST be visible on screen\n"
+            " beats: 1-3 visual beats inside the line if it names 2+ distinct people/places/actions "
+            '(each: {"phrase": "exact Hindi/English trigger word from line", "subject": "..", "query": "2-5 word query"})\n'
             " shot: wide/medium/close-up/aerial/archival/map/graphic\n"
             " fallback: best honest fallback if no real footage exists (map / timeline / name card / diagram / "
             "labelled reconstruction)\n"
             'Also top-level: "category" (main category of the whole video), "main" (main subject).\n'
             'Return ONLY JSON: {"category": "..", "main": "..", "lines": [{"cat": "..", "subject": "..", '
             '"person": "..", "org": "..", "event": "..", "place": "..", "time": "..", "action": "..", '
+            '"emotion": "..", "must_show": "..", "beats": [{"phrase": "..", "subject": "..", "query": ".."}], '
             '"real": true, "exact_q": [".."], "stock_q": [".."], "avoid": [".."], "shot": "..", "fallback": ".."}]}'
             + (f"\nMain subject hint: {main}" if main else "") + "\n\nSCRIPT:\n" + rows)
         data = ai.ask_json(key, [prompt], temperature=0.2, timeout=90, budget=150)
@@ -195,11 +203,23 @@ def build(lines, eng, keys, mode="auto", main="", raw_plan=None, use_ai=True, wo
         if not (person or org) and names and not data:
             person = names[0]                               # offline: English line me bada naam
         yr = _YEAR_RE.search(f"{l} {e}")
+        _has_pron = bool(re.search(r"(उन्होंने|उसने|उनके|उनका|उनकी|उसका|उसकी|इसी|इसकी|इसमें|यहाँ|इसने|\b(?:he|she|his|her|they|their|it|its|this)\b)", f"{l} {e}", re.I))
+        if not (person or org or place) and _has_pron and i > 0 and (i - 1) in PLAN:
+            _prev = PLAN[i - 1]
+            if _prev.get("person"): person = _prev["person"]
+            elif _prev.get("org"): org = _prev["org"]
+            elif _prev.get("place"): place = _prev["place"]
+        _emo = _s(x.get("emotion"), 20).lower()
+        if _emo not in ("neutral", "shock", "danger", "wonder", "proud", "sad", "curiosity"):
+            _emo = _detect_emotion(f"{l} {e}")
+        _beats = _clean_beats(x.get("beats"), l, e, person, org, place)
+        _must = _s(x.get("must_show"), 90) or _s(x.get("subject")) or (person or org or place)
         p = {"line": i + 1, "text": l, "eng": e, "category": cat,
              "subject": _s(x.get("subject")) or _s(rp.get("subject")) or (person or org or place),
              "person": person, "org": org, "event": _s(x.get("event")) or (_event(e) if not x else ""), "place": place,
              "time": _s(x.get("time"), 40) or (yr.group(0) if yr else "") or _s(rp.get("time"), 40),
              "action": _s(x.get("action")) or _s(rp.get("action")),
+             "emotion": _emo, "must_show": _must, "beats": _beats,
              "real": bool(x.get("real")) if "real" in x else bool(person or org or (cat in REAL_FIRST and names)
                                                                    or (_event(e) and cat in REAL_FIRST | {"history"})),
              "exact_q": _ql(x.get("exact_q")), "stock_q": _ql(x.get("stock_q"), 2),
@@ -257,16 +277,105 @@ def _template_queries(p):
     return [re.sub(r"\s+", " ", x).strip() for x in dict.fromkeys(q) if x and len(x.strip()) > 2][:3]
 
 
+
+_EMO_RULES = [
+    ("danger", r"(खतरनाक|मौत|हमला|युद्ध|बम|जंग|तबाही|विनाश|हत्या|मर्डर|danger|attack|war|death|crash|kill|alert)"),
+    ("shock", r"(चौंकाने|हैरान|असंभव|होश उड़|शॉकिंग|रहस्य|गायब|सुलझा नहीं|shocking|unbelievable|mystery|vanished|unsolved)"),
+    ("proud", r"(जीत|इतिहास रच|पहला|विश्व रिकॉर्ड|दोहरा शतक|सफलता|महान|victory|first ever|historic|record|champion|triumph)"),
+    ("wonder", r"(सबसे ऊँची|अद्भुत|अनोखा|खिलौने|अंतरिक्ष|चाँद|आतिशबाज़ी|tallest|space|moon|fireworks|giant|wonder)"),
+    ("sad", r"(दुखद|तबाह|बर्बाद|नुकसान|गरीबी|मौत|tragic|disaster|lost|sad)"),
+    ("curiosity", r"(क्या आप जानते|क्यों|कैसे|राज़|सवाल|\?|did you know|why|how|secret)"),
+]
+
+
+def _detect_emotion(text):
+    t = text or ""
+    for emo, pat in _EMO_RULES:
+        if re.search(pat, t, re.I):
+            return emo
+    return "neutral"
+
+
+def _clean_beats(raw_beats, hi_line, eng_line, person="", org="", place=""):
+    out = []
+    for b in (raw_beats or []):
+        if not isinstance(b, dict):
+            continue
+        ph = _s(b.get("phrase"), 50)
+        sb = _s(b.get("subject"), 60)
+        q = _s(b.get("query"), 80)
+        if q or sb:
+            out.append({"phrase": ph, "subject": sb or q, "query": q or sb})
+        if len(out) >= 3:
+            break
+    if out:
+        return out
+    ents = list(_names(eng_line))
+    ev_txt = _event(eng_line)
+    for m in re.finditer(r"(?<=\s)([A-Z][a-z]{3,}(?:-\d+)?)(?=\b)", eng_line or ""):
+        w = m.group(1)
+        if w in _NOT_NAMES or w.lower() in _GENERIC or w.lower() in _PLACE_MULTI:
+            continue
+        if any(w.lower() in e.lower() for e in ents) or (ev_txt and w.lower() in ev_txt.lower()):
+            continue
+        ents.append(w)
+    if ev_txt and len(ents) == 1:
+        ents.insert(0, ev_txt)
+    if len(ents) >= 2:
+        return [{"phrase": e, "subject": e, "query": e} for e in ents[:3]]
+    return []
+
+
+def beats_for(i):
+    return list((PLAN.get(i) or {}).get("beats") or [])
+
+
+def emotion_for(i):
+    return (PLAN.get(i) or {}).get("emotion") or "neutral"
+
+
+def beat_cut_times(i, sent, st, en, k):
+    """v3.80: Align k cuts inside line i to exact Whisper word timestamps matching beat phrases."""
+    dur = float(en) - float(st)
+    if k < 2 or dur < 2.0:
+        return None
+    beats = beats_for(i)
+    words = (sent or {}).get("words") or []
+    if len(beats) < 2 or not words:
+        return None
+    cuts = [float(st)]
+    for b in beats[1:k]:
+        ph = str(b.get("phrase") or b.get("subject") or "").strip().lower()
+        toks = [w for w in re.findall(r"[a-z0-9ऀ-ॿ]{2,}", ph)]
+        hit = None
+        for w in words:
+            wt = str(w.get("word") or w.get("text") or "").strip().lower()
+            ws = float(w.get("start") or 0.0)
+            if ws <= cuts[-1] + 0.85 or ws >= float(en) - 0.85:
+                continue
+            if toks and any(t in wt or wt in t for t in toks if len(t) >= 3):
+                hit = ws
+                break
+        if hit is not None:
+            cuts.append(round(hit, 3))
+    if len(cuts) == k:
+        cuts.append(float(en))
+        return cuts
+    return None
+
+
 # ------------------------------------------------------------------ 3) pipeline me lagana
 def queries(i):
     """make_video.job(): ye queries USER hint ke baad, heuristics (close up / wide shot) se PEHLE."""
     p = PLAN.get(i)
     if not p: return []
     out = list(p["exact_q"]) if p["real"] else []
+    for b in (p.get("beats") or [])[:3]:
+        if b.get("query"): out.append(b["query"])
     out += p["stock_q"]
     if not p["real"]:
         out += p["exact_q"][:1]
-    return [q for q in dict.fromkeys(out) if q][:5]
+    return [q for q in dict.fromkeys(out) if q][:6]
 
 
 def who_for(i):

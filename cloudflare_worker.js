@@ -1,4 +1,4 @@
-// v3.64 Cloudflare Worker: FULL Telegram Control for Viral Gyaan Cloud VideoTool (24/7, $0/mo)
+// v3.81 Cloudflare Worker: FULL Telegram Control for Viral Gyaan Cloud VideoTool (24/7, $0/mo)
 // Features:
 //  - Persistent Menu Keyboard (Aaj shuru karo, Long Prompt, Status, /rok, /log, /purana, /guide)
 //  - Instant 5-Shorts Micro-Beat Master Prompt & Long News+Fact Documentary Prompt
@@ -17,54 +17,77 @@ const KEYBOARD = {
   is_persistent: true,
 };
 
-const SHORTS_PROMPT = `MERA TOPIC (1 se 5 topic likho, ya "AUTO" rehne do to 5 viral topics khud aayenge):
+const SHORTS_PROMPT = `MERA TOPIC (1 se 5 topic likho, ya "AUTO" rehne do to 5 alag-alag viral trending topics khud chuno):
 <<< AUTO >>>
 
-You are India's #1 viral Hindi YouTube Shorts scriptwriter for "The Viral Gyaan" (science, space, ocean, mystery, world news facts, history, tech).
-My automated VideoTool reads every line and picks visuals STRICTLY from the English hint after "||".
-Write 5 complete Hindi Shorts scripts separated by a line with only ====
+You are India's #1 viral Hindi YouTube Shorts Director & Scriptwriter for "The Viral Gyaan" (science, army/defence, news, business, history, tech, crime/mystery, sports, influencers).
+My automated VideoTool reads EVERY line, applies the EXACT category editing style you choose via MODE:, triggers real pro editing effects from your [tags], and picks visuals STRICTLY from your "||" hints (verified by AI Vision Judge + CLIP!).
+Write 5 complete, high-retention Hindi Shorts scripts separated by a line with only ==== (each video MUST feel unique and matched to its category!).
 
-STRICT MICRO-BEAT RULES (40-55 sec, 14-18 SHORT lines per script, 5-9 words per line — ONE single visual idea/emotion per line!):
-0. NEVER mix 2 contrasting ideas in 1 line! Split them into 2 short lines so each emotion/object gets its OWN exact visual (e.g. Line A: "इसके पीछे पैसे की कमी नहीं है।" || stacks of cash money closeup -> Line B: "बल्कि प्रकृति की अजीब ताकत है।" || violent storm waves crashing ocean).
-1. HOOK (Line 1): Shocking/curious hook in first 2s. NEVER start with "दोस्तों" or "क्या आप जानते हैं".
-2. Include 1 real big number with unit (e.g. 6400 किलोमीटर / 90%) and 1 real year/report line (e.g. साल 2011 में).
-3. Include 1 twist line ("लेकिन चौंकाने वाली बात यह है...").
-4. Last line CTA (NO "||" on last line): ऐसे ही चौंकाने वाले फैक्ट्स के लिए अभी सब्सक्राइब करें और अगली वीडियो देखना मत भूलना।
+1) CHOOSE CATEGORY EDITING MODE (line 1 of EACH script — controls colour grade, cut speed, film/particle layer, and SFX):
+   MODE: science | army | news | business | history | mystery | sports | influencer | technology | general
 
-VISUAL HINT RULES (EVERY LINE EXCEPT LAST CTA MUST HAVE "||"):
-- REAL STOCK (75% lines): || <3-5 concrete filmable English words: object + action + shot> (e.g. "deep ocean waves aerial view", "wooden boat crossing wide river", "scientist laboratory microscope closeup"). NO abstract words ("secret", "shocking", "mystery"), NO text/logos.
-- IMPOSSIBLE / CUSTOM AI SCENE (2-4 lines): || AI: <8-14 vivid realistic documentary words> (e.g. "AI: sunken rusted satellite on dark deep ocean floor dramatic underwater light rays").
-- Optional [map: Place, Country] at end of 1 geography line right BEFORE "||".
-- NO emojis, NO hashtags, NO bold (**), NO numbering, NO extra notes.
+2) STRICT MICRO-BEAT SCRIPT RULES (40-55 sec, 14-18 SHORT lines, 5-9 words per line — ONE single visual idea/emotion per line):
+   - NEVER mix 2 contrasting ideas in 1 line! Split into 2 short lines so each emotion/subject gets its OWN exact visual.
+   - HOOK (Line 1): Shocking/curious hook in first 2s. NEVER start with "दोस्तों" or "क्या आप जानते हैं".
+   - Last line CTA (NO "||" on last line): ऐसे ही चौंकाने वाले फैक्ट्स के लिए अभी सब्सक्राइब करें और अगली वीडियो देखना मत भूलना।
 
-OUTPUT EXACTLY:
+3) PRO EDITING TAGS (put at END of Hindi line, right BEFORE "||" — use tastefully per category, max 4-5 tags per script):
+   - [map: Place, Country] -> animated 3D satellite map zoom (great for army/news/history/geography)
+   - [news: Short Headline | Source] -> yellow-highlighter newspaper/fact proof card (great for news/business/crime/history)
+   - [label: 2024 / 828m / ₹500 Cr] -> crisp red typewriter date/number badge (great for science/business/sports)
+   - [gola: object] -> red dashed spotlight circle + arrow (great for mystery/crime/science detail)
+   - [ink] -> dramatic red ink-splash transition on the biggest twist line!
+   - SFX tags (max 2-3 per script): [riser] on suspense buildup, [impact] on shock/army/reveal, [whoosh] on fast jump, [ding] on stat/fact, [typing] on tech/news.
+
+4) VISUAL HINT RULES (MOST IMPORTANT — EVERY LINE EXCEPT LAST CTA MUST HAVE "||"):
+   - REAL FOOTAGE FIRST (80-90% lines): || <3-6 concrete English words naming the EXACT real person/place/event/object + action>
+     * Real person/event/army/news/business/sports -> ALWAYS real footage hint (e.g. "Indian Army tank desert exercise", "Ratan Tata Tata Nano launch 2008", "ISRO Chandrayaan-3 rocket launch"). NEVER use AI for real people or real news!
+   - CUSTOM AI SCENE (ONLY 1-3 lines where real footage DOES NOT EXIST — e.g. inside black hole, deep-sea sunken spaceship, prehistoric dinosaur, microscopic cell):
+     * Format: || AI: <8-14 vivid realistic cinematic documentary words>
+   - NO abstract words ("secret", "shocking", "mystery"), NO emojis, NO hashtags, NO bold (**), NO numbering, NO extra notes.
+
+OUTPUT EXACTLY THIS (copy-paste ready for Telegram Bot):
+MODE: <category>
 TITLE: <2-4 crisp words> | <2-4 hook words>
-<line 1> || <visual hint>
+<hook line> [riser] || <exact concrete visual hint>
+<line 2> [map: Place, Country] || <exact concrete visual hint>
+<line 3 with number> [label: 6400 KM] || <exact concrete visual hint>
+<twist line> [ink] [impact] || <exact concrete visual hint>
 ...
 ऐसे ही चौंकाने वाले फैक्ट्स के लिए अभी सब्सक्राइब करें और अगली वीडियो देखना मत भूलना।
 ====
+MODE: <different category for Script 2>
 TITLE: <Script 2> | <hook>
 ...`;
 
 const LONG_PROMPT = `MERA TOPIC (Long News + Fact Documentary Video):
 <<< yahan apna topic ya breaking news + fact likho >>>
 
-You are India's #1 Hindi Long-Form News & Fact Documentary scriptwriter (Dhruv Rathee / Nitish Rajput style) for "The Viral Gyaan".
-Write a 3-6 min documentary script (28-45 lines, 10-16 words per line) divided into 3-5 chapters using "## Chapter Name":
-- ## शुरुआत (Strong hook + why it matters today)
-- ## असली कहानी (Timeline, real years & official report/court/survey facts)
-- ## चौंकाने वाले आंकड़े (Key numbers, %, crore/km stats)
-- ## बड़ा असर और निष्कर्ष (Takeaway + clean subscribe CTA)
+You are India's #1 Hindi Long-Form Documentary Director & Scriptwriter (Dhruv Rathee / Nitish Rajput / MagnatesMedia style) for "The Viral Gyaan".
+My automated VideoTool renders 16:9 documentary videos with calm 5-second pacing, chapters, category-matched colour grading, animated maps, yellow-marker News cards, red spotlight callouts, and pinpoint visuals from your "||" hints.
 
-VISUAL HINTS (EVERY LINE EXCEPT LAST CTA LINE MUST HAVE "||"):
-- REAL STOCK (75%): || <3-5 concrete filmable English words>
-- CUSTOM AI SCENE (25%): || AI: <8-14 vivid realistic documentary words>
-- Put [map: Place, Country] on 1-2 geography lines before "||".
-- Include real years and words like "रिपोर्ट", "सर्वे", "सरकार", "अदालत", "रिसर्च" on proof lines!
-- NO emojis, NO hashtags, NO bold (**), NO numbering.
+STRUCTURE (3-6 min, 28-45 lines, 10-16 words per line, divided into 3-5 chapters using "## Chapter Name"):
+- Line 1: LONG
+- Line 2: MODE: news | army | science | business | history | mystery | sports | influencer | technology
+- Line 3: TITLE: <documentary title> | <hook subtitle>
+- Chapters: ## शुरुआत -> ## असली कहानी -> ## चौंकाने वाले आंकड़े -> ## बड़ा असर और निष्कर्ष
+
+PRO EDITING TAGS (put at END of Hindi line, right BEFORE "||"):
+- [map: City or Country] (1-2 geography lines)
+- [news: Short Headline | Official Source] (2-3 proof/report/court/date lines -> yellow highlighter sweep!)
+- [label: Year / Stat] (2-3 key timeline or number badges)
+- [gola: key object] (1-2 visual spotlight callouts)
+- [ink] or [riser] / [impact] on major chapter reveals (tasteful, documentary tone).
+
+VISUAL HINT RULES (EVERY LINE EXCEPT LAST CTA MUST HAVE "||"):
+- REAL FOOTAGE FIRST (80% lines): || <3-6 concrete English words of exact real person/place/event/documentary shot> (NEVER use AI for real people or real news!).
+- IMPOSSIBLE / EXPLAINER RECONSTRUCTION (max 20% lines): || AI: <8-14 vivid realistic documentary words>.
+- NO emojis, NO hashtags, NO bold (**), NO numbering, NO extra notes.
 
 OUTPUT EXACTLY:
 LONG
+MODE: <category>
 TITLE: <documentary title> | <hook subtitle>
 ## शुरुआत
 <line 1> || <visual hint>
@@ -84,7 +107,7 @@ const GUIDE_TEXT = `📖 VIRAL GYAAN CLOUD BOT (24×7)
 export default {
   async fetch(request, env) {
     if (request.method !== "POST") {
-      return new Response("VideoTool Cloud Bridge v3.64 is LIVE!", { status: 200 });
+      return new Response("VideoTool Cloud Bridge v3.81 is LIVE!", { status: 200 });
     }
     let update;
     try {
@@ -92,7 +115,7 @@ export default {
     } catch {
       return new Response("ok", { status: 200 });
     }
-    // v3.79: buttons (Short / Long / meri awaaz) ka jawab
+    // v3.81: buttons (Short / Long / meri awaaz) ka jawab
     if (update.callback_query) {
       await handleChoice(env, update.callback_query);
       return new Response("ok", { status: 200 });
@@ -129,7 +152,7 @@ export default {
       return new Response("ok", { status: 200 });
     }
 
-    // v3.79: aapki awaaz (voice note / audio file) -> pehle chuni hui script ke saath video
+    // v3.81: aapki awaaz (voice note / audio file) -> pehle chuni hui script ke saath video
     const aud = msg.voice || msg.audio || (doc && /^(audio|video)\//.test(doc.mime_type || "") ? doc : null);
     if (aud && update.message) {
       const pend = await readPending(env);
@@ -157,7 +180,7 @@ export default {
     // 2) Start / Menu / Guide
     if (tl === "/start" || tl === "/menu") {
       await tgReply(env.TG_TOKEN, chatId,
-        "☁️ VideoTool Cloud v3.64 LIVE hai!\nNeeche ke buttons use karo ya seedha script bhejo:", true);
+        "☁️ VideoTool Cloud v3.81 LIVE hai!\nNeeche ke buttons use karo ya seedha script bhejo:", true);
       return new Response("ok", { status: 200 });
     }
     if (tl === "/guide" || text.includes("/guide")) {
@@ -209,7 +232,7 @@ export default {
       return new Response("ok", { status: 200 });
     }
 
-    // 6b) v3.79: script aayi -> pehle poochho: Short / Long / meri awaaz (pehle seedha Short ban jaati thi)
+    // 6b) v3.81: script aayi -> pehle poochho: Short / Long / meri awaaz (pehle seedha Short ban jaati thi)
     const firstUp = text.split("\n")[0].trim().toUpperCase();
     const explicit = /^(LONG|LAMBI|SHORT|SHORTS)\b/.test(firstUp) || /^(SYSTEM JAANCH|YTDLP JAANCH|SYSTEM CHECK)/.test(firstUp);
     if (!explicit && update.message) {
@@ -247,7 +270,7 @@ async function ghFetch(env, path, method = "GET", body = null) {
   return fetch(`https://api.github.com/repos/${env.GH_REPO}${path}`, opts);
 }
 
-// ---------------- v3.79: Short / Long / meri awaaz chunav ----------------
+// ---------------- v3.81: Short / Long / meri awaaz chunav ----------------
 const CHOICE_KB = {
   inline_keyboard: [
     [{ text: "📱 Short", callback_data: "mk:S" }, { text: "📺 Long video", callback_data: "mk:L" }],

@@ -248,9 +248,11 @@ def shot_plan(lock, eng=None):
         objs = [o for o in (sc.get("objects") or []) if isinstance(o, str)]
         qs = [sc.get("query") or ""]
         if subj and act: qs.append(f"{subj} {act}")
-        if subj and len(subj.split()) <= 3: qs.append(f"{subj} close up")
-        if ctx: qs.append(f"{ctx} wide shot")
-        elif objs: qs.append(f"{objs[0]} detail")
+        # v3.80: Never generate generic "X close up" / "context wide shot" junk — always anchor to concrete subject
+        if subj and ctx and ctx.lower() not in subj.lower() and len(ctx.split()) <= 4:
+            qs.append(f"{subj} {ctx}")
+        elif subj and objs and objs[0].lower() not in subj.lower():
+            qs.append(f"{subj} {objs[0]}")
         qs = [q[:90] for q in dict.fromkeys(q.strip() for q in qs) if q]
         plan.append({"subject": subj, "verify": (f"{subj} {act}".strip() or sc.get("show") or "")[:120],
                      "rivals": rivals, "queries": qs[:4]})

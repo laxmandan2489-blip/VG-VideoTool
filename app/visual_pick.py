@@ -483,7 +483,8 @@ def _junk_check(cands, idx, ims, sc, texts):
             lum = float(np.asarray(im.convert("L").resize((64, 64))).mean())
         except Exception:
             lum = 128.0
-        if lum < 28:
+        _dark_ok = bool(re.search(r"\b(space|moon|lunar|planet|star|galaxy|nasa|isro|chandrayaan|orbit|rocket|night|universe|black hole|deep sea|cosmos|earth from space|asteroid|satellite|telescope)\b", " ".join(texts or []), re.I))
+        if lum < (5 if _dark_ok else 28):
             cands[j]["_junk"] = f"andhera / kaala frame (roshni {lum:.0f})"
     labels += list(getattr(CTX, "neg", []) or [])            # v3.17: brand ka galat matlab (Copilot -> hawai jahaz)
     anon = TOPIC["lock"] or bool(getattr(CTX, "no_person", False))
@@ -681,6 +682,15 @@ def improve(i, found, eng, line, keys, need, lock=None, film=None, shot=None):
         if not any(x.get("part") == pi for x in chosen[len(keep):]) and not order and not TOPIC["lock"]:
             # is hisse ke liye ek bhi achha nahi -> sabse kam-bura (sirf tab; warna achhi clip ka alag hissa chalega)
             order = [c for c in vids if c["_score"] < ON["min"]] + [c for c in imgs if c["_score"] < ON["min"]]
+        # v3.80 AI VISION JUDGE: verify top 3 candidates with free Groq/Gemini vision before downloading
+        if order and len(order) >= 2:
+            try:
+                import vision_judge as _vj, visual_brain as _vb_vj
+                _ms = (_vb_vj.PLAN.get(i) or {}).get("must_show") or _kw(parts[pi], main) or full_kw
+                _em = _vb_vj.emotion_for(i)
+                order = _vj.judge(order, _thumb_bytes, line or eng, _ms, avoid=avoid, emotion=_em, keys=keys)
+            except Exception:
+                pass
         got = None
         for c in order[:8]:
             u = str(c.get("path") or c.get("url"))

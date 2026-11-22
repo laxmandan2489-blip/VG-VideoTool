@@ -38,6 +38,15 @@ PRESETS = {
     "person":   dict(look="film",    layer_kw=("grain", "dust"), layer_max=15,
                      gap=3.5, flash_every=False, archive=False, hook_cuts=3,
                      fx_block=("danger_sparks",), about="insaan / celebrity – film rang, chehre pe dhyan"),
+    "army":     dict(look="film",    layer_kw=("grain", "dust", "smoke"), layer_max=22,
+                     gap=3.0, flash_every=False, archive=True, hook_cuts=3,
+                     fx_block=("drop_spin",), about="fauj / army / defence – tactical film rang, tez cut, impact focus"),
+    "business": dict(look="teal",    layer_kw=("grain", "digital", "dust"), layer_max=12,
+                     gap=3.5, flash_every=False, archive=False, hook_cuts=3,
+                     fx_block=("mystery_dust", "danger_sparks", "drop_spin"), about="business / paisa / company – saaf teal rang, data cards"),
+    "sports":   dict(look="warm",    layer_kw=("light", "grain", "dust"), layer_max=14,
+                     gap=2.8, flash_every=False, archive=False, hook_cuts=3,
+                     fx_block=("mystery_dust", "danger_sparks"), about="sports / cricket – tez energy cut, garam rang"),
     "general":  dict(look="film",    layer_kw=("grain", "dust"), layer_max=18,
                      gap=3.5, flash_every=False, archive=True, hook_cuts=3,
                      fx_block=("danger_sparks",), about="aam facts – film rang, halki grain"),
@@ -59,6 +68,9 @@ KW = {
     "news":     r"(सरकार|चुनाव|मंत्री|प्रधानमंत्री|संसद|कोर्ट|अदालत|कानून|पुलिस|ब्रेकिंग|government|election|minister|"
                 r"parliament|court|law|police|breaking|policy|emergency|आपातकाल)",
     "mystery":  r"(रहस्य|रहस्यमय|डरावना|हत्या|अपराध|भूत|गायब|खौफ|mystery|mysterious|murder|crime|ghost|disappear|haunted)",
+    "army":     r"(सेना|फौज|आर्मी|मिसाइल|टैंक|फाइटर जेट|बॉर्डर|कमांडो|डिफेंस|सर्जिकल|army|military|missile|fighter jet|soldier|defence|commando|navy|air force)",
+    "business": r"(बिज़नेस|बिजनेस|स्टार्टअप|अरबपति|करोड़|कमाई|शेयर|बाज़ार|ब्रांड|मुनाफा|business|startup|billionaire|profit|revenue|valuation|ipo)",
+    "sports":   r"(क्रिकेट|फुटबॉल|ओलंपिक|मैच|वर्ल्ड कप|खिलाड़ी|शतक|विकेट|गोल|आईपीएल|cricket|football|olympics|world cup|century|wicket|athlete)",
 }
 
 HIST_EVIDENCE = re.compile(r"(अंग्रेज|ब्रिटिश|आज़ादी|आजादी|स्वतंत्रता संग्राम|विश्व युद्ध|आपातकाल|इमरजेंसी|बंटवारा|विभाजन|"

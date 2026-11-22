@@ -124,8 +124,10 @@ def read_script(path):
             FORMAT["v"] = "short"; continue
         if up.startswith("TITLE:"):
             title = [x.strip() for x in s.split(":", 1)[1].split("|") if x.strip()]; continue
-        if up.startswith(("MODE:", "CATEGORY:", "CONTENT MODE:")):     # v3.66: content mode (bola nahi jaata)
-            CONTENT_MODE["v"] = s.split(":", 1)[1].strip().lower() or None; continue
+        if up.startswith(("MODE:", "CATEGORY:", "CONTENT MODE:", "STYLE:")):     # v3.81: content + editing style mode
+            _cm = s.split(":", 1)[1].strip().lower() or None
+            CONTENT_MODE["v"] = _cm
+            continue
         if up.startswith("KEYWORDS:"):
             topic_kw = [x.strip().lower() for x in s.split(":", 1)[1].split(",") if x.strip()]; continue
         if up.startswith(("HOOK TEXT", "FACT CHECK", "SCRIPT:")) or re.match(r"^\d+\.\s", s) and len(lines) > 3 and not re.search(r"[ऀ-ॿ]{3}", s):
@@ -142,16 +144,17 @@ def read_script(path):
         s, fxl, marks = fx.parse_tags(s)                          # v2.15: [map: ..] [label: ..] + [boom] sound
         if hint:
             hint, fx2, m2 = fx.parse_tags(hint); fxl += fx2; marks += m2
-        if s:
-            if marks: MARKS[len(lines)] = [m.lower() for m in marks]
-            if fxl: FX[len(lines)] = fxl
-            # v3.62 UNIVERSAL MICRO-BEAT SPLIT: long multi-clause sentence (15+ words, no manual hint) -> split at Hindi contrast conjunctions
-        # so EVERY clause/emotion ("paise ki kami nahi" vs "prakriti ki taakat", "sookhe mausam" vs "baarish me") gets its OWN exact visual!
+        if not s:
+            continue
+        if marks: MARKS[len(lines)] = [m.lower() for m in marks]
+        if fxl: FX[len(lines)] = fxl
+        # v3.80 FIX: safe micro-beat split (never empty line, never double '।')
         if not hint and len(s.split()) >= 15 and not fxl and not marks:
             _parts = re.split(r"(?:,\s*|\s+(?=(?:लेकिन|बल्कि|मगर|परंतु|जबकि)\b))", s, maxsplit=1)
             _parts = [p_.strip(" ,।") for p_ in _parts if p_.strip(" ,।")]
             if len(_parts) == 2 and len(_parts[0].split()) >= 5 and len(_parts[1].split()) >= 5:
-                lines.append(_parts[0] + "।"); hints.append("")
+                _p0 = _parts[0] if _parts[0].endswith(("।", "?", "!")) else (_parts[0] + "।")
+                lines.append(_p0); hints.append("")
                 lines.append(_parts[1]); hints.append("")
                 continue
         lines.append(s); hints.append(hint)
@@ -1147,7 +1150,13 @@ def main():
                                 f"video ka doosra hissa (text card nahi)", show=False)
                 except Exception as _te:
                     log(f"   (topic fill skip: {_te})", show=False)
-            if not items and prev_items and yes(style.get("khali_line_pichhli_clip", "haan")):
+            _vb_real_i = False
+            try:
+                import visual_brain as _vb_chk
+                _vb_real_i = _vb_chk.is_real_line(i)
+            except Exception:
+                pass
+            if not items and prev_items and not _vb_real_i and yes(style.get("khali_line_pichhli_clip", "haan")):
                 items = [dict(x, credit=x.get("credit", "")) for x in prev_items]   # v2.7: galat clip se behtar
             if any(x["kind"] == "video" and not x.get("whole") for x in items):
                 prev_items = [x for x in items if x["kind"] == "video" and not x.get("whole")]
@@ -1171,6 +1180,13 @@ def main():
                     k = k_new
             seg = d / k
             pts = [st + q * seg for q in range(k + 1)]
+            try:
+                import visual_brain as _vb_bt
+                _bpts = _vb_bt.beat_cut_times(i, s, st, en, k)
+                if _bpts and len(_bpts) == k + 1:
+                    pts = _bpts
+            except Exception:
+                pass
             if k == 2 and len(items) >= 2 and items[1].get("part") == 1:
                 _pc = part_cut_time(s, eng[i] if i < len(eng) else "", st, en)   # v3.18: hissa-2 tab jab uski baat shuru
                 if _pc: pts[1] = _pc

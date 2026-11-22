@@ -4,7 +4,7 @@ import requests
 from common import log
 
 # v2.10: Google model naam badalta rehta hai -> list API se khud pata karo kaunse chal rahe hain
-FALLBACK = ["gemini-3.8-flash", "gemini-flash-latest", "gemini-3.8-flash-lite", "gemini-flash-lite-latest"]
+FALLBACK = ["gemini-2.5-flash", "gemini-flash-latest", "gemini-2.5-flash-lite", "gemini-flash-lite-latest"]
 URL = "https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent"
 _models = {}
 _dead = set()

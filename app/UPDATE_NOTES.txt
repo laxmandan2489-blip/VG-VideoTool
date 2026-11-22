@@ -1,3 +1,19 @@
+v3.82 🛠️ ZOMBIE CHROME HANG FIX + SPACE DARK-FRAME FIX (includes ALL of v3.80 + v3.81):
+• BADA FIX (cloud_run.py): video 100% banne ke baad zombie Chrome lagataar DBus error bhej kar download link aur Telegram delivery ko 10+ min atka raha tha – ab make_video khatam hote hi 3 sec me Chrome kill + turant link!
+• Space/Night fix (visual_pick.py): NASA / Chandrayaan / space ki asli clips ab 'andhera / kaala frame' keh kar reject nahi hongi (roshni seema 28 -> 5 sirf space/night scenes ke liye).
+• Includes ALL v3.80 + v3.81 upgrades: AI Vision Judge, Beat Cuts, Category Pro Editing, upgraded Telegram Prompts.
+
+v3.81 🎬 CATEGORY PRO EDITING + PROMPT DIRECTOR (includes all of v3.80):
+• Har category (science, army, news, business, history, mystery, sports, influencer) ke liye ALAG cinematic editing preset (app/edit_style.py + MODE: auto-mapping in make_video.py).
+• Telegram ke '▶️ Aaj shuru karo (5 Prompt)' aur '🎬 Long Prompt' ab ChatGPT/Gemini ko category ke hisaab se asli editing tags ([map:], [news:], [label:], [gola:], [ink], [riser], [impact]) + pinpoint '||' visual hints likhna sikhate hain.
+• Includes ALL v3.80 upgrades: FREE Groq/Gemini AI Vision Judge, Whisper word-timing beat cuts, pronoun samajh, 4 bug fixes, Disk check, temp auto-safai aur YouTube cookie expiry alert.
+
+v3.80 🎯 AI VISION JUDGE + BEAT CUTS + BUG FIXES:
+• Naya app/vision_judge.py: har line ke top 3 visuals ko FREE Groq Vision (ya Gemini backup) se dekh kar galat/unrelated footage reject karta hai (style: vision_judge = haan/nahi).
+• Beat-level cuts: ek line me 2-3 subject hon to Whisper word-timing par exact cut + 'उन्होंने/उसने' pronoun samajh + asli insaan ki khali line par pichhli random clip band.
+• 4 chhote bugs theek: read_script() '।' bug, sources.collect() wikimedia break, identity_lock 'close up/wide shot' junk queries, ai.py purane fallback model naam.
+• SYSTEM JAANCH me Disk space check + video ke baad temp auto-safai + YouTube cookie expiry alert.
+
 v3.79 🎛 SCRIPT BHEJO -> BOT POOCHHEGA: 📱 Short | 📺 Long | 🎙 Short + meri awaaz | 🎙 Long + meri awaaz | ❌ Cancel. "meri awaaz" chuno -> phir voice note / mp3 bhejo -> aapki awaaz se video (Whisper timing). Script ki pehli line LONG/SHORT likhi ho to seedha banegi (puraana tareeka).
 
 v3.78 ⚡ TEZ (quality wahi): (1) har line ki aam stock khoj pehle 2 baar hoti thi (sources + visual picker) – ab ek baar, picker se kuch na mile to purani poori khoj backup. (2) thumbnail aur 3-frame jaanch dobara nahi (cache). (3) cloud pe 5 lines ek saath (pehle RAM ki wajah se 2), 2 shots ek saath. (4) log me "⏱ footage khoj" ka hisaab. (5) /status me is mahine ke GitHub minute.

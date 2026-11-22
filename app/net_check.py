@@ -115,6 +115,12 @@ def run(full=True):
         import aankh
         return bool(aankh.ready()), "CLIP ready" if aankh.STATE.get("ok") else "load nahi hui"
 
+    def disk():
+        du = shutil.disk_usage(str(CACHE.parent if CACHE.parent.exists() else Path(".")))
+        free_gb = du.free / (1024 ** 3); tot_gb = du.total / (1024 ** 3)
+        return free_gb >= 3.0, f"{free_gb:.1f} GB khaali / {tot_gb:.1f} GB kul"
+
+    add("Disk space", disk, "3 GB se kam jagah bachi hai – temp safai zaroori")
     add("FFmpeg", ffm)
     add("yt-dlp", ytdlp, "requirements me yt-dlp hai – workflow log dekho")
     add("JS runtime", jsrt, "v3.68 khud lagata hai – agli baar apne aap theek ho jaayega")

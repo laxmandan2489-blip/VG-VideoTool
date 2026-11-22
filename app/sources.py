@@ -1330,7 +1330,7 @@ def _find_visuals(sent_idx, eng, topic, need, keys, prefer_video=True, extra_que
         tries = 0
         for name, fn in providers:
             if len(got) >= limit or tries >= 10: break
-            if name.startswith("wikimedia") and pkey and any(g["kind"] == "video" for g in got): break
+            if name.startswith("wikimedia") and pkey and any(g["kind"] == "video" for g in got): continue
             _is_slow = name.startswith(("archive", "social"))
             _qcap = qs[:1] if _is_slow else qs[:2]
             _ccap = 2 if _is_slow else 4
