@@ -26,7 +26,7 @@ ON = {"on": True, "n": 12, "video_bonus": 0.03, "min": 0.180, "any_channel": Fal
 # v3.15 TOPIC LOCK (user 15 Nov: "Yash ki baat ho to Yash ke around hi visual – billi, baadal, anjaan log, stick
 # figures NAHI"). Insaan / film wali video me stock footage tabhi jab wo line se pakka mile aur 'kachra' na ho.
 TOPIC = {"lock": False, "main": "", "film": ""}
-SOCIAL = {"on": True, "kinds": ("x", "pin"), "per": 1, "queries": 2}   # v3.67: style: social_clips = haan/nahi
+SOCIAL = {"on": True, "kinds": ("x", "pin"), "per": 1, "queries": 1}   # v3.67: style: social_clips = haan/nahi
 JUNK = {"animal": ("a cat, dog or other animal", ("cat", "dog", "animal", "bird", "lion", "tiger")),
         "sky": ("clouds and sky", ("cloud", "sky", "weather")),
         "nature": ("a nature landscape with trees, mountains or sunset", ("nature", "forest", "tree", "sunset", "mountain", "landscape")),

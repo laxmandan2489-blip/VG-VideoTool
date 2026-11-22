@@ -112,6 +112,18 @@ export default {
       return new Response("ok", { status: 200 });
     }
 
+    // 1b) v3.69: cookies.txt (YouTube / X) phone se -> sirf file_id repo me (cookies khud repo me NAHI jaati)
+    if (doc && (fnLo.endsWith(".txt") || fnLo.endsWith(".json")) && (fnLo.includes("cookie") || cap.includes("cookie"))) {
+      const both = fnLo + " " + cap;
+      const kind = (both.includes("x.com") || both.includes("twitter") || /(^|[^a-z])x([^a-z]|$)/.test(cap)) ? "x" : "youtube";
+      const ok = await saveCookieRef(env, kind, doc.file_id);
+      await tgReply(env.TG_TOKEN, chatId, ok
+        ? `🍪 ${kind === "x" ? "X/Twitter" : "YouTube"} cookies mil gayi ✓ Agli video se apne aap lagengi.\n` +
+          "Is message ko DELETE mat karna. Jaanch ke liye: SYSTEM JAANCH KARO"
+        : "❌ Cookies save nahi hui – GH_TOKEN ko Contents: Read and write permission chahiye.", true);
+      return new Response("ok", { status: 200 });
+    }
+
     const text = (msg.text || "").trim();
     const tl = text.toLowerCase();
     if (!text) return new Response("ok", { status: 200 });
@@ -199,6 +211,25 @@ async function ghFetch(env, path, method = "GET", body = null) {
   };
   if (body) opts.body = JSON.stringify(body);
   return fetch(`https://api.github.com/repos/${env.GH_REPO}${path}`, opts);
+}
+
+async function saveCookieRef(env, kind, fileId) {
+  // v3.69: seekha/cookies_ref.json me sirf Telegram file_id + date (bot token ke bina bekaar)
+  const path = "/contents/seekha/cookies_ref.json";
+  let sha = undefined, data = {};
+  try {
+    const g = await ghFetch(env, path);
+    if (g.ok) {
+      const j = await g.json();
+      sha = j.sha;
+      data = JSON.parse(atob((j.content || "").replace(/\n/g, "")) || "{}");
+    }
+  } catch (e) { data = {}; }
+  data[kind] = { file_id: fileId, date: new Date().toISOString() };
+  const body = { message: `cookies ref (${kind}) update`, content: btoa(JSON.stringify(data, null, 1)), branch: "main" };
+  if (sha) body.sha = sha;
+  const r = await ghFetch(env, path, "PUT", body);
+  return r.ok;
 }
 
 async function dispatchGH(env, workflowFile, inputs) {

@@ -23,8 +23,40 @@ _FILES = {}
 ENV = {"youtube": "YT_COOKIES", "x": "X_COOKIES"}
 
 
+REF = TOOL / "seekha" / "cookies_ref.json"     # v3.69: Telegram se bheji cookies file ka file_id (cookies NAHI)
+SRC = {}                                         # name -> "telegram" / "secret" / "file"
+
+
+def _from_telegram(name):
+    """v3.69: phone se Telegram bot ko cookies.txt bhejo -> worker sirf file_id repo me likhta hai ->
+    yahan bot token se file Telegram se aati hai. Cookies kabhi repo / log me nahi jaati."""
+    try:
+        import json, requests
+        if not REF.exists(): return ""
+        fid = ((json.loads(REF.read_text(encoding="utf-8")) or {}).get(name) or {}).get("file_id")
+        tok = (os.environ.get("TG_TOKEN") or os.environ.get("TELEGRAM_BOT_TOKEN") or "").strip()
+        if not tok:
+            try:
+                from common import read_keys
+                tok = read_keys().get("TELEGRAM") or ""
+            except Exception:
+                tok = ""
+        if not (fid and tok): return ""
+        info = requests.get(f"https://api.telegram.org/bot{tok}/getFile", params={"file_id": fid}, timeout=20).json()
+        fp = (info.get("result") or {}).get("file_path")
+        if not fp: return ""
+        r = requests.get(f"https://api.telegram.org/file/bot{tok}/{fp}", timeout=30)
+        return r.text if r.ok else ""
+    except Exception:
+        return ""
+
+
 def _text(name):
-    raw = (os.environ.get(ENV[name]) or "").strip()
+    raw = _from_telegram(name).strip()
+    SRC[name] = "telegram" if raw else ""
+    if not raw:
+        raw = (os.environ.get(ENV[name]) or "").strip()
+        if raw: SRC[name] = "secret"
     if not raw:
         f = TOOL / f"{name}_cookies.txt"                    # local / laptop: tool folder me file bhi chalegi
         if f.exists():
@@ -84,4 +116,5 @@ def for_url(url):
 
 def status():
     """Diagnostics ke liye (koi secret value nahi)."""
-    return {"youtube_cookies": bool(path("youtube")), "x_cookies": bool(path("x")), "proxy": bool(proxy())}
+    return {"youtube_cookies": bool(path("youtube")), "x_cookies": bool(path("x")), "proxy": bool(proxy()),
+            "youtube_from": SRC.get("youtube", ""), "x_from": SRC.get("x", "")}

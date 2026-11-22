@@ -47,8 +47,9 @@ def run(full=True):
     def cookies():
         import cookie_jar
         st = cookie_jar.status()
-        return True, f"YouTube cookies: {'haan' if st['youtube_cookies'] else 'nahi'}, X cookies: " \
-                     f"{'haan' if st['x_cookies'] else 'nahi'}, proxy: {'haan' if st['proxy'] else 'nahi'}"
+        fr = lambda k: f" ({st.get(k + '_from')})" if st.get(k + "_from") else ""
+        return True, f"YouTube cookies: {'haan' if st['youtube_cookies'] else 'nahi'}{fr('youtube')}, X cookies: " \
+                     f"{'haan' if st['x_cookies'] else 'nahi'}{fr('x')}, proxy: {'haan' if st['proxy'] else 'nahi'}"
 
     def gemini():
         k = keys.get("GEMINI")
@@ -94,7 +95,7 @@ def run(full=True):
         so.reset()
         pages = so.find_pages("NASA rocket launch", "x", 4)
         if not pages:
-            return False, "X ke post hi nahi mile (search: " + json.dumps(so.status()["search"])[:120] + ")"
+            return False, "X ke post nahi mile (" + (so.GEM.get("why") or json.dumps(so.status()["search"])[:120]) + ")"
         for pg in pages[:3]:
             c = so.grab(pg)
             if c: return True, f"clip mili ✓ ({pg[:60]})"
@@ -104,7 +105,7 @@ def run(full=True):
         import social_visuals as so
         pages = so.find_pages("ocean waves", "pin", 4)
         if not pages:
-            return False, "Pinterest pins nahi mile (search: " + json.dumps(so.status()["search"])[:120] + ")"
+            return False, "Pinterest pins nahi mile (" + (so.GEM.get("why") or json.dumps(so.status()["search"])[:120]) + ")"
         for pg in pages[:3]:
             c = so.grab(pg)
             if c: return True, f"clip mili ✓ ({pg[:60]})"
@@ -125,8 +126,8 @@ def run(full=True):
     add("Pexels", pexels)
     if full:
         add("YouTube search (yt-dlp)", yt_search, "yt-dlp purana ya block – YT_COOKIES lagao")
-        add("YouTube clip kaatna", yt_cut, "GitHub Secret YT_COOKIES lagao (PADHO.txt)")
-        add("Twitter/X clip", x_clip, "X ko login chahiye – X_COOKIES (optional). Na lagao to baaki sources chalenge")
+        add("YouTube clip kaatna", yt_cut, "cookies.txt phone se Telegram bot ko bhejo (nayi cookies) – purani/galat ho sakti hain")
+        add("Twitter/X clip", x_clip, "X ki cookies.txt Telegram bot ko bhejo (optional) – baaki sources phir bhi chalenge")
         add("Pinterest clip", pin_clip, "cloud pe search khaali aaya – koi baat nahi, baaki sources chalenge")
         add("AI aankh (CLIP)", clip_eye, "pehli baar model download hota hai – dobara chalao")
     ok_n = sum(1 for r in rows if r[0])

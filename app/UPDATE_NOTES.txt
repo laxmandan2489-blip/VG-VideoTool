@@ -1,3 +1,8 @@
+v3.69 me kya naya:
+🍪 PHONE SE COOKIES: cookies.txt file seedha Telegram bot ko bhejo -> apne aap lag jaati hai (GitHub kholne ki zaroorat nahi). YouTube ya X – file ke naam se khud pehchaanta hai.
+🐦📌 Twitter/X + Pinterest ke post ab aapki Gemini key ke Google Search se dhoondhe jaate hain (bina Brave, bina card). Ek video me max 18 search.
+🩺 SYSTEM JAANCH me dikhega cookies kahan se aayi (telegram / secret).
+
 v3.68: Deno + naya yt-dlp ab KHUD lagte hain (workflow file badalne ki zaroorat nahi). Brave key zaroori NAHI.
 
 v3.67 me kya naya (CLOUD par yt-dlp + Twitter/X + Pinterest):

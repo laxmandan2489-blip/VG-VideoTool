@@ -185,6 +185,82 @@ def _ddg_lite(query, limit=8):
         _search_mark("ddg-lite", False, str(e)); return []
 
 
+GEM = {"on": True, "calls": 0, "max": 18, "cache": {}, "why": ""}   # v3.69: Gemini Google Search se post dhoondhna
+_KEYS = {"v": None}
+
+
+def _gem_key():
+    if _KEYS["v"] is None:
+        try:
+            from common import read_keys
+            _KEYS["v"] = read_keys().get("GEMINI") or ""
+        except Exception:
+            _KEYS["v"] = ""
+    return _KEYS["v"]
+
+
+def _gemini_pages(q):
+    """v3.69: aapki Gemini key ka Google Search (grounding) -> X / Pinterest ke ASLI post URLs.
+    Cloud pe DuckDuckGo khaali aata hai, Brave card maangta hai – ye bina card ke chalta hai. Sirf wahi URL lete hain
+    jo Google Search ke sources me aaye (ya jinhe baad me yt-dlp sach me khol paaye) – banaye hue nahi chalte."""
+    q = (q or "").strip()
+    if not q: return []
+    with _SL:
+        if q in GEM["cache"]: return GEM["cache"][q]
+        if not GEM["on"] or GEM["calls"] >= GEM["max"]: return []
+        GEM["calls"] += 1
+    key = _gem_key()
+    if not key:
+        with _SL: GEM["on"] = False; GEM["why"] = "Gemini key nahi"
+        return []
+    try:
+        import ai
+        mods = [m for m in ai.models(key) if "lite" not in m][:2] or ai.models(key)[:2]
+    except Exception:
+        mods = ["gemini-flash-latest"]
+    prompt = (f"Search the web for public posts on X (x.com / twitter.com) and on Pinterest that contain a short VIDEO "
+              f"clip about: {q}. List the exact post URLs you found in the search results (format "
+              f"https://x.com/<user>/status/<id> or https://www.pinterest.com/pin/<id>/), one per line, maximum 10. "
+              f"Do not invent URLs.")
+    body = {"contents": [{"parts": [{"text": prompt}]}], "tools": [{"google_search": {}}],
+            "generationConfig": {"temperature": 0.2}}
+    urls = []
+    for m in mods:
+        try:
+            r = _S.post(f"https://generativelanguage.googleapis.com/v1beta/models/{m}:generateContent",
+                        headers={"x-goog-api-key": key, "Content-Type": "application/json"}, json=body, timeout=45)
+        except Exception as e:
+            _search_mark("gemini", False, str(e)); continue
+        if r.status_code == 429:
+            _search_mark("gemini", False, "quota (429)")
+            with _SL: GEM["on"] = False; GEM["why"] = "Gemini search ki aaj ki limit"
+            break
+        if r.status_code != 200:
+            _search_mark("gemini", False, f"HTTP {r.status_code}"); continue
+        try:
+            c = (r.json().get("candidates") or [{}])[0]
+            txt = "".join(p.get("text", "") for p in (c.get("content") or {}).get("parts", []))
+            urls += re.findall(r"https?://[^\s)\]>\"']+", txt)
+            for ch in ((c.get("groundingMetadata") or {}).get("groundingChunks") or []):
+                w = ch.get("web") or {}
+                u, t = w.get("uri") or "", (w.get("title") or "").lower()
+                if not u: continue
+                if "grounding-api-redirect" in u and any(k in t for k in ("x.com", "twitter", "pinterest")):
+                    try:
+                        rr = _S.get(u, allow_redirects=False, timeout=8)
+                        u = rr.headers.get("Location") or u
+                    except Exception:
+                        pass
+                urls.append(u)
+        except Exception as e:
+            _search_mark("gemini", False, str(e)); continue
+        _search_mark("gemini", True)
+        break
+    urls = [u.rstrip(".,;") for u in dict.fromkeys(urls)]
+    with _SL: GEM["cache"][q] = urls
+    return urls
+
+
 def find_pages(q, kind="x", limit=5):
     """kind = x / pin -> asli post page URLs (status / pin)."""
     rx = _X_RE if kind == "x" else _PIN_RE
@@ -199,7 +275,9 @@ def find_pages(q, kind="x", limit=5):
             else:
                 nu = f"https://www.pinterest.com/pin/{m.group(1)}/"
             if nu not in out: out.append(nu)
-    take(_brave_web(qq, 15))
+    take(_gemini_pages(q))                             # v3.69: pehle Gemini Google Search (bina card)
+    if len(out) < limit:
+        take(_brave_web(qq, 15))
     if len(out) < limit:
         h = _ddg_links(qq, limit=12)
         _search_mark("ddg-html", bool(h), "" if h else "khaali (shayad bot-check)")
@@ -357,3 +435,4 @@ def reset():
     with _SL:
         for k in ("x", "pin"): STATUS[k].update(n=0, fail=0, blocked=0, why="")
         STATUS["search"].clear(); STATUS["t0"] = None
+        GEM.update(on=True, calls=0, why=""); GEM["cache"].clear()
