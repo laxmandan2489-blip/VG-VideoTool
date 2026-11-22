@@ -815,7 +815,19 @@ def yes_tags():
     return TAGS_ON["on"] and CHECK["on"]
 
 
+_THUMB = {}
+
+
 def _thumb_bytes(url):
+    """v3.78: cache – ek hi thumbnail 2-3 jagah (rank, picker) se dobara download nahi."""
+    if url in _THUMB: return _THUMB[url]
+    b = _thumb_bytes_raw(url)
+    if len(_THUMB) > 3000: _THUMB.clear()
+    _THUMB[url] = b
+    return b
+
+
+def _thumb_bytes_raw(url):
     try:
         r = S.get(url, timeout=15)
         if r.status_code == 200 and len(r.content) > 1500:
@@ -1008,7 +1020,24 @@ def _protected(term):
     return any(k and (t == k or t in k.split() or k in t.split()) for k in keep)
 
 
+_VERIFY_MEMO = {}
+
+
 def verify(path, kind, text, extra=(), avoid=(), line_idx=None):
+    """v3.78: same file + same text dobara aaye to pichhla jawab (3 frame ffmpeg + CLIP dobara nahi)."""
+    try:
+        mk = (str(path), kind, str(text), tuple(str(x) for x in (extra or ())), tuple(str(x) for x in (avoid or ())))
+    except Exception:
+        mk = None
+    if mk is not None and mk in _VERIFY_MEMO:
+        return _VERIFY_MEMO[mk]
+    r = _verify(path, kind, text, extra, avoid, line_idx)
+    if mk is not None and r is not None:
+        _VERIFY_MEMO[mk] = r
+    return r
+
+
+def _verify(path, kind, text, extra=(), avoid=(), line_idx=None):
     """Download hui clip/photo sach me line wali cheez dikhati hai? (AI aankh, 3 frame). True / False / None(jaanch nahi).
     v3.13 (Bug B): (1) line ke chhote shabd bhi milaye jaate hain, (2) 'avoid' tabhi reject jab wo line se
     AVOID_MARGIN zyada aur aadhe+ frames me jeete, (3) mukhya insaan kabhi avoid nahi, (4) har reject ki wajah log me
@@ -1113,9 +1142,11 @@ def ai_photo(idx, text, key):
     return None
 
 
-def find_visuals(sent_idx, eng, topic, need, keys, prefer_video=True, extra_queries=None, line=""):
-    """Return up to `need` local files [{kind, path, credit}] for this sentence."""
-    got, kw = _find_visuals(sent_idx, eng, topic, need, keys, prefer_video, extra_queries, line)
+def find_visuals(sent_idx, eng, topic, need, keys, prefer_video=True, extra_queries=None, line="", light=False):
+    """Return up to `need` local files [{kind, path, credit}] for this sentence.
+    v3.78 light=True: sirf aapke link / my_clips / asli insaan-brand (Wikidata, YouTube) wala hissa – aam stock ki
+    khoj + download visual_pick karta hai (pehle dono karte the = same kaam 2 baar, ~aadha samay barbaad)."""
+    got, kw = _find_visuals(sent_idx, eng, topic, need, keys, prefer_video, extra_queries, line, light)
     return green_fix(got, sent_idx, topic, keys, eng), kw
 
 
@@ -1140,7 +1171,7 @@ def green_fix(got, sent_idx, topic, keys, eng=""):
     return out
 
 
-def _find_visuals(sent_idx, eng, topic, need, keys, prefer_video=True, extra_queries=None, line=""):
+def _find_visuals(sent_idx, eng, topic, need, keys, prefer_video=True, extra_queries=None, line="", light=False):
     got = []
     for c in my_clips_for(sent_idx):
         got.append(c)
@@ -1250,6 +1281,8 @@ def _find_visuals(sent_idx, eng, topic, need, keys, prefer_video=True, extra_que
             log(f"   line {sent_idx+1}: {who} ki {len(got)} photo ✓", show=False)
             return got, []
     kw = keywords(eng)
+    if light:
+        return got, kw
     qs = list(extra_queries or []) + [q for q in queries_for(kw, topic) if q not in (extra_queries or [])]
     if not qs and topic:
         qs = [" ".join(topic[:2]), topic[0]]

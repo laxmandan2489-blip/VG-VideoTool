@@ -298,7 +298,11 @@ def main():
     env["VG_RESULT"] = str(res)
     env["PYTHONIOENCODING"] = "utf-8"
     env["PYTHONUNBUFFERED"] = "1"
-    env["VG_STYLE_JSON"] = json.dumps({"remotion_beats": "haan", "blender_doc_stage": "haan"})
+    env["VG_STYLE_JSON"] = json.dumps({"remotion_beats": "haan", "blender_doc_stage": "haan", "ek_saath_shots": "2"})
+    env.setdefault("VG_VISUAL_THREADS", "5")   # v3.78: cloud pe 5 lines ek saath (RAM 7 GB pe pehle 2 hi chalti thi)
+    # v3.77: quality loop ko kitna samay mil sakta hai (GitHub job limit se pehle video bhejni hai)
+    _hl = float(os.environ.get("VG_HARD_LIMIT_MIN", "46"))
+    env.setdefault("VG_TIME_BUDGET_MIN", str(max(20.0, _hl - 6 - (time.time() - t0) / 60)))
 
     proc = subprocess.Popen(
         [sys.executable, "-u", str(ROOT / "app" / "make_video.py")],
@@ -429,12 +433,13 @@ def main():
     print("make_video.py exit code:", rc)
 
     out_mp4 = None
-    vrep_md = None; vrep_sum = None
+    vrep_md = None; vrep_sum = None; review_sc = None
     if res.exists():
         try:
             data = json.loads(res.read_text(encoding="utf-8"))
             cand = data.get("video") or data.get("out") or data.get("path")
             vrep_md = data.get("visual_report"); vrep_sum = data.get("visual_summary")
+            review_sc = (data.get("review") or {}).get("score")
             if cand and Path(cand).exists():
                 out_mp4 = Path(cand)
         except Exception as e:
@@ -471,6 +476,8 @@ def main():
         _gh_rid = os.environ.get("GITHUB_RUN_ID", "").strip()
         _gh_url = f"{_gh_srv}/{_gh_repo}/actions/runs/{_gh_rid}" if (_gh_repo and _gh_rid) else ""
         cap = f"✅ Cloud Video Ready ({size_mb:.1f} MB • {_fmt_elapsed(time.time() - t0)})\n{first_line}"
+        if review_sc is not None:
+            cap += f"\n🎯 Visual score: {review_sc}/100" + (" ✅" if float(review_sc) >= 90 else " (90 se kam – report dekho)")
         if dl_link:
             cap += f"\n⬇️ Download: {dl_link}"
         if drive_info:

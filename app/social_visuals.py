@@ -300,7 +300,8 @@ def _groq_models(k):
     except Exception as e:
         _search_mark("groq", False, f"models: {e}")
     comp = [m for m in ids if "compound" in m.lower()]
-    oss = [m for m in ids if "gpt-oss" in m.lower()]
+    oss = [m for m in ids if "gpt-oss" in m.lower() and "safeguard" not in m.lower()]   # v3.76: safety model nahi
+    oss.sort(key=lambda m: (0 if "120b" in m else 1 if "20b" in m else 2))
     plan = [(m, None) for m in comp[:2]] + [(m, [{"type": "browser_search"}]) for m in oss[:2]]
     GROQ_S["models"] = plan
     if not plan: _search_mark("groq", False, "web search wala model list me nahi mila")
@@ -326,9 +327,11 @@ def _groq_pages(q, prompt):
         try:
             r = _S.post("https://api.groq.com/openai/v1/chat/completions",
                         headers={"Authorization": f"Bearer {k}", "Content-Type": "application/json"},
-                        json=body, timeout=60)
+                        json=body, timeout=120)
         except Exception as e:
-            _search_mark("groq", False, f"{model}: {e}"); continue
+            _search_mark("groq", False, f"{model}: {'timeout' if 'timed out' in str(e).lower() else str(e)[:60]}")
+            with _SL: GROQ_S.setdefault("dead", set()).add(model)
+            continue
         if r.status_code == 429:
             _search_mark("groq", False, f"{model}: 429 limit")
             with _SL: GROQ_S.setdefault("dead", set()).add(model)
@@ -412,6 +415,11 @@ def grab(page, secs=None):
         r = _ytdlp(ck + ["-J", "-f", "best[ext=mp4][height<=1080]/best[height<=1080]/best", page], 30)
         if r.returncode != 0 or not r.stdout.strip():
             err = (r.stderr or "").strip()[-200:]
+            if "youtube" in err.lower() and pl == "pin":
+                with _SL:                                    # v3.76: pin ke andar YouTube video tha – ye pin chhodo
+                    STATUS[pl]["fail"] += 1
+                    STATUS[pl]["why"] = "mile pins me YouTube ka video tha (Pinterest ka apna nahi) – agla pin try"
+                return None
             with _SL:
                 STATUS[pl]["fail"] += 1
                 if any(k in err.lower() for k in _BLOCK):
@@ -426,6 +434,8 @@ def grab(page, secs=None):
         j = _json.loads(r.stdout)
         if j.get("_type") == "playlist" and j.get("entries"):
             j = next((e for e in j["entries"] if e), j)
+        if pl == "pin" and "youtube" in str(j.get("extractor_key") or j.get("extractor") or "").lower():
+            return None                                    # v3.76: Pinterest par YouTube embed – chhodo
         url = j.get("url") or ""
         if not url and j.get("requested_formats"):
             url = (j["requested_formats"][0] or {}).get("url") or ""
@@ -478,7 +488,7 @@ def social_clips(q, kinds=("x", "pin"), limit=2):
     for kd in kinds:
         if _over(kd) or _time.time() > dl: continue
         got = 0
-        for page in find_pages(q, kd, limit=limit + 1):
+        for page in find_pages(q, kd, limit=limit + (3 if kd == "pin" else 1)):
             if got >= limit or _time.time() > dl: break
             c = grab(page)
             if c:

@@ -262,7 +262,35 @@ async function getRunsSummary(env) {
     const icon = run.status === "in_progress" ? "⏳" : run.status === "queued" ? "🕒" : (run.conclusion === "success" ? "✅" : run.conclusion === "cancelled" ? "🛑" : "❌");
     lines.push(`${icon} ${run.name} (${run.status}${run.conclusion ? "/" + run.conclusion : ""})\n🔗 ${run.html_url}`);
   }
+  try {
+    const mins = await monthMinutes(env);
+    if (mins !== null) {
+      const left = 2000 - mins;
+      lines.push(`⏱ Is mahine GitHub ke ~${mins} minute lage (free: 2000) – bache ~${left > 0 ? left : 0} min` +
+        (left < 300 ? "\n⚠️ Minute khatam hone wale hain!" : ""));
+    }
+  } catch (e) {}
   return lines.join("\n\n");
+}
+
+async function monthMinutes(env) {
+  // v3.78: is mahine ke saare runs ka samay (har job minute me upar round – GitHub jaisa andaaza)
+  const now = new Date();
+  const start = `${now.getUTCFullYear()}-${String(now.getUTCMonth() + 1).padStart(2, "0")}-01`;
+  let total = 0, page = 1;
+  while (page <= 5) {
+    const r = await ghFetch(env, `/actions/runs?per_page=100&page=${page}&created=>=${start}`);
+    if (!r.ok) return null;
+    const d = await r.json();
+    const runs = d.workflow_runs || [];
+    for (const run of runs) {
+      const a = Date.parse(run.run_started_at || run.created_at), b = Date.parse(run.updated_at);
+      if (a && b && b > a) total += Math.ceil((b - a) / 60000);
+    }
+    if (runs.length < 100) break;
+    page++;
+  }
+  return total;
 }
 
 async function tgReply(token, chatId, text, withKb = false) {

@@ -205,6 +205,11 @@ def review(video, cuts, sents, ass, W, H, total, style=None, lock=None):
         for c in cuts:
             if c.get("source"): srcs[c["source"]] = srcs.get(c["source"], 0) + 1
         over = {Path(k).name: v for k, v in srcs.items() if v > 2 and "kcard" not in k}
+        R["weak_lines"] = sorted({int(c["line"]) for c, _, _ in low} | {int(c["line"]) for c in static})   # v3.77
+        R["line_clip"] = {}
+        for row in R["cuts"]:
+            if row.get("clip") is not None:
+                l_ = int(row["line"]); R["line_clip"][l_] = min(R["line_clip"].get(l_, 9.0), row["clip"])
         C.update(cuts=len(cuts), visual_low_match=len(low), repeat_frames=len(rep), bars=len(barred),
                  static_video=len(static), source_used_3plus=over)
         if low:

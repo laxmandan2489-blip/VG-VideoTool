@@ -721,6 +721,7 @@ def main():
         st = s["start"] if i else 0.0
         en = sents[i + 1]["start"] if i + 1 < len(sents) else total
         k = max(1, int(round((en - st) / cut)))
+        if i == 0 and en - st >= 2.2: k = max(k, 2)   # v3.77: hook – shuru ke 3 sec me kam se kam 2 visual
         spans.append((st, en, min(k, int(num(style, "line_max_clips", 1, 6)))))   # v2.7: ek line pe max 3 clips
 
     # v2: 4 lines ek saath dhoondhta hai (pehle se ~3-4 guna tez)
@@ -784,6 +785,12 @@ def main():
     except Exception as _vpe:
         VPICK = False; log(f"   (visual picker band: {_vpe})", show=False)
     done_n = [0]
+    import threading as _thT
+    _TIMES = {}; _TL = _thT.Lock()
+
+    def _tadd(k, v):
+        with _TL: _TIMES[k] = _TIMES.get(k, 0.0) + v
+
     def job(i):
         if USER_AI_HINT.get(i) and yes(style.get("ai_visual_auto", "haan")):
             # v3.58: Explicit "|| AI: ..." hint -> skip slow stock search, route straight to cinematic AI scene!
@@ -821,8 +828,11 @@ def main():
             _vq.EXTRA_Q[i] = [q_ for q_ in ((gq[i] if gq and i < len(gq) else []) or []) if isinstance(q_, str)][:4]
         except Exception:
             pass
+        _t_a = time.time()
+        _light = bool(VPICK and yes(style.get("tez_khoj", "haan")))       # v3.78: same kaam 2 baar nahi
         r = sources.find_visuals(i, eng[i], topic_kw, spans[i][2], keys, extra_queries=extra,
-                                 line=sents[i].get("script") or sents[i]["text"])
+                                 line=sents[i].get("script") or sents[i]["text"], light=_light)
+        _tadd("1 asli/entity khoj", time.time() - _t_a)
         _yk = keys.get("YOUTUBE") or keys.get("YOUTUBEAPI") or keys.get("YOUTUBEAPIKEY")
         _cta = bool(LOCK and i < len(LOCK["scenes"]) and LOCK["scenes"][i].get("cta"))
         if FILM and not _cta and isinstance(r, tuple) and isinstance(r[0], list):   # v3.13b: key na ho to yt-dlp
@@ -836,6 +846,7 @@ def main():
             except Exception as _fe:
                 log(f"   (film trailer clip skip: {_fe})", show=False)
         if VPICK and isinstance(r, tuple) and not (LOCK and i < len(LOCK["scenes"]) and LOCK["scenes"][i].get("cta")):
+            _t_b = time.time()
             try:                                       # v3.13: POORI LINE se 10-12 visual -> score -> video pehle
                 import visual_pick
                 r = visual_pick.improve(i, r, eng[i], sents[i].get("script") or sents[i]["text"], keys, spans[i][2],
@@ -843,6 +854,12 @@ def main():
                 r = (sources.green_fix(r[0], i, topic_kw, keys, eng[i]), r[1])
             except Exception as _ve:
                 log(f"   (visual picker skip line {i+1}: {str(_ve)[:120]})", show=False)
+            _tadd("2 visual picker (khoj+CLIP)", time.time() - _t_b)
+        if _light and isinstance(r, tuple) and not r[0]:
+            _t_c = time.time()                        # v3.78: picker se kuch nahi -> purani poori khoj (backup)
+            r = sources.find_visuals(i, eng[i], topic_kw, spans[i][2], keys, extra_queries=extra,
+                                     line=sents[i].get("script") or sents[i]["text"], light=False)
+            _tadd("3 backup poori khoj", time.time() - _t_c)
         done_n[0] += 1
         log(f"   visuals: {min(done_n[0], len(sents))}/{len(sents)} lines ✓")      # v2.6: progress, taaki ruka hua na lage
         return r
@@ -975,8 +992,12 @@ def main():
             with open(LOG_FILE, "a", encoding="utf-8") as f:
                 import traceback; f.write(traceback.format_exc())
             return ([], [])
-    with ThreadPoolExecutor(max_workers=int(HW.get("visual_search_threads", 4)) if HW else 4) as ex:
+    _nthr = int(os.environ.get("VG_VISUAL_THREADS") or (HW.get("visual_search_threads", 4) if HW else 4))
+    _t_vs = time.time()
+    with ThreadPoolExecutor(max_workers=max(1, _nthr)) as ex:
         found = list(ex.map(job3, range(len(sents))))
+    log(f"   ⏱ footage khoj {(time.time() - _t_vs)/60:.1f} min ({_nthr} lines ek saath) – " +
+        ", ".join(f"{k[2:]} {v/60:.1f}" for k, v in sorted(_TIMES.items())) + " (thread-minute)")
     log(f"   visuals: {len(sents)}/{len(sents)} lines ✓ (sab lines ki khoj poori)")   # v3.5: "9/10 pe atki" jaisa na dikhe
     try:                                               # v3.15 TOPIC LOCK: khaali line -> kinetic card/Blender se PEHLE
         import visual_pick as _vp, subject_pool as _sp  # mukhya insaan/film ki apni video ka naya hissa
@@ -1021,6 +1042,14 @@ def main():
         style["check_bot"] = "nahi"; style["visual_gate_round"] = "1"
         log("   ⚡ jaldi mode: Gemini poori-video review + dobara render band")
     qc_rounds = int(num(style, "check_bot_round", 0, 3)) if yes(style.get("check_bot", "haan")) else 0
+    # v3.77 QUALITY LOOP: Video Review score target (default 90) tak kamzor lines ki footage badal ke dobara –
+    # jab tak samay bacha ho. style: quality_target = 90 | quality_rounds = 3 | quality_loop = haan
+    QL = {"on": yes(style.get("quality_loop", "haan")),
+          "target": float(num(style, "quality_target", 50, 100)) if style.get("quality_target") else 90.0,
+          "budget": float(os.environ.get("VG_TIME_BUDGET_MIN") or style.get("quality_time_min") or 60) * 60,
+          "hist": [], "t_round": time.time(), "best": {}, "stuck": set()}
+    if QL["on"]:
+        qc_rounds = max(qc_rounds, int(num(style, "quality_rounds", 0, 6)) if style.get("quality_rounds") else 3)
     if FB and (FB["all_footage"] or FB["bad_lines"]): qc_rounds = max(qc_rounds, 2)
     name = None
     BEATS = []
@@ -1059,6 +1088,7 @@ def main():
         return []
     PREV_TR = {}; SHOT_DONE = {}                       # v3.6: dobara round me sirf badle shots dobara banenge
     for qc_round in range(qc_rounds + 1):
+        QL["t_round"] = time.time()
         plan = []; line_start = {}; credits = []; KW_BEHIND = set(); NAME_SHOWN = set(); HERO_N = [-1]
         NAME_T = []                                    # v3.17: naam patti kab dikhi (keyword se takraav nahi)
         prev_items = []
@@ -1761,23 +1791,74 @@ def main():
         log("6) Final video bana raha hoon (2-5 minute, neeche % dikhega – band mat karna)...")
         render.final_mux(joined, overlay, ass, audio, out, style, total, work, events)
         # v2.7: check bot – kharab lines ki footage badal ke dobara
-        if qc_round >= qc_rounds:
-            break
-        try:
-            import qc
-            bad = qc.check(out, sents, keys.get("GEMINI"), work, complaint=os.environ.get("VG_FEEDBACK", ""))
-            bad = {i: w for i, w in bad.items() if i not in face_lines and i not in user_assign
-                   and not (found[i][0] and found[i][0][0].get("whole"))}
-        except Exception as e:
-            log(f"   (check bot skip: {e})", show=False); bad = {}
+        bad = None
+        if QL["on"]:
+            try:                                       # v3.77: score dekho -> target se kam -> kamzor lines dobara
+                import video_review as _vrq
+                _rv = _vrq.review(out, EDL_CUTS, sents, work / "subs.ass", W, H, total, style, LOCK)
+                _sc = float(_rv.get("score") or 0); QL["hist"].append(_sc)
+                _el = time.time() - t0; _rt = time.time() - QL["t_round"]
+                for l_, c_ in (_rv.get("line_clip") or {}).items():
+                    QL["best"].setdefault(l_ - 1, c_)
+                weak = [l_ - 1 for l_ in (_rv.get("weak_lines") or []) if 0 <= l_ - 1 < len(sents)]
+                weak = [i for i in weak if i not in face_lines and i not in user_assign and i not in QL["stuck"]
+                        and not (found[i][0] and found[i][0][0].get("whole"))]
+                log(f"   🎯 Quality loop round {qc_round + 1}: score {_sc:.0f}/100 (target {QL['target']:.0f}), "
+                    f"kamzor lines: {[i + 1 for i in weak] or '-'}")
+                if _sc >= QL["target"]:
+                    log("   ✅ target score mil gaya"); break
+                est = _rt + 75 * len(weak)
+                if qc_round >= qc_rounds or not weak or _el + est > QL["budget"]:
+                    log("   ⚠️ target nahi pahuncha – " + ("rounds khatam" if qc_round >= qc_rounds else
+                        "badalne layak line nahi bachi" if not weak else
+                        f"samay khatam ({_el/60:.0f} min ho gaye, agla round ~{est/60:.0f} min)") +
+                        " – sabse achha version bhej raha hoon")
+                    break
+                bad = {i: "video review: line se kam mel" for i in weak}
+            except Exception as e:
+                log(f"   (quality loop skip: {e})", show=False); bad = None
+        if bad is None:
+            if qc_round >= qc_rounds:
+                break
+            try:
+                import qc
+                bad = qc.check(out, sents, keys.get("GEMINI"), work, complaint=os.environ.get("VG_FEEDBACK", ""))
+                bad = {i: w for i, w in bad.items() if i not in face_lines and i not in user_assign
+                       and not (found[i][0] and found[i][0][0].get("whole"))}
+            except Exception as e:
+                log(f"   (check bot skip: {e})", show=False); bad = {}
         if not bad:
             break
         log(f"   {len(bad)} line(s) ki footage badal ke dobara bana raha hoon (round {qc_round+1})...")
         done_n[0] = len(sents) - len(bad)
+        try:                                   # v3.77: dobara khoj me zyada mehnat (zyada candidates, X/Pinterest 2 query)
+            import visual_pick as _vpq
+            _vpq.ON["n"] = max(_vpq.ON.get("n", 12), 20); _vpq.SOCIAL["queries"] = 2
+        except Exception:
+            pass
+        changed = 0
         for i in bad:
+            old_ = found[i]
             for it in found[i][0]:
                 if it.get("url"): sources._used.add(it["url"])
-            found[i] = job(i)                  # purani clips _used me hain -> nayi clips aayengi
+            try:
+                new_ = job(i)                  # purani clips _used me hain -> nayi clips aayengi
+            except Exception as _je:
+                log(f"   line {i+1}: dobara khoj fail ({str(_je)[:80]}) – purani rakhi", show=False)
+                QL["stuck"].add(i); continue
+            try:                               # v3.77: nayi footage purani se behtar nahi -> purani hi rakho
+                _ns = max([float(x.get("score")) for x in (new_[0] or []) if x.get("score") is not None] or [-1.0])
+                _os = max([float(x.get("score")) for x in (old_[0] or []) if x.get("score") is not None] or [-1.0])
+                if new_[0] and (_ns < 0 or _ns > _os + 0.005 or _os < 0):
+                    found[i] = new_; changed += 1
+                else:
+                    QL["stuck"].add(i)
+                    log(f"   line {i+1}: isse behtar footage nahi mili – purani hi rakhi", show=False)
+            except Exception:
+                found[i] = new_; changed += 1
+        if QL["on"] and not changed:
+            log("   ⚠️ kisi kamzor line ki behtar footage nahi mili – aur round se fayda nahi")
+            break
         if LOCK and yes(style.get("visual_gate", "haan")):
             try:                               # v3.2: badli hui lines ki bhi jaanch
                 import visual_verify

@@ -103,13 +103,13 @@ def run(full=True):
 
     def pin_clip():
         import social_visuals as so
-        pages = so.find_pages("ocean waves", "pin", 4)
+        pages = so.find_pages("ocean waves", "pin", 6)
         if not pages:
             return False, "Pinterest pins nahi mile – search: " + json.dumps(so.status()["search"], ensure_ascii=False)[:230]
-        for pg in pages[:3]:
+        for pg in pages[:6]:
             c = so.grab(pg)
             if c: return True, f"clip mili ✓ ({pg[:60]})"
-        return False, so.status()["pinterest"].get("why") or "pins mile par video wali nahi thi"
+        return False, f"{len(pages)} pins mile, video nahi kati – " + (so.status()["pinterest"].get("why") or "video wali nahi thi")
 
     def clip_eye():
         import aankh
