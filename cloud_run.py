@@ -132,6 +132,39 @@ def tg_send_video(token, chat_id, video_path, caption=""):
         return False
 
 
+def public_link(video_path):
+    """v3.75: phone ke liye SEEDHA download link (login nahi, Drive setup nahi).
+    Litterbox (catbox.moe) – link 72 ghante chalta hai; fail ho to 0x0.st. Link jiske paas ho wahi khol sakta hai.
+    Band karna ho: GitHub Secret / env VG_PUBLIC_LINK = nahi."""
+    if (os.environ.get("VG_PUBLIC_LINK") or "haan").strip().lower() in ("nahi", "no", "0", "off"):
+        return None, "band hai"
+    vp = Path(video_path)
+    if not vp.exists():
+        return None, "file nahi"
+    errs = []
+    hosts = [
+        ("litterbox", "https://litterbox.catbox.moe/resources/internals/api.php",
+         {"reqtype": "fileupload", "time": "72h"}, "fileToUpload", 1000),
+        ("0x0", "https://0x0.st", {}, "file", 512),
+    ]
+    size_mb = vp.stat().st_size / (1024 * 1024)
+    for name, url, data, field, max_mb in hosts:
+        if size_mb > max_mb:
+            errs.append(f"{name}: file badi"); continue
+        for attempt in range(2):
+            try:
+                with open(vp, "rb") as f:
+                    r = requests.post(url, data=data, files={field: (f"VG_video_{time.strftime('%Y%m%d_%H%M')}.mp4", f, "video/mp4")},
+                                      headers={"User-Agent": "VG-VideoTool/3.75"}, timeout=300)
+                link = (r.text or "").strip()
+                if r.ok and link.startswith("http") and " " not in link and len(link) < 200:
+                    return link, ("72 ghante" if name == "litterbox" else "kam se kam 30 din")
+                errs.append(f"{name}: HTTP {r.status_code}")
+            except Exception as e:
+                errs.append(f"{name}: {str(e)[:60]}")
+    return None, "; ".join(errs)[:160]
+
+
 def _prepare_rclone():
     conf = (os.environ.get("RCLONE_CONF") or "").strip()
     if not conf:
@@ -249,6 +282,8 @@ def main():
     sp = JOBS / "script_cloud.txt"
     res = JOBS / "result_cloud.json"
     sp.write_text(script_text + "\n", encoding="utf-8")
+    try: res.unlink()                                 # v3.74: pichhli video ka result galti se na uthe
+    except Exception: pass
 
     first_line = next((l.strip() for l in script_text.splitlines() if l.strip() and l.strip().upper() not in ("LONG", "SHORT")), "Cloud Video")[:55]
 
@@ -269,6 +304,7 @@ def main():
         [sys.executable, "-u", str(ROOT / "app" / "make_video.py")],
         cwd=str(ROOT), env=env,
         stdout=subprocess.PIPE, stderr=subprocess.STDOUT, text=True, bufsize=1,
+        start_new_session=(os.name != "nt"),         # v3.74: bache hue Chrome/ffmpeg ko poore group ke saath band kar sakein
     )
     last_stage = "⏳ स्क्रिप्ट पढ़ी जा रही है..."
     last_edit = 0.0
@@ -279,6 +315,29 @@ def main():
     STALL_WARN = float(os.environ.get("VG_STALL_WARN_MIN", "10")) * 60
     STALL_KILL = float(os.environ.get("VG_STALL_KILL_MIN", "22")) * 60
     HARD_LIMIT = float(os.environ.get("VG_HARD_LIMIT_MIN", "46")) * 60   # GitHub job 55 min pe chupchaap katta hai
+
+    def _kill_all():
+        """v3.74: make_video + uske bache hue bachche (Chrome thumbnail, ffmpeg, yt-dlp) sab band."""
+        try:
+            if hasattr(os, "killpg"):
+                import signal
+                os.killpg(proc.pid, signal.SIGKILL)
+        except Exception:
+            pass
+        try:
+            proc.kill()
+        except Exception:
+            pass
+
+    def _video_ready():
+        try:
+            if res.exists():
+                d_ = json.loads(res.read_text(encoding="utf-8"))
+                v_ = d_.get("video")
+                return bool(v_ and Path(v_).exists())
+        except Exception:
+            return False
+        return False
 
     def watchdog():
         last_beat = time.time()
@@ -295,16 +354,16 @@ def main():
             if idle < min(60.0, STALL_WARN / 2) and W["warned"]:      # nayi hal-chal aayi -> agli baar phir chetavni
                 W["warned"] = False
             reason = ""
+            if _video_ready() and idle >= 60:                # v3.74: video ban chuki, program band nahi ho raha -> aage badho
+                W["done_but_stuck"] = True
+                _kill_all(); return
             if idle >= STALL_KILL:
                 reason = f"{int(idle // 60)} minute se atki hui thi ({W['stage']})"
             elif el >= HARD_LIMIT:
                 reason = f"{int(el // 60)} minute ho gaye – GitHub 55 min pe chupchaap kaat deta, isliye pehle hi roki"
             if reason:
                 W["killed"] = reason
-                try:
-                    proc.kill()
-                except Exception:
-                    pass
+                _kill_all()
                 return
             if now_ - last_beat >= 150:                    # har 2.5 min: card par 'zinda hai' + samay
                 last_beat = now_
@@ -313,7 +372,42 @@ def main():
                              f" | आखिरी हलचल: {int(idle)} सेकंड पहले")
 
     threading.Thread(target=watchdog, daemon=True).start()
-    for raw_line in proc.stdout:
+
+    def _lines():
+        try:
+            for ln in proc.stdout:
+                yield ln
+        except Exception:
+            return
+
+    import queue
+    LQ = queue.Queue()
+
+    def _reader():                                   # v3.74: padhna alag thread me – EOF ka intezaar main kaam na roke
+        for ln in _lines():
+            LQ.put(ln)
+        LQ.put(None)
+
+    threading.Thread(target=_reader, daemon=True).start()
+
+    def _stream():
+        exited_at = None
+        while True:
+            try:
+                ln = LQ.get(timeout=2)
+            except queue.Empty:
+                if proc.poll() is not None:
+                    exited_at = exited_at or time.time()
+                    if time.time() - exited_at > 15:   # program khatam, par koi bachcha pipe pakde baitha -> mat ruko
+                        print("cloud_run: make_video khatam – bache hue process band kar raha hoon")
+                        _kill_all()
+                        return
+                continue
+            if ln is None:
+                return
+            yield ln
+
+    for raw_line in _stream():
         sys.stdout.write(raw_line)
         sys.stdout.flush()
         W["last_out"] = time.time(); W["tail"].append(raw_line[:300])
@@ -329,6 +423,9 @@ def main():
                 )
                 last_edit = now
     rc = proc.wait()
+    _kill_all()                                       # v3.74: Chrome jaise bache process bhi band (disk/RAM free)
+    if W.get("done_but_stuck") and _video_ready():
+        rc = 0
     print("make_video.py exit code:", rc)
 
     out_mp4 = None
@@ -344,7 +441,8 @@ def main():
             print("result parse err:", e)
 
     if not out_mp4 and (ROOT / "output").exists():
-        mp4s = sorted((ROOT / "output").glob("*.mp4"), key=lambda p: p.stat().st_mtime, reverse=True)
+        mp4s = sorted([p for p in (ROOT / "output").glob("*.mp4") if p.stat().st_mtime >= t0 - 5],   # v3.74: purani nahi
+                      key=lambda p: p.stat().st_mtime, reverse=True)
         if mp4s:
             out_mp4 = mp4s[0]
 
@@ -358,6 +456,14 @@ def main():
             f"🎬 [{video_mode}] {first_line}\n☁️ वीडियो बन गई ({size_mb:.1f} MB)! 5 TB Google Drive और Telegram पर भेज रहा हूँ...\n⏱ समय: {_fmt_elapsed(time.time() - t0)}"
         )
 
+        # v3.75 STEP 0: seedha download link (phone pe turant) – sabse pehle, taaki Telegram fail ho tab bhi mile
+        dl_link, dl_err = public_link(out_mp4)
+        if dl_link:
+            tg_send_text(tg_token, tg_chat, f"⬇️ Video download link ({dl_err} chalega):\n{dl_link}\n\n"
+                                            f"Tap karo -> browser me chalegi; ⋮ -> Download se phone me save.\n{first_line}")
+        else:
+            print("public link fail:", dl_err)
+
         # STEP 1: INSTANT Master MP4 upload to Google Drive FIRST!
         drive_info, drive_err = upload_video_first(out_mp4)
         _gh_srv = os.environ.get("GITHUB_SERVER_URL", "https://github.com").rstrip("/")
@@ -365,11 +471,13 @@ def main():
         _gh_rid = os.environ.get("GITHUB_RUN_ID", "").strip()
         _gh_url = f"{_gh_srv}/{_gh_repo}/actions/runs/{_gh_rid}" if (_gh_repo and _gh_rid) else ""
         cap = f"✅ Cloud Video Ready ({size_mb:.1f} MB • {_fmt_elapsed(time.time() - t0)})\n{first_line}"
+        if dl_link:
+            cap += f"\n⬇️ Download: {dl_link}"
         if drive_info:
             cap += f"\n📁 Drive HD: {drive_info}"
         if _gh_url:
             cap += f"\n⬇️ Direct HD Download: {_gh_url}"
-        if not drive_info and drive_err:
+        if not drive_info and drive_err and "khali" not in drive_err:   # Drive set nahi hai to faltu chetavni nahi
             cap += f"\n⚠️ Drive: {drive_err[:100]}"
 
         # STEP 2: INSTANT playable video in Telegram (auto-compressed <45MB if master >48MB!)
@@ -379,7 +487,8 @@ def main():
 
         tg_edit_text(
             tg_token, tg_chat, status_id,
-            f"✅ [{video_mode}] {first_line}\nपूरा हो गया! ({size_mb:.1f} MB • {_fmt_elapsed(time.time() - t0)})\n📦 अब बैकग्राउंड में _EDIT_KIT और थंबनेल Drive पर सेव हो रहे हैं..."
+            f"✅ [{video_mode}] {first_line}\nपूरा हो गया! ({size_mb:.1f} MB • {_fmt_elapsed(time.time() - t0)})"
+            + (f"\n⬇️ {dl_link}" if dl_link else "") + "\n📦 अब बैकग्राउंड में _EDIT_KIT और थंबनेल Drive पर सेव हो रहे हैं..."
         )
 
         # v3.66: Visual Report (har line: kya samjha, kya chuna, kyun, kya reject) – Telegram par file
@@ -401,7 +510,8 @@ def main():
         upload_extras_background(out_mp4)
         tg_edit_text(
             tg_token, tg_chat, status_id,
-            f"✅ [{video_mode}] {first_line}\nसब कुछ पूरा हो गया! ({size_mb:.1f} MB • {_fmt_elapsed(time.time() - t0)})\n📁 वीडियो + थंबनेल + _EDIT_KIT आपकी 5 TB Drive में सेव ✓"
+            f"✅ [{video_mode}] {first_line}\nसब कुछ पूरा हो गया! ({size_mb:.1f} MB • {_fmt_elapsed(time.time() - t0)})"
+            + (f"\n⬇️ {dl_link}" if dl_link else "") + ("\n📁 Drive पर भी सेव ✓" if drive_info else "")
         )
         sys.exit(0)
     else:

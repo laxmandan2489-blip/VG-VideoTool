@@ -1,3 +1,7 @@
+v3.75 ⬇️ DOWNLOAD LINK: har video ka seedha link Telegram par (phone pe tap -> chalegi / download). Login ya Google Drive setup nahi. Litterbox (72 ghante), na chale to 0x0.st. Telegram video fail ho tab bhi link milega.
+
+v3.74 BADA FIX: video ban jaati thi par Telegram par nahi aati thi – thumbnail wala Chrome background me zinda reh kar job ko 55 min tak atka deta tha. Ab video bante hi bache process band, video turant Telegram + Drive par.
+
 v3.73 CHAUKIDAAR (watchdog):
 ⏰ Video 10 min tak aage na badhe -> Telegram par chetavni (kahan atki + aakhri lines).
 🛑 22 min atki rahe ya 46 min ho jaayen -> khud band, wajah + poori log file Telegram par (Claude/Gemini ko forward karo).
