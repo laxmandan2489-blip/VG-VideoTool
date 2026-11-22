@@ -215,9 +215,13 @@ def _gemini_pages(q):
         return []
     try:
         import ai
-        mods = [m for m in ai.models(key) if "lite" not in m][:2] or ai.models(key)[:2]
+        mods = [m for m in ai.models(key) if "lite" not in m and "preview" not in m][:2]
     except Exception:
-        mods = ["gemini-flash-latest"]
+        mods = []
+    # v3.70: free key pe Google Search sabse pakka 2.5 Flash pe milta hai – naye model pe 429 aaye to ye bhi try
+    for fb in ("gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"):
+        if fb not in mods: mods.append(fb)
+    mods = [m for m in mods if m not in GEM.get("dead", set())][:4]
     prompt = (f"Search the web for public posts on X (x.com / twitter.com) and on Pinterest that contain a short VIDEO "
               f"clip about: {q}. List the exact post URLs you found in the search results (format "
               f"https://x.com/<user>/status/<id> or https://www.pinterest.com/pin/<id>/), one per line, maximum 10. "
@@ -232,9 +236,14 @@ def _gemini_pages(q):
         except Exception as e:
             _search_mark("gemini", False, str(e)); continue
         if r.status_code == 429:
-            _search_mark("gemini", False, "quota (429)")
-            with _SL: GEM["on"] = False; GEM["why"] = "Gemini search ki aaj ki limit"
-            break
+            _msg = ""
+            try: _msg = str((r.json().get("error") or {}).get("message") or "")[:160]
+            except Exception: pass
+            _search_mark("gemini", False, f"{m}: 429 {_msg[:90]}")
+            with _SL:
+                GEM.setdefault("dead", set()).add(m)          # sirf ye model band – agla model try
+                GEM["why"] = f"Gemini search limit ({m}): {_msg[:110]}"
+            continue
         if r.status_code != 200:
             _search_mark("gemini", False, f"HTTP {r.status_code}"); continue
         try:
@@ -256,9 +265,61 @@ def _gemini_pages(q):
             _search_mark("gemini", False, str(e)); continue
         _search_mark("gemini", True)
         break
+    if not any(_X_RE.search(u) or _PIN_RE.search(u) for u in urls):
+        urls += _groq_pages(q, prompt)                     # v3.70: Gemini nahi -> Groq (compound) web search
     urls = [u.rstrip(".,;") for u in dict.fromkeys(urls)]
     with _SL: GEM["cache"][q] = urls
     return urls
+
+
+GROQ_S = {"on": True, "calls": 0, "max": 18}
+_AI_CACHE = {}
+
+
+def _ai_pages(q):
+    """Gemini (Google Search) se; wahan kuch na mile / limit -> Groq compound web search. Har query ek hi baar."""
+    q = (q or "").strip()
+    if q in _AI_CACHE: return _AI_CACHE[q]
+    urls = _gemini_pages(q)
+    if not any(_X_RE.search(u) or _PIN_RE.search(u) for u in urls) and q not in GEM["cache"]:
+        urls = urls + _groq_pages(q, f"Search the web for public posts on X (x.com) and Pinterest that contain a short "
+                                     f"VIDEO about: {q}. List the exact post URLs you found, one per line, max 10.")
+    _AI_CACHE[q] = urls
+    return urls
+
+
+def _groq_pages(q, prompt):
+    """v3.70: aapki FREE Groq key – 'compound' model khud web search karta hai. Sirf URLs nikaalte hain."""
+    with _SL:
+        if not GROQ_S["on"] or GROQ_S["calls"] >= GROQ_S["max"]: return []
+        GROQ_S["calls"] += 1
+    try:
+        from common import read_keys
+        k = read_keys().get("GROQ") or ""
+    except Exception:
+        k = ""
+    if not k:
+        return []
+    for model in ("groq/compound", "groq/compound-mini", "compound-beta"):
+        try:
+            r = _S.post("https://api.groq.com/openai/v1/chat/completions",
+                        headers={"Authorization": f"Bearer {k}", "Content-Type": "application/json"},
+                        json={"model": model, "messages": [{"role": "user", "content": prompt}], "temperature": 0.2},
+                        timeout=60)
+        except Exception as e:
+            _search_mark("groq", False, str(e)); continue
+        if r.status_code in (400, 404):
+            _search_mark("groq", False, f"{model}: HTTP {r.status_code}"); continue
+        if r.status_code == 429:
+            _search_mark("groq", False, "429 limit")
+            with _SL: GROQ_S["on"] = False
+            return []
+        if r.status_code != 200:
+            _search_mark("groq", False, f"HTTP {r.status_code}"); continue
+        found = re.findall(r"https?://[^\s)\]>\"'\\]+", r.text.replace("\\/", "/"))      # jawab + search results dono me se
+        _search_mark("groq", True)
+        return [u for u in found if _X_RE.search(u) or _PIN_RE.search(u)]
+    return []
 
 
 def find_pages(q, kind="x", limit=5):
@@ -275,7 +336,7 @@ def find_pages(q, kind="x", limit=5):
             else:
                 nu = f"https://www.pinterest.com/pin/{m.group(1)}/"
             if nu not in out: out.append(nu)
-    take(_gemini_pages(q))                             # v3.69: pehle Gemini Google Search (bina card)
+    take(_ai_pages(q))                                 # v3.69/70: Gemini Google Search -> Groq web search (bina card)
     if len(out) < limit:
         take(_brave_web(qq, 15))
     if len(out) < limit:
@@ -435,4 +496,5 @@ def reset():
     with _SL:
         for k in ("x", "pin"): STATUS[k].update(n=0, fail=0, blocked=0, why="")
         STATUS["search"].clear(); STATUS["t0"] = None
-        GEM.update(on=True, calls=0, why=""); GEM["cache"].clear()
+        GEM.update(on=True, calls=0, why=""); GEM["cache"].clear(); GEM["dead"] = set()
+        GROQ_S.update(on=True, calls=0); _AI_CACHE.clear()

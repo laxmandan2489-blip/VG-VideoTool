@@ -47,9 +47,9 @@ def run(full=True):
     def cookies():
         import cookie_jar
         st = cookie_jar.status()
-        fr = lambda k: f" ({st.get(k + '_from')})" if st.get(k + "_from") else ""
-        return True, f"YouTube cookies: {'haan' if st['youtube_cookies'] else 'nahi'}{fr('youtube')}, X cookies: " \
-                     f"{'haan' if st['x_cookies'] else 'nahi'}{fr('x')}, proxy: {'haan' if st['proxy'] else 'nahi'}"
+        return True, (f"YouTube cookies: {'haan' if st['youtube_cookies'] else 'nahi'} [{st.get('youtube_diag') or '-'}]"
+                      f" | X cookies: {'haan' if st['x_cookies'] else 'nahi'} [{st.get('x_diag') or '-'}]"
+                      f" | proxy: {'haan' if st['proxy'] else 'nahi'}")
 
     def gemini():
         k = keys.get("GEMINI")
@@ -95,7 +95,7 @@ def run(full=True):
         so.reset()
         pages = so.find_pages("NASA rocket launch", "x", 4)
         if not pages:
-            return False, "X ke post nahi mile (" + (so.GEM.get("why") or json.dumps(so.status()["search"])[:120]) + ")"
+            return False, "X ke post nahi mile – search: " + json.dumps(so.status()["search"], ensure_ascii=False)[:230]
         for pg in pages[:3]:
             c = so.grab(pg)
             if c: return True, f"clip mili ✓ ({pg[:60]})"
@@ -105,7 +105,7 @@ def run(full=True):
         import social_visuals as so
         pages = so.find_pages("ocean waves", "pin", 4)
         if not pages:
-            return False, "Pinterest pins nahi mile (" + (so.GEM.get("why") or json.dumps(so.status()["search"])[:120]) + ")"
+            return False, "Pinterest pins nahi mile – search: " + json.dumps(so.status()["search"], ensure_ascii=False)[:230]
         for pg in pages[:3]:
             c = so.grab(pg)
             if c: return True, f"clip mili ✓ ({pg[:60]})"

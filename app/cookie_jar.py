@@ -25,6 +25,22 @@ ENV = {"youtube": "YT_COOKIES", "x": "X_COOKIES"}
 
 REF = TOOL / "seekha" / "cookies_ref.json"     # v3.69: Telegram se bheji cookies file ka file_id (cookies NAHI)
 SRC = {}                                         # name -> "telegram" / "secret" / "file"
+DIAG = {}                                        # v3.70: name -> kyun nahi mili (value kabhi nahi)
+
+
+def _normalize(raw):
+    """v3.70 FIX: phone / Notepad / GitHub box me paste karte waqt TAB aksar SPACE ban jaata hai -> pehle cookies
+    'nahi' maani jaati thi. Ab har cookie line (7 hisse) ko wapas TAB se jodte hain."""
+    out = []; n = 0
+    for ln in (raw or "").replace("\r", "").splitlines():
+        t = ln.strip()
+        if not t: continue
+        if t.startswith("#") and not t.startswith("#HttpOnly_"):
+            out.append(t); continue
+        parts = t.split("\t") if "\t" in t else t.split(None, 6)
+        if len(parts) >= 7 and parts[1].upper() in ("TRUE", "FALSE") and parts[3].upper() in ("TRUE", "FALSE"):
+            out.append("\t".join(parts[:6] + ["\t".join(parts[6:]) if "\t" in t else parts[6]])); n += 1
+    return ("\n".join(out) + "\n") if n else "", n
 
 
 def _from_telegram(name):
@@ -54,8 +70,12 @@ def _from_telegram(name):
 def _text(name):
     raw = _from_telegram(name).strip()
     SRC[name] = "telegram" if raw else ""
+    env_raw = (os.environ.get(ENV[name]) or "").strip()
+    DIAG[name] = ("telegram file mili" if raw else
+                  (f"secret pahunchi ({len(env_raw)} akshar)" if env_raw else
+                   f"secret {ENV[name]} cloud tak nahi pahunchi (workflow file me {ENV[name]} line / secret ka naam check karo)"))
     if not raw:
-        raw = (os.environ.get(ENV[name]) or "").strip()
+        raw = env_raw
         if raw: SRC[name] = "secret"
     if not raw:
         f = TOOL / f"{name}_cookies.txt"                    # local / laptop: tool folder me file bhi chalegi
@@ -68,11 +88,19 @@ def _text(name):
             if "\t" in dec: raw = dec
         except Exception:
             pass
-    if not raw or "\t" not in raw:
+    norm, n = _normalize(raw)
+    if not n:
+        if raw: DIAG[name] += " – par cookie format samajh nahi aaya (poori cookies.txt paste karo, kuch kata na ho)"
         return ""
-    if not raw.startswith("# Netscape") and not raw.startswith("# HTTP Cookie File"):
-        raw = "# Netscape HTTP Cookie File\n" + raw
-    return raw + "\n"
+    want = "youtube.com" if name == "youtube" else ("x.com", "twitter.com")
+    if isinstance(want, str): want = (want,)
+    if not any(w in norm for w in want):
+        DIAG[name] += f" – {n} cookie par {want[0]} ki nahi (galat site ki file?)"
+        return ""
+    DIAG[name] += f" – {n} cookie ✓"
+    if not norm.startswith("# Netscape") and not norm.startswith("# HTTP Cookie File"):
+        norm = "# Netscape HTTP Cookie File\n" + norm
+    return norm
 
 
 def path(name):
@@ -117,4 +145,5 @@ def for_url(url):
 def status():
     """Diagnostics ke liye (koi secret value nahi)."""
     return {"youtube_cookies": bool(path("youtube")), "x_cookies": bool(path("x")), "proxy": bool(proxy()),
-            "youtube_from": SRC.get("youtube", ""), "x_from": SRC.get("x", "")}
+            "youtube_from": SRC.get("youtube", ""), "x_from": SRC.get("x", ""),
+            "youtube_diag": DIAG.get("youtube", ""), "x_diag": DIAG.get("x", "")}

@@ -1,3 +1,7 @@
+v3.70:
+🍪 Cookies FIX: phone/Notepad se paste karte waqt TAB -> space ban jaata tha, isliye cookies "nahi" maani jaati thi. Ab dono chalte hain. SYSTEM JAANCH ab batata hai cookies kyun nahi mili (secret pahunchi ya nahi, format, galat site).
+🔎 X/Pinterest search: Gemini ke ek model ki limit pe poora band nahi – 2.5 Flash bhi try. Phir bhi na mile to aapki FREE Groq key ka web search (compound).
+
 v3.69 me kya naya:
 🍪 PHONE SE COOKIES: cookies.txt file seedha Telegram bot ko bhejo -> apne aap lag jaati hai (GitHub kholne ki zaroorat nahi). YouTube ya X – file ke naam se khud pehchaanta hai.
 🐦📌 Twitter/X + Pinterest ke post ab aapki Gemini key ke Google Search se dhoondhe jaate hain (bina Brave, bina card). Ek video me max 18 search.
