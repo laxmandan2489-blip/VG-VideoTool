@@ -218,10 +218,8 @@ def _gemini_pages(q):
         mods = [m for m in ai.models(key) if "lite" not in m and "preview" not in m][:2]
     except Exception:
         mods = []
-    # v3.70: free key pe Google Search sabse pakka 2.5 Flash pe milta hai – naye model pe 429 aaye to ye bhi try
-    for fb in ("gemini-2.5-flash", "gemini-2.5-flash-lite", "gemini-flash-latest"):
-        if fb not in mods: mods.append(fb)
-    mods = [m for m in mods if m not in GEM.get("dead", set())][:4]
+    # v3.71: sirf wahi models jo Google ki list me sach me hain (pehle purane naam -> 404)
+    mods = [m for m in mods if m not in GEM.get("dead", set())][:2]
     prompt = (f"Search the web for public posts on X (x.com / twitter.com) and on Pinterest that contain a short VIDEO "
               f"clip about: {q}. List the exact post URLs you found in the search results (format "
               f"https://x.com/<user>/status/<id> or https://www.pinterest.com/pin/<id>/), one per line, maximum 10. "
@@ -243,6 +241,9 @@ def _gemini_pages(q):
             with _SL:
                 GEM.setdefault("dead", set()).add(m)          # sirf ye model band – agla model try
                 GEM["why"] = f"Gemini search limit ({m}): {_msg[:110]}"
+                if re.search(r"billing|plan|limit: 0", _msg, re.I):
+                    GEM["on"] = False                          # free key pe Google Search hai hi nahi – samay mat gawao
+            if not GEM["on"]: break
             continue
         if r.status_code != 200:
             _search_mark("gemini", False, f"HTTP {r.status_code}"); continue
@@ -288,8 +289,26 @@ def _ai_pages(q):
     return urls
 
 
+def _groq_models(k):
+    """v3.71: Groq ke CHALU models ki list (pehle naam pehle se likhe the -> 404)."""
+    if GROQ_S.get("models") is not None: return GROQ_S["models"]
+    ids = []
+    try:
+        r = _S.get("https://api.groq.com/openai/v1/models", headers={"Authorization": f"Bearer {k}"}, timeout=20)
+        if r.ok:
+            ids = [str(m.get("id")) for m in (r.json().get("data") or []) if m.get("id") and m.get("active", True)]
+    except Exception as e:
+        _search_mark("groq", False, f"models: {e}")
+    comp = [m for m in ids if "compound" in m.lower()]
+    oss = [m for m in ids if "gpt-oss" in m.lower()]
+    plan = [(m, None) for m in comp[:2]] + [(m, [{"type": "browser_search"}]) for m in oss[:2]]
+    GROQ_S["models"] = plan
+    if not plan: _search_mark("groq", False, "web search wala model list me nahi mila")
+    return plan
+
+
 def _groq_pages(q, prompt):
-    """v3.70: aapki FREE Groq key – 'compound' model khud web search karta hai. Sirf URLs nikaalte hain."""
+    """v3.70/71: aapki FREE Groq key – web search wale model (compound / gpt-oss + browser_search). Sirf URLs."""
     with _SL:
         if not GROQ_S["on"] or GROQ_S["calls"] >= GROQ_S["max"]: return []
         GROQ_S["calls"] += 1
@@ -300,24 +319,26 @@ def _groq_pages(q, prompt):
         k = ""
     if not k:
         return []
-    for model in ("groq/compound", "groq/compound-mini", "compound-beta"):
+    for model, tools in _groq_models(k):
+        if model in GROQ_S.get("dead", set()): continue
+        body = {"model": model, "messages": [{"role": "user", "content": prompt}], "temperature": 0.2}
+        if tools: body["tools"] = tools
         try:
             r = _S.post("https://api.groq.com/openai/v1/chat/completions",
                         headers={"Authorization": f"Bearer {k}", "Content-Type": "application/json"},
-                        json={"model": model, "messages": [{"role": "user", "content": prompt}], "temperature": 0.2},
-                        timeout=60)
+                        json=body, timeout=60)
         except Exception as e:
-            _search_mark("groq", False, str(e)); continue
-        if r.status_code in (400, 404):
-            _search_mark("groq", False, f"{model}: HTTP {r.status_code}"); continue
+            _search_mark("groq", False, f"{model}: {e}"); continue
         if r.status_code == 429:
-            _search_mark("groq", False, "429 limit")
-            with _SL: GROQ_S["on"] = False
-            return []
+            _search_mark("groq", False, f"{model}: 429 limit")
+            with _SL: GROQ_S.setdefault("dead", set()).add(model)
+            continue
         if r.status_code != 200:
-            _search_mark("groq", False, f"HTTP {r.status_code}"); continue
-        found = re.findall(r"https?://[^\s)\]>\"'\\]+", r.text.replace("\\/", "/"))      # jawab + search results dono me se
-        _search_mark("groq", True)
+            _search_mark("groq", False, f"{model}: HTTP {r.status_code} {r.text[:80]}")
+            with _SL: GROQ_S.setdefault("dead", set()).add(model)
+            continue
+        found = re.findall(r"https?://[^\s)\]>\"'\\]+", r.text.replace("\\/", "/"))
+        _search_mark("groq", True, model)
         return [u for u in found if _X_RE.search(u) or _PIN_RE.search(u)]
     return []
 
@@ -497,4 +518,4 @@ def reset():
         for k in ("x", "pin"): STATUS[k].update(n=0, fail=0, blocked=0, why="")
         STATUS["search"].clear(); STATUS["t0"] = None
         GEM.update(on=True, calls=0, why=""); GEM["cache"].clear(); GEM["dead"] = set()
-        GROQ_S.update(on=True, calls=0); _AI_CACHE.clear()
+        GROQ_S.update(on=True, calls=0); GROQ_S["dead"] = set(); _AI_CACHE.clear()

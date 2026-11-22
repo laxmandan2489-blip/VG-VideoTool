@@ -73,7 +73,7 @@ def _text(name):
     env_raw = (os.environ.get(ENV[name]) or "").strip()
     DIAG[name] = ("telegram file mili" if raw else
                   (f"secret pahunchi ({len(env_raw)} akshar)" if env_raw else
-                   f"secret {ENV[name]} cloud tak nahi pahunchi (workflow file me {ENV[name]} line / secret ka naam check karo)"))
+                   "abhi koi cookies nahi daali – cookies.txt file Telegram bot ko bhejo"))
     if not raw:
         raw = env_raw
         if raw: SRC[name] = "secret"

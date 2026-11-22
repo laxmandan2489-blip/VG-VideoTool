@@ -1,3 +1,5 @@
+v3.72: X/Pinterest search FIX – Groq ke CHALU models ki list khud lekar web-search wala model (compound / gpt-oss + browser search) use hota hai (pehle purane naam -> 404). Free Gemini key pe Google Search na mile to turant band (samay bachta hai).
+
 v3.71: CLOUD FIX "No space left on device" – Whisper ke liye CPU wala PyTorch (~200 MB) lagta hai, GPU wala (4-5 GB) nahi. Video ka koi aur hissa nahi badla.
 
 v3.70:
