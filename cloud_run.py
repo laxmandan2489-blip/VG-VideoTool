@@ -214,6 +214,20 @@ def main():
         keys_lines.append(f"TELEGRAM_CHAT_ID={tg_chat}")
     (ROOT / "api keys.txt").write_text("\n".join(keys_lines) + "\n", encoding="utf-8")
 
+    # v3.67: "SYSTEM JAANCH KARO" -> video nahi, sirf cloud ki har cheez test karke Telegram report
+    _first = script_text.strip().splitlines()[0].strip().upper() if script_text.strip() else ""
+    if _first.startswith(("SYSTEM JAANCH", "YTDLP JAANCH", "SYSTEM CHECK")):
+        sid = tg_send_text(tg_token, tg_chat, "🩺 SYSTEM JAANCH shuru – 1-3 minute (video nahi banegi)...")
+        try:
+            sys.path.insert(0, str(ROOT / "app"))
+            import net_check
+            msg, _rows = net_check.run(full=True)
+        except Exception as e:
+            msg = f"🩺 SYSTEM JAANCH fail: {e}"
+        print(msg)
+        tg_edit_text(tg_token, tg_chat, sid, msg[:4000]) if sid else tg_send_text(tg_token, tg_chat, msg)
+        sys.exit(0)
+
     sp = JOBS / "script_cloud.txt"
     res = JOBS / "result_cloud.json"
     sp.write_text(script_text + "\n", encoding="utf-8")
@@ -313,6 +327,11 @@ def main():
                 _s = vrep_sum or {}
                 _cap = (f"🧾 Visual Report: {_s.get('category', '?')} | asli/achha match {_s.get('real_or_good_pct', '?')}% | "
                         f"AI photo {_s.get('ai_shots', 0)}" + (f" | ⚠️ {_s['fact_flags']} fact flag" if _s.get("fact_flags") else ""))
+                _y = _s.get("youtube") or {}; _so = _s.get("social") or {}
+                if _y or _so:
+                    _cap += (f"\n🎞 YouTube clip {_y.get('clips', 0)}" + (f" (block {_y['blocked']})" if _y.get("blocked") else "")
+                             + f" | X {_so.get('x', 0)} | Pinterest {_so.get('pinterest', 0)}")
+                    if _y.get("why") and not _y.get("clips"): _cap += f"\n⚠️ {_y['why'][:120]}"
                 tg_send_document(tg_token, tg_chat, vrep_md, _cap)
             except Exception as _e:
                 print("visual report send skip:", _e)

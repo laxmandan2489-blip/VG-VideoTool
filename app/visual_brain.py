@@ -380,6 +380,7 @@ def classify(it, i):
     if "map" in s: return "map/graphic"
     if "best-rejected" in s: return "weak (best rejected)"
     if any(k in s for k in ("aapki", "aapka", "chehra", "my_clips")): return "your footage"
+    if "twitter" in s or "pinterest" in s: return "social clip (X/Pinterest)"
     if _is_real_item(it): return "exact/real source"
     sc = it.get("score")
     if sc is not None and float(sc) >= 0.25: return "illustrative (good match)"
@@ -421,7 +422,7 @@ def write_report(base, sents, plan_shots, line_start, found, pick_trace=None, re
             "why_no_video": tr.get("why_no_video") or "", "fact_flags": facts.get(i, [])})
     total = sum(cnt.values()) or 1
     good = sum(v for k, v in cnt.items() if k in ("exact/real source", "your footage", "illustrative (good match)",
-                                                    "map/graphic"))
+                                                    "map/graphic", "social clip (X/Pinterest)"))
     summary = {"category": SCRIPT["category"], "mixed": SCRIPT["mixed"], "planner": SCRIPT["how"],
                "shots": total, "classes": cnt, "real_or_good_pct": round(100.0 * good / total),
                "ai_shots": cnt.get("AI illustration", 0), "fact_status": FACTS.get("status"),

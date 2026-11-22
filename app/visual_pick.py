@@ -26,6 +26,7 @@ ON = {"on": True, "n": 12, "video_bonus": 0.03, "min": 0.180, "any_channel": Fal
 # v3.15 TOPIC LOCK (user 15 Nov: "Yash ki baat ho to Yash ke around hi visual – billi, baadal, anjaan log, stick
 # figures NAHI"). Insaan / film wali video me stock footage tabhi jab wo line se pakka mile aur 'kachra' na ho.
 TOPIC = {"lock": False, "main": "", "film": ""}
+SOCIAL = {"on": True, "kinds": ("x", "pin"), "per": 1, "queries": 2}   # v3.67: style: social_clips = haan/nahi
 JUNK = {"animal": ("a cat, dog or other animal", ("cat", "dog", "animal", "bird", "lion", "tiger")),
         "sky": ("clouds and sky", ("cloud", "sky", "weather")),
         "nature": ("a nature landscape with trees, mountains or sunset", ("nature", "forest", "tree", "sunset", "mountain", "landscape")),
@@ -323,6 +324,16 @@ def gather(i, parts_q, keys, main="", film="", existing=()):
         if _sf: jobs.append(("inaturalist", q, lambda q=q: _sf.inaturalist(q, 5)))          # jeev / paudhe
         if space: jobs.append(("nasa photo", q, lambda q=q: [dict(c, thumb=c.get("thumb") or (c.get("alts") or [c["url"]])[-1])
                                                             for c in sources.nasa(q)[:4]]))
+    if SOCIAL["on"] and allq:                          # v3.67: Twitter/X + Pinterest ki asli clips bhi muqable me
+        try:
+            import social_visuals as _so
+            for q in allq[:SOCIAL["queries"]]:
+                for kd, nm in (("x", "twitter/x"), ("pin", "pinterest")):
+                    if kd in SOCIAL["kinds"]:
+                        jobs.append((nm, q, lambda q=q, kd=kd, nm=nm: [dict(c, src=f"{nm} (yt-dlp)")
+                                                                      for c in _so.social_clips(q, (kd,), SOCIAL["per"])]))
+        except Exception as e:
+            log(f"   (social clips skip: {str(e)[:80]})", show=False)
     if allq and hasattr(sources, "wikimedia_videos"):
         jobs.append(("wikimedia video", allq[0], lambda: sources.wikimedia_videos(allq[0])[:3]))
     if pkey:                                          # Pixabay HAMESHA muqable me (pehle sirf kami pe)

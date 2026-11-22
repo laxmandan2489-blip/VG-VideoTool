@@ -5,3 +5,4 @@ seekha/youtube_token.json
 temp/
 output/
 __pycache__/
+*_cookies.txt

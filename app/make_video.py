@@ -750,6 +750,12 @@ def main():
     try:
         import visual_pick
         visual_pick.TRACE.clear(); visual_pick.USE.clear()
+        visual_pick.SOCIAL["on"] = yes(style.get("social_clips", "haan"))      # v3.67: Twitter/X + Pinterest
+        try:
+            import social_visuals as _sv0
+            _sv0.reset()
+        except Exception:
+            pass
         visual_pick.SCRIPT["all"] = " ".join([s_.get("script") or s_["text"] for s_ in sents] + list(eng))   # v3.17
         visual_pick.ON.update(on=VPICK, any_channel=yes(style.get("youtube_kisi_bhi_channel", "nahi")),
                               topic_yt=yes(style.get("youtube_topic_clips", "haan")),
@@ -1875,6 +1881,22 @@ def main():
             _vbw.fact_wait(40)
             _jp, _mp, _vs = _vbw.write_report(Path(out).with_suffix(""), sents, plan, line_start, found, _vpw.TRACE,
                                               sources.REJECTED, VREP)
+            try:                                       # v3.67: yt-dlp / X / Pinterest ka haal (Telegram caption me)
+                import yt_clips as _ytw, social_visuals as _svw
+                _ys = _ytw.status(); _ss = _svw.status()
+                _vs["youtube"] = {"clips": _ys.get("n", 0), "fail": _ys.get("fail", 0), "blocked": _ys.get("blocked", 0),
+                                  "why": str(_ys.get("why", ""))[:140]}
+                _vs["social"] = {"x": _ss["x"].get("n", 0), "pinterest": _ss["pinterest"].get("n", 0),
+                                 "why": (_ss["x"].get("why") or _ss["pinterest"].get("why") or "")[:140]}
+                _jd = json.loads(_jp.read_text(encoding="utf-8")); _jd["summary"] = _vs
+                _jp.write_text(json.dumps(_jd, ensure_ascii=False, indent=2, default=str), encoding="utf-8")
+                with open(_mp, "a", encoding="utf-8") as _f:
+                    _f.write(f"\n## Sources ka haal\n- YouTube (yt-dlp): {_vs['youtube']['clips']} clip, "
+                             f"{_vs['youtube']['fail']} fail, {_vs['youtube']['blocked']} block – {_vs['youtube']['why'] or 'theek'}\n"
+                             f"- Twitter/X: {_vs['social']['x']} clip | Pinterest: {_vs['social']['pinterest']} clip"
+                             f" – {_vs['social']['why'] or 'theek'}\n")
+            except Exception:
+                pass
             VREPORT = {"json": str(_jp), "md": str(_mp), "summary": _vs}
             QC_REPORT["visual_report"] = _vs
             log("   🧾 Visual report: " + _vbw.one_line(_vs) + f" ({_mp.name})")

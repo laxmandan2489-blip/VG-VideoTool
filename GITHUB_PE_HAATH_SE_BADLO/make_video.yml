@@ -32,6 +32,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: "20"
+      - name: 2b. Deno (yt-dlp ko YouTube ke liye JavaScript runtime chahiye)
+        uses: denoland/setup-deno@v2
+        with:
+          deno-version: v2.x
 
       - name: 3. Cache Whisper Models & Remotion Studio
         uses: actions/cache@v4
@@ -53,6 +57,7 @@ jobs:
         run: |
           python -m pip install --upgrade pip -q
           pip install -q -r app/requirements.txt openai-whisper
+          pip install -q -U "yt-dlp[default]"
           if [ -f remotion_studio/package.json ] && [ ! -d remotion_studio/node_modules ]; then
             cd remotion_studio && npm install --no-audit --no-fund && cd ..
           fi
@@ -68,6 +73,9 @@ jobs:
           GROQ_KEY: ${{ secrets.GROQ_KEY }}
           OPENROUTER_KEY: ${{ secrets.OPENROUTER_KEY }}
           BRAVE_KEY: ${{ secrets.BRAVE_KEY }}
+          YT_COOKIES: ${{ secrets.YT_COOKIES }}
+          X_COOKIES: ${{ secrets.X_COOKIES }}
+          YTDLP_PROXY: ${{ secrets.YTDLP_PROXY }}
           TG_TOKEN: ${{ secrets.TG_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
           RCLONE_CONF: ${{ secrets.RCLONE_CONF }}

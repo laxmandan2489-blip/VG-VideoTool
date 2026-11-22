@@ -1,4 +1,13 @@
-v3.66 me kya naya (VISUAL FIX – script ke hisaab se visual):
+v3.67 me kya naya (CLOUD par yt-dlp + Twitter/X + Pinterest):
+
+🎞 YouTube (yt-dlp) cloud par: aapke ALAG account ki cookies (GitHub Secret YT_COOKIES) + Deno + har baar naya yt-dlp. YouTube "bot" bole to report me saaf wajah, aur 4 baar block pe samay barbaad nahi.
+🐦 Twitter/X + 📌 Pinterest video clips ab HAR line ke muqable me (pehle sirf tab jab Pixabay kuch na de). Post dhoondhna: Brave -> DuckDuckGo -> DuckDuckGo lite. Sirf 6 sec ka tukda, CLIP se line ke saath jaanch. X ke liye X_COOKIES.
+🩺 Telegram par "SYSTEM JAANCH KARO" bhejo -> video nahi, 2-3 min me har cheez ki ✅/❌ report.
+🧾 Visual Report ke caption me: YouTube / X / Pinterest se kitni clip lagi + block ki wajah.
+⚙️ style: social_clips = haan/nahi
+Setup: GITHUB_PE_HAATH_SE_BADLO/PADHO.txt
+
+v3.66: (VISUAL FIX – script ke hisaab se visual):
 
 ✅ Asli clip ab AI photo se NAHI badlegi. Pehle (v3.55) score < 0.30 hote hi pehli clip AI (Flux) photo ban jaati thi – sahi clip bhi. Ab AI photo sirf: aapka "|| AI:" hint, ya aam stock clip jo sach me bemel ho (score < 0.20). Asli insaan / event / company wali line pe nakli AI photo kabhi nahi.
 🧠 Naya Visual Brain: har line ki category (news / influencer / history / science / tech / business / crime / sports / geography / general) + asli insaan/event pehchaan -> pehle exact search (jaise "CarryMinati early videos"), phir stock.

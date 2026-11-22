@@ -21,7 +21,7 @@ from common import log, CACHE, TOOL
 ON = {"on": True, "secs": 3.5, "max_per_video": 30, "budget": 420.0}   # v3.5: poori video me clip katne ka max time (sec)
 T0 = {"t": None}
 USED = set()                 # (video_id, time-bucket)
-_N = {"n": 0, "fail": 0, "why": ""}
+_N = {"n": 0, "fail": 0, "why": "", "blocked": 0}   # v3.67: blocked = YouTube ne bot samjha
 _LOCK = threading.Lock()
 _YTDLP = {"ok": None}
 BASE = "https://www.googleapis.com/youtube/v3"
@@ -33,10 +33,32 @@ USED_VIDS = {}               # video_id -> kitni baar lagi
 
 def reset():
     with _LOCK:
-        USED.clear(); USED_VIDS.clear(); _N.update(n=0, fail=0, why=""); T0["t"] = None
+        USED.clear(); USED_VIDS.clear(); _N.update(n=0, fail=0, why="", blocked=0); T0["t"] = None
+
+
+BOT_RE = ("confirm you", "not a bot", "sign in to confirm", "login required", "http error 429", "use --cookies")
+
+
+def _note_block(err):
+    """v3.67: YouTube ne cloud server ko bot samjha -> ginti + saaf wajah (Telegram report me)."""
+    e = (err or "").lower()
+    if any(k in e for k in BOT_RE):
+        with _LOCK:
+            _N["blocked"] += 1
+            try:
+                import cookie_jar
+                has = cookie_jar.status()["youtube_cookies"]
+            except Exception:
+                has = False
+            _N["why"] = ("YouTube ne cloud server ko bot samjha" + (" (cookies lagi hain – shayad purani/expire)" if has
+                         else " – GitHub Secret YT_COOKIES lagao (GITHUB_PE_HAATH_SE_BADLO/PADHO.txt)"))
+        return True
+    return False
 
 
 def _over_budget():
+    if _N.get("blocked", 0) >= 4 and _N["n"] == 0:      # v3.67: 4 baar block, ek bhi clip nahi -> samay barbaad mat karo
+        return True
     if T0["t"] is None: T0["t"] = time.time()
     return time.time() - T0["t"] > ON["budget"]
 
@@ -57,9 +79,14 @@ def _ytdlp_ok():
 def js_args():
     """v3.13: YouTube ke liye yt-dlp ko JavaScript runtime chahiye. Deno ho to wahi (default); warna Node.js."""
     import shutil
-    if shutil.which("deno"): return []
-    if shutil.which("node"): return ["--js-runtimes", "node"]
-    return []
+    try:                                         # v3.67: cloud pe aapki cookies / proxy (GitHub Secret) – sirf YouTube calls
+        import cookie_jar
+        extra = cookie_jar.args("youtube")
+    except Exception:
+        extra = []
+    if shutil.which("deno"): return extra
+    if shutil.which("node"): return ["--js-runtimes", "node"] + extra
+    return extra
 
 
 _URLS = {}                   # v3.15: video_id -> (direct stream url, time) – ek video ke kai hisse, URL ek baar
@@ -80,7 +107,8 @@ def _stream_url(vid):
         if not url.startswith("http"):
             raise RuntimeError((r.stderr or "url nahi mila").strip()[-160:])
     except Exception as e:
-        with _LOCK: _N["why"] = f"stream url: {str(e)[:160]}"
+        if not _note_block(str(e)):
+            with _LOCK: _N["why"] = f"stream url: {str(e)[:160]}"
         return None
     with _LOCK: _URLS[vid] = (url, time.time())
     return url
@@ -94,7 +122,12 @@ def _cut(vid, start, secs, out):
     if dst.exists() and dst.stat().st_size > 20000:
         return dst
     t0 = time.time()
-    url = _stream_url(vid)
+    try:                                          # v3.67: proxy pe URL usi proxy se bandha hota hai -> seedha yt-dlp
+        import cookie_jar
+        _px = bool(cookie_jar.proxy())
+    except Exception:
+        _px = False
+    url = None if _px else _stream_url(vid)
     if url:
         try:
             r = subprocess.run(["ffmpeg", "-nostdin", "-y", "-v", "error", "-rw_timeout", "15000000",
@@ -119,7 +152,9 @@ def _cut(vid, start, secs, out):
         if r.returncode != 0:
             err = r.stderr.strip()[-200:]
             with _LOCK:
-                _N["fail"] += 1; _N["why"] = err
+                _N["fail"] += 1
+            if not _note_block(err):
+                with _LOCK: _N["why"] = err
             log(f"   (YouTube clip {vid} nahi kati: {err})", show=False); return None
     except Exception as e:
         with _LOCK:

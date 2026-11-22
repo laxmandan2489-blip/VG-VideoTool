@@ -701,6 +701,8 @@ def valid_media(path, kind="video"):
 
 
 def download(item):
+    if item.get("path") and Path(str(item["path"])).exists():      # v3.67: pehle se kati hui clip (X / Pinterest)
+        return Path(str(item["path"]))
     if item.get("provider") == "footageflow":
         import footageflow_engine as ff
         p = ff.download_authorized_link(item, CACHE / "footageflow")

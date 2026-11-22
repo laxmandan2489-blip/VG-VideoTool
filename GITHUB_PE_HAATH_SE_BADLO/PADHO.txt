@@ -1,16 +1,37 @@
-YE EK KAAM GITHUB PAR HAATH SE KARNA HAI (2 minute) – Telegram updater .github folder nahi badalta.
+=== GITHUB PAR HAATH SE (5-10 minute, sirf ek baar) ===
+Telegram updater .github folder nahi badalta, isliye ye kaam aapko khud karna hai.
 
-1) GitHub repo kholo -> .github/workflows/make_video.yml -> pencil (Edit) dabao.
-2) Poora text hata ke is folder ki make_video.yml ka poora text paste karo -> "Commit changes".
-   Badlav sirf ye hain:
-   - GROQ_KEY, OPENROUTER_KEY, BRAVE_KEY secrets ab video banane wale step tak pahunchte hain
-   - AI aankh (CLIP) model cache hota hai (har video pe ~350 MB dobara download nahi)
-   - VISUAL_REPORT artifact me bhi save hota hai
-3) Repo -> Settings -> Secrets and variables -> Actions -> New repository secret:
-   - GROQ_KEY       = console.groq.com -> API Keys (FREE)   <- zaroor lagao
-   - OPENROUTER_KEY = openrouter.ai -> Keys (FREE, optional)
-   - PEXELS_KEY     = pexels.com/api (FREE, optional – zyada achha B-roll)
-   - BRAVE_KEY      = optional
-   Jo secret nahi hai wo khaali rahega – kuch tootega nahi.
+STEP 1 – Workflow file badlo
+  GitHub repo -> .github/workflows/make_video.yml -> pencil (Edit) -> poora text hatao ->
+  is folder ki make_video.yml ka poora text paste -> "Commit changes".
+  Isme naya: Deno (YouTube ke liye zaroori), naya yt-dlp har baar, GROQ/OPENROUTER/BRAVE keys,
+  YT_COOKIES / X_COOKIES / YTDLP_PROXY secrets, CLIP model cache.
 
-Ye file na badlo tab bhi v3.66 chalega – bas Groq backup cloud me chalu nahi hoga.
+STEP 2 – Secrets (Settings -> Secrets and variables -> Actions -> New repository secret)
+  GROQ_KEY     = console.groq.com -> API Keys (FREE)                      <- zaroor
+  BRAVE_KEY    = brave.com/search/api (free credit) – X/Pinterest ke post DHOONDHNE ke liye sabse pakka
+  PEXELS_KEY   = pexels.com/api (FREE, optional)
+
+STEP 3 – YouTube cookies (YT_COOKIES)  <- yt-dlp ko cloud pe chalane ke liye
+  1. Ek ALAG (second) Google account banao/lo – main account NAHI (YouTube kabhi account rok bhi sakta hai).
+  2. Laptop pe Chrome me extension lagao: "Get cookies.txt LOCALLY".
+  3. Chrome ki Incognito window kholo (extension ko incognito me allow karo), youtube.com pe us second account se
+     login karo, koi bhi ek video chalao.
+  4. Extension dabao -> "Export" (sirf youtube.com) -> cookies.txt file milegi.
+  5. Incognito window BAND kar do (warna cookies jaldi purani ho jaati hain).
+  6. File Notepad me kholo, POORA text copy karke GitHub Secret YT_COOKIES me paste karo.
+  Har 2-4 hafte me (ya jab report me "YouTube ne bot samjha" aaye) ye dobara karo.
+
+STEP 4 – X/Twitter cookies (X_COOKIES)
+  Same tareeka: ALAG X account, incognito, x.com login, extension se export (sirf x.com) -> Secret X_COOKIES.
+
+STEP 5 (optional) – YTDLP_PROXY
+  Agar aapke paas apna proxy hai: http://user:pass@host:port. Nahi hai to chhod do.
+
+STEP 6 – Jaanch
+  Telegram par bhejo:  SYSTEM JAANCH KARO
+  2-3 minute me har cheez ki ✅/❌ report aayegi (YouTube clip, X clip, Pinterest clip, Groq, Pixabay ...).
+  ❌ ke neeche 👉 me likha hoga kya karna hai.
+
+Suraksha: cookies sirf GitHub Secret me rehti hain; tool unhe kabhi log / Telegram / report / ZIP me nahi likhta.
+Jo secret nahi lagaoge wo bas band rahega – video phir bhi banegi.
