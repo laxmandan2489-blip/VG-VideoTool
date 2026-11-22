@@ -21,6 +21,12 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 55
     steps:
+      - name: 0. Disk khali karo (No space left error kabhi na aaye)
+        run: |
+          sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost || true
+          sudo docker image prune -af > /dev/null 2>&1 || true
+          df -h /
+
       - name: 1. Download VideoTool Code
         uses: actions/checkout@v4
 
@@ -92,3 +98,19 @@ jobs:
             output/*_VISUAL_REPORT.*
           if-no-files-found: ignore
           retention-days: 7
+
+      - name: 8. Fail / atak gaya to Telegram par batao
+        if: failure() || cancelled()
+        env:
+          TG_TOKEN: ${{ secrets.TG_TOKEN }}
+          TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          RUN_URL: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+        run: |
+          if [ ! -f temp/cloud_jobs/tg_notified ]; then
+            MSG="❌ Cloud video job fail / band ho gayi (install ya time-limit). Log yahan: $RUN_URL  – ye link ya screenshot Claude/Gemini ko bhejo."
+            curl -s -X POST "https://api.telegram.org/bot${TG_TOKEN}/sendMessage" -d chat_id="${TG_CHAT_ID}" --data-urlencode text="$MSG" > /dev/null || true
+            if [ -f log.txt ]; then
+              tail -c 300000 log.txt > fail_log.txt
+              curl -s -F chat_id="${TG_CHAT_ID}" -F document=@fail_log.txt -F caption="📋 log file" "https://api.telegram.org/bot${TG_TOKEN}/sendDocument" > /dev/null || true
+            fi
+          fi
