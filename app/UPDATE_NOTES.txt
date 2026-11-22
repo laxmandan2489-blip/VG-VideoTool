@@ -1,3 +1,9 @@
+v3.85 (v3.35 DOCUMENTARY EDITS + EXACT-SCENE AI RESTORED + ZERO RANDOM YOUTUBER/SLIDES):
+🚫 Random YouTuber & Interview-Slide Block (visual_brain.py + visual_pick.py): business/news/sports/crime me 'talking to camera' ab relax nahi hoga (random webcam YouTubers band) + YouTube interview Q&A / exam / PPT / coaching videos seedhe block.
+🎨 v3.35 Exact-Scene AI Power Wapas (visual_brain.py): Jab bhi stock/YouTube clip kamzor ho (score < 0.235) aur line kisi asli insaan ke chehre ki na ho, to seedha crisp full-screen cinematic AI scene banega (random kachra clip nahi).
+🎬 v3.35 Remotion Documentary Beats Wapas (make_video.py): Clean Remotion news_highlight + stat_slam beats wapas (clean title ke saath, bina action/launch shots overwrite kiye).
+📦 Cumulative (v3.84 ke sabhi fixes shamil): Audio-locked Hindi/Hinglish Whisper sync (align.py), word-exact beat cuts (visual_brain.py), 3D cartoon/deity/blurry guard, fast ~6-8 min Shorts quality loop, aur Drive upload default band.
+
 v3.84 (SYNC + VISUAL INTELLIGENCE + SPEED FIX):
 ⏱ Audio-Locked Sync (align.py): 1.5-3.5 sec early caption & visual drift khatam! Hindi number expansion (2023, 615, 3,84,000, 6:04), dual-script (Hindi+Hinglish) alignment, stray 1-char matra match filter, outlier anchor guard aur spoken-weight interpolation.
 🎬 Word-Exact Beat Cuts (visual_brain.py): beat_cut_times() me 'w' key bug fix + cross-script matching + multi-beat search (ek line ke alag-alag arth ka alag visual).

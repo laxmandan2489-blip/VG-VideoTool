@@ -63,15 +63,16 @@ _RC = {k: re.compile(v, re.I) for k, v in _R.items()}
 # kis category me "asli insaan / asli event" ki footage sabse zaroori hai (AI nakli photo kabhi nahi)
 REAL_FIRST = {"news", "influencer", "business", "sports", "crime"}
 # NEG labels (aankh.NEG) jo is category me SAHI footage ho sakte hain -> dheele
+# v3.85 FIX: NEVER relax "a person talking to the camera" on business/news/sports/crime —
+# warna random YouTubers (webcam talking heads) faceless documentary me ghus jaate hain!
 _RELAX = {
     "influencer": {"a person talking to the camera", "camera equipment tripod microphone or filming gear on a desk",
                    "person setting up a video camera indoors", "subtitles or captions at the bottom of the screen"},
-    "news": {"a person talking to the camera", "news broadcast lower third text banner",
-             "subtitles or captions at the bottom of the screen"},
-    "business": {"a person talking to the camera", "a logo"},
+    "news": {"news broadcast lower third text banner"},
+    "business": {"a logo"},
     "technology": {"a logo"},
-    "sports": {"a person talking to the camera"},
-    "crime": {"a person talking to the camera", "news broadcast lower third text banner"},
+    "sports": set(),
+    "crime": {"news broadcast lower third text banner"},
 }
 _NAME_RE = re.compile(r"\b[A-Z][a-z]+(?:[A-Z][a-z]+)+\b|\b[A-Z][a-z]{2,}(?:\s+[A-Z][a-z]{2,}){1,2}\b")
 _YEAR_RE = re.compile(r"\b(1[0-9]{3}|20[0-9]{2})\b|[०-९]{4}")
@@ -441,10 +442,15 @@ def allow_ai_override(i, it, needs_ai, user_hint, style=None):
     score = it.get("score")
     if mode == "purana":
         return bool(needs_ai or (score is not None and float(score or 1.0) < 0.30))
-    if is_real_line(i) or _is_real_item(it): return False      # asli insaan/event/asli source -> kabhi nakli nahi
-    if score is None: return False                              # jaancha nahi gaya -> chhed-chhaad nahi
+    # v3.85 (v3.35 Exact-Scene AI power restored safely): real named PERSON ke chehre par AI kabhi nahi,
+    # lekin baaki kisi bhi line par agar stock/YouTube clip kamzor hai (score < 0.24) to exact cinematic AI scene banao!
+    p = PLAN.get(i) or {}
+    if p.get("person"): return False                            # asli insaan ka chehra -> kabhi AI nahi
+    if score is None: return False
     sc = float(score)
-    lim = 0.235 if needs_ai else 0.20                           # CLIP ViT-B/32: 0.20 se neeche = lagbhag bemel
+    if _is_real_item(it):
+        return sc < 0.215                                       # YouTube/Wikimedia bhi bilkul bemel ho to AI scene
+    lim = 0.25 if needs_ai else 0.235                           # v3.35 jaisa crisp threshold
     return sc < lim
 
 

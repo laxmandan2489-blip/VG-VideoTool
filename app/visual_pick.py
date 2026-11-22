@@ -37,6 +37,8 @@ JUNK = {"animal": ("a cat, dog or other animal", ("cat", "dog", "animal", "bird"
         "religious_art": ("a Hindu deity painting, god statue, religious devotional poster, or mythological artwork",
                           ("temple", "mandir", "god", "deity", "religion", "religious", "puja", "worship", "mythology",
                            "ramayan", "mahabharat", "festival", "diwali", "holi", "shiva temple", "devotee")),
+        "talking_head": ("a man or youtuber sitting indoors in a room talking directly into a webcam or collar mic",
+                         ("youtuber", "influencer", "podcast", "interview", "speech", "addressed", "said", "creator", "vlog")),
         "silhouette": ("plain white silhouettes of people", ("silhouette", "shadow")),
         "train": ("a moving train or film strip", ("train", "strip", "railway")),
         # v3.17 (NVIDIA video: Rubin spec sheet, GTC poster, kata hua 'EO ON COMPAN' slide): text bhari slide
@@ -73,6 +75,13 @@ MOVIE_WORDS = re.compile(r"\b(official\s+trailer|trailer|teaser|movie\s+(scene|c
                          r"hindi\s+dubbed|gameplay|walkthrough|music\s+video|lyric(al)?\s+video|movie|movies|bollywood|hollywood|"
                          r"web\s*series|episode|full\s+hd\s+movie|scene\s+from|song|songs|gaana|lyrics?|remix|jukebox|"
                          r"official\s+audio|video\s+song)\b", re.I)
+# v3.85 FIX: Block YouTube interview-Q&A / exam / PPT / coaching / reaction videos (caused banking interview slides & random YouTubers!)
+GARBAGE_YT_WORDS = re.compile(r"\b(interview\s+questions?|mock\s+interview|job\s+interview|hr\s+interview|"
+                              r"banking\s+exam|ibps|ssc\s+cgl|upsc\s+prep|neet\s+prep|jee\s+prep|coaching|"
+                              r"questions?\s+and\s+answers?|q\s*&\s*a|mcq|syllabus|lecture\s+\d|full\s+course|"
+                              r"tutorial\s+for\s+beginners|link\s+in\s+description|reaction\s+video|"
+                              r"how\s+to\s+crack|tips\s+and\s+tricks|pdf\s+notes|ppt\s+presentation|"
+                              r"growing\s+professional)\b", re.I)
 HINT = {}                  # v3.18: line -> script me aapka '/' ya '||' hint (sabse pakka nirdesh)
 EXTRA_Q = {}               # v3.16: line -> Gemini / AI-plan ke aam search shabd (chaudi khoj ke liye)
 USE = {}                   # v3.15: file/url -> kitni LINES pe laga (ek hi stock clip 8 baar nahi – max 2 line)
@@ -267,8 +276,11 @@ def gather(i, parts_q, keys, main="", film="", existing=()):
     def add(c, q, prov):
         u = c.get("url") or c.get("path")
         if not u or u in seen: return
-        if not film and MOVIE_WORDS.search(" ".join(str(c.get(k_) or "") for k_ in ("title", "credit", "tags", "channel"))):
+        _meta_txt = " ".join(str(c.get(k_) or "") for k_ in ("title", "credit", "tags", "channel"))
+        if not film and MOVIE_WORDS.search(_meta_txt):
             return                       # v3.18: topic film nahi -> trailer / movie scene / gameplay clips nahi
+        if GARBAGE_YT_WORDS.search(_meta_txt):
+            return                       # v3.85: interview Q&A / exam PPT / coaching talking-head videos block
         reused = False
         with sources._lock:
             if c.get("url") and c["url"] in sources._used:

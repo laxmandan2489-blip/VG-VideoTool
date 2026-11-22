@@ -1225,9 +1225,10 @@ def main():
                         # v3.62: In Shorts (or when real footage exists), NEVER black-out real footage with a dark Stat card —
                         # let the real footage play full-screen with animated stat overlay on top! (Use Stat card only if no footage or LONG mode)
                         _stat_cap = (3 if LONG else 0) if (items and not yes(style.get("black_stat_cards", "nahi"))) else (3 if LONG else 1)
-                        # v3.84 FIX: Shorts me asli footage ke upar zabardasti safed paper card (NewsHighlightCard) mat lagao!
-                        # Sirf LONG mode me ya jab real footage na mile (fallback) tabhi paper card.
-                        _news_cap = (3 if LONG else 0) if (items and not yes(style.get("force_news_cards", "nahi"))) else (3 if LONG else 1)
+                        # v3.85 (v3.35 Remotion DocumentaryBeat restored): Shorts me 1 crisp Remotion news_highlight beat
+                        # (sirf historical/fact line par, action/launch line par nahi); LONG me up to 3 beats.
+                        _is_action_line = bool(re.search(r"(लॉन्च|उड़ान|क्रैश|हमला|विस्फोट|launch|liftoff|crash|explosion|blast|attack)", _ltxt, re.I))
+                        _news_cap = 3 if LONG else (0 if (_is_action_line and items) else 1)
                         _px_cap = 2 if LONG else 1
                         # Beat A: Big number / money / percent -> StatCounterProCard
                         if _DOC_BEATS["stat"] < _stat_cap and re.search(r"(\d[\d,.]*\s*(?:%|प्रतिशत|लाख|करोड़|अरब|मिलियन|बिलियन|हजार|फीट|किलोमीटर|°C|डिग्री))", _ltxt):
