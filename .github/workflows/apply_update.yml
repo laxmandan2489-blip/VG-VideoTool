@@ -1,4 +1,4 @@
-name: 📦 Apply Telegram Update / Rollback
+name: 📦 Apply Telegram Update / Rollback (+ Auto Cloudflare Deploy)
 
 on:
   workflow_dispatch:
@@ -29,16 +29,19 @@ jobs:
         with:
           python-version: "3.11"
 
-      - name: Run Update or Rollback
+      - name: Run Update or Rollback (+ Auto-Deploy Cloudflare Worker)
         env:
           ACTION: ${{ inputs.action }}
           FILE_ID: ${{ inputs.file_id }}
           TG_TOKEN: ${{ secrets.TG_TOKEN }}
           TG_CHAT_ID: ${{ secrets.TG_CHAT_ID }}
+          CF_API_TOKEN: ${{ secrets.CF_API_TOKEN }}
+          CF_ACCOUNT_ID: "79108b20de09ead3bfff43e738f1b8b9"
+          CF_WORKER_NAME: "vg-bots"
         run: |
           pip install -q requests
           python - << 'PY'
-          import os, pathlib, py_compile, shutil, subprocess, sys, zipfile, requests
+          import json, os, pathlib, py_compile, shutil, subprocess, sys, zipfile, requests
 
           token = os.environ["TG_TOKEN"].strip()
           chat = os.environ["TG_CHAT_ID"].strip()
@@ -47,14 +50,33 @@ jobs:
           def tg(msg):
               requests.post(f"https://api.telegram.org/bot{token}/sendMessage", data={"chat_id": chat, "text": msg}, timeout=30)
 
+          def deploy_cf_worker():
+              cf_tok = (os.environ.get("CF_API_TOKEN") or "").strip()
+              wf = pathlib.Path("cloudflare_worker.js")
+              if not (cf_tok and wf.exists()):
+                  return ""
+              acc = os.environ["CF_ACCOUNT_ID"].strip()
+              name = os.environ["CF_WORKER_NAME"].strip()
+              url = f"https://api.cloudflare.com/client/v4/accounts/{acc}/workers/scripts/{name}"
+              meta = {"main_module": "worker.js", "compatibility_date": "2024-09-23", "keep_bindings": ["secret_text", "plain_text"]}
+              files = {
+                  "metadata": (None, json.dumps(meta), "application/json"),
+                  "worker.js": ("worker.js", wf.read_bytes(), "application/javascript+module"),
+              }
+              r = requests.put(url, headers={"Authorization": f"Bearer {cf_tok}"}, files=files, timeout=60)
+              if r.ok:
+                  return "\n☁️ Cloudflare Worker (vg-bots) bhi auto-deploy ho gaya ✓"
+              return f"\n⚠️ Cloudflare deploy skip: {r.text[:140]}"
+
           if action == "rollback":
               r = subprocess.run(["git", "revert", "--no-edit", "HEAD"], capture_output=True, text=True)
               if r.returncode != 0:
                   tg("❌ Rollback fail ho gaya: " + r.stderr[:200])
                   sys.exit(1)
               subprocess.run(["git", "push"], check=True)
+              cf_msg = deploy_cf_worker()
               ver = pathlib.Path("app/VERSION").read_text().strip() if pathlib.Path("app/VERSION").exists() else "?"
-              tg(f"✅ Purana version (v{ver}) wapas restore ho gaya!")
+              tg(f"✅ Purana version (v{ver}) wapas restore ho gaya!{cf_msg}")
               sys.exit(0)
 
           fid = os.environ["FILE_ID"].strip()
@@ -69,13 +91,11 @@ jobs:
           with zipfile.ZipFile(zpath, "r") as zf:
               zf.extractall(tmp)
 
-          # Find root (handle optional wrapper folder)
           src = tmp
           if not (src / "app").exists():
               subs = [d for d in tmp.iterdir() if d.is_dir() and (d / "app").exists()]
               if subs: src = subs[0]
 
-          # Compile-check all Python files before touching repo
           if (src / "app").exists():
               for p in (src / "app").rglob("*.py"):
                   try:
@@ -85,9 +105,12 @@ jobs:
                       sys.exit(1)
 
           FORBID = {".env", "api keys.txt", "api_keys.txt", "style.txt"}
+          cf_changed = False
           for item in src.iterdir():
               if item.name.lower() in FORBID or item.name == ".github":
                   continue
+              if item.name == "cloudflare_worker.js":
+                  cf_changed = True
               dst = pathlib.Path(item.name)
               if item.is_dir():
                   shutil.copytree(item, dst, dirs_exist_ok=True)
@@ -102,10 +125,13 @@ jobs:
           subprocess.run(["git", "add", "-A"], check=True)
           st = subprocess.run(["git", "status", "--porcelain"], capture_output=True, text=True).stdout.strip()
           ver = pathlib.Path("app/VERSION").read_text().strip() if pathlib.Path("app/VERSION").exists() else "?"
+          cf_msg = deploy_cf_worker() if cf_changed else ""
           if st:
               subprocess.run(["git", "commit", "-m", f"Telegram cloud update v{ver}"], check=True)
               subprocess.run(["git", "push"], check=True)
-              tg(f"✅ Cloud VideoTool update ho gaya! (v{ver})\nAb naya video bana sakte ho.")
+              tg(f"✅ Cloud VideoTool update ho gaya! (v{ver}){cf_msg}\nAb naya video bana sakte ho.")
+          elif cf_msg:
+              tg(f"✅ Worker update ho gaya! (v{ver}){cf_msg}")
           else:
               tg(f"ℹ️ Koi naya badlav nahi mila (abhi v{ver} hi hai).")
           PY
