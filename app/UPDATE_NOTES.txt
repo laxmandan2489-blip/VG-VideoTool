@@ -1,3 +1,9 @@
+v3.91 (🔥 /trends QUOTA-PROOF 4-MODEL GEMINI FALLBACK + FREE GROQ BACKUP + EXACT ERROR — 0% VISUAL ENGINE TOUCH):
+🔄 4-Model Free Gemini Fallback (cloudflare_worker.js): Sirf gemini-2.5-flash par rukne ki jagah gemini-2.5-flash -> gemini-2.5-flash-lite -> gemini-2.0-flash -> gemini-flash-latest auto-rotate karega (multi-key GEMINI_KEY bhi supported).
+⚡ Free Groq AI Backup (cloudflare_worker.js): Agar Gemini ka daily free quota poori tarah full ho jaye aur Cloudflare Worker me GROQ_KEY add ho, to llama-3.3-70b-versatile / llama-3.1-8b-instant se turant 100% original Hindi script ban jayegi.
+🔍 Exact Error Reporting (cloudflare_worker.js): Generic error ki jagah asli status code (429 Quota full / 400 Invalid key) dikhega.
+🔒 Visual Search Engine: 0% touch (visual_brain.py, visual_pick.py, sources.py, aankh.py, social_visuals.py bilkul unchanged).
+
 v3.90 (CLEAN EDITING POLISH + SINGLE RISER LOCK + NO RED ARROW + SHORT VISUAL HINTS + CUMULATIVE v3.87-v3.89):
 🧹 Zero Triple-Text Overlap (make_video.py): Beech wala chhota red pill ([label:]) hata diya — ab sirf clean upar wala bada animated number + neeche caption dikhega.
 🔊 Strict Single-Riser Lock (render.py + cloudflare_worker.js): Riser ab poori video me sirf 1 baar (opening hook par) bajega — explicit [riser] tag par bhi max=1 strictly enforced!

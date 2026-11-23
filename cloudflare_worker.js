@@ -713,12 +713,12 @@ async function scanCompetitorTrends(env) {
 }
 
 async function handleTrendsCommand(env, chatId) {
-  if (!env.YOUTUBE_KEY || !env.GEMINI_KEY) {
+  if (!env.YOUTUBE_KEY || (!env.GEMINI_KEY && !env.GROQ_KEY)) {
     await tgReply(env.TG_TOKEN, chatId,
       "🔑 /trends chalane ke liye bas 1 baar Cloudflare Worker (vg-bots) me 2 secrets add karne hain (0 GitHub minutes lagte hain!):\n\n" +
       "1️⃣ dash.cloudflare.com -> Workers & Pages -> vg-bots -> Settings -> Variables and Secrets\n" +
       "2️⃣ Add: YOUTUBE_KEY (aapki YouTube API key)\n" +
-      "3️⃣ Add: GEMINI_KEY (aapki Gemini API key)\n\nAdd karte hi 🔥 /trends turant kaam karega!", true);
+      "3️⃣ Add: GEMINI_KEY (aapki Gemini API key)\n4️⃣ Optional Backup: GROQ_KEY (Gemini quota full hone par free backup)\n\nAdd karte hi 🔥 /trends turant kaam karega!", true);
     return;
   }
   const waitRes = await tgApi(env, "sendMessage", { chat_id: chatId, text: "🔥 Competitor channels ki viral Shorts scan kar raha hoon (~5 sec)..." });
@@ -753,7 +753,8 @@ async function handleTrendsCommand(env, chatId) {
 }
 
 async function callGeminiTrendScript(env, video, rewrite = false) {
-  const gKey = (env.GEMINI_KEY || "").trim();
+  const gKeys = String(env.GEMINI_KEY || "").split(/[\n,;]+/).map(s => s.trim()).filter(Boolean);
+  const groqKey = String(env.GROQ_KEY || "").trim();
   const basePrompt = `You are India's #1 viral Hindi YouTube Shorts Director for "The Viral Gyaan".
 TASK:
 1) Watch this reference YouTube Short (visuals + audio). Ignore the competitor's editing style/transitions — focus ONLY on WHAT REAL FOOTAGES, IMAGES, OBJECTS, PEOPLE, AND SCENES they showed to explain the facts.
@@ -772,48 +773,139 @@ TITLE: <2-4 crisp words> | <2-4 hook words>
 <14-17 short punchy Hindi lines, 5-9 words each, tasteful [map:]/[news:]/[impact] tags max 3 total (NEVER write [riser] or [gola:] or [label:]), EVERY line except last CTA ends with "|| <3-4 simple lowercase English visual words — NO 'reconstruction'/'reenactment' or capitalized non-person phrases>">
 ऐसे ही चौंकाने वाले फैक्ट्स के लिए अभी सब्सक्राइब करें और अगली वीडियो देखना मत भूलना।`;
 
-  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(gKey)}`;
+  const GEMINI_MODELS = [
+    "gemini-2.5-flash",
+    "gemini-2.5-flash-lite",
+    "gemini-2.0-flash",
+    "gemini-flash-latest",
+  ];
 
-  // Primary: Native Gemini YouTube URL video watching (0 download, 0 GitHub minutes!)
-  try {
-    const r = await fetch(endpoint, {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        contents: [{
-          role: "user",
-          parts: [
-            { fileData: { fileUri: video.url, mimeType: "video/*" } },
-            { text: basePrompt },
-          ],
-        }],
-      }),
-    });
-    if (r.ok) {
-      const j = await r.json();
-      const out = j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts
-        ? j.candidates[0].content.parts.map(p => p.text || "").join("\n").trim() : "";
-      if (out && out.includes("MODE:")) return { text: out, watchedVideo: true };
+  const errors = [];
+  const deadPairs = new Set();
+
+  const extractGeminiText = (j) => {
+    const parts = j && j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts;
+    return parts ? parts.map(p => p.text || "").join("\n").trim() : "";
+  };
+
+  const shortErr = async (r, label) => {
+    let detail = "";
+    try {
+      const txt = await r.text();
+      try {
+        const j = JSON.parse(txt);
+        detail = (j && j.error && (j.error.message || j.error.status)) || txt.slice(0, 90);
+      } catch {
+        detail = txt.slice(0, 90);
+      }
+    } catch {}
+    const low = String(detail).toLowerCase();
+    const tag = r.status === 429 ? "429 Quota full"
+      : (low.includes("api key") || low.includes("api_key_invalid") ? "400 Invalid API key" : `${r.status} ${String(detail).slice(0, 60)}`);
+    errors.push(`${label}: ${tag}`);
+    return { status: r.status, low };
+  };
+
+  // Pass 1: Native Gemini YouTube URL video watching across free models (0 download, 0 GitHub minutes!)
+  for (let ki = 0; ki < gKeys.length; ki++) {
+    const gKey = gKeys[ki];
+    let keyInvalid = false;
+    for (const model of GEMINI_MODELS) {
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(gKey)}`;
+      try {
+        const r = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{
+              role: "user",
+              parts: [
+                { fileData: { fileUri: video.url, mimeType: "video/*" } },
+                { text: basePrompt },
+              ],
+            }],
+          }),
+        });
+        if (r.ok) {
+          const out = extractGeminiText(await r.json());
+          if (out && out.includes("MODE:")) return { text: out, watchedVideo: true, provider: model };
+        } else {
+          const info = await shortErr(r, model);
+          if (info.status === 429 || info.status === 404) deadPairs.add(`${ki}:${model}`);
+          if (info.low.includes("api key") || info.low.includes("api_key_invalid")) {
+            keyInvalid = true;
+            break;
+          }
+        }
+      } catch (e) {
+        errors.push(`${model}: network error`);
+      }
     }
-  } catch (e) {}
+    if (keyInvalid) {
+      for (const m of GEMINI_MODELS) deadPairs.add(`${ki}:${m}`);
+    }
+  }
 
-  // Clean Fallback: Topic-based generation if YouTube URL preview is temporarily restricted
+  // Pass 2: Clean Topic-Based Gemini Fallback across non-exhausted models
   const fbPrompt = basePrompt.replace(
     "Watch this reference YouTube Short (visuals + audio).",
     `Reference viral Short title: "${video.title}" (Channel: ${video.channel}).`
   );
-  const r2 = await fetch(endpoint, {
-    method: "POST",
-    headers: { "Content-Type": "application/json" },
-    body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: fbPrompt }] }] }),
-  });
-  if (!r2.ok) return null;
-  const j2 = await r2.json();
-  const out2 = j2.candidates && j2.candidates[0] && j2.candidates[0].content && j2.candidates[0].content.parts
-    ? j2.candidates[0].content.parts.map(p => p.text || "").join("\n").trim() : "";
-  return out2 ? { text: out2, watchedVideo: false } : null;
-}
+  for (let ki = 0; ki < gKeys.length; ki++) {
+    const gKey = gKeys[ki];
+    for (const model of GEMINI_MODELS) {
+      if (deadPairs.has(`${ki}:${model}`)) continue;
+      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(gKey)}`;
+      try {
+        const r2 = await fetch(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: fbPrompt }] }] }),
+        });
+        if (r2.ok) {
+          const out2 = extractGeminiText(await r2.json());
+          if (out2) return { text: out2, watchedVideo: false, provider: model };
+        } else {
+          await shortErr(r2, `${model}(topic)`);
+        }
+      } catch (e) {
+        errors.push(`${model}(topic): network error`);
+      }
+    }
+  }
 
+  // Pass 3: Free Groq AI Backup (when Gemini daily quota is exhausted)
+  if (groqKey) {
+    for (const gModel of ["llama-3.3-70b-versatile", "llama-3.1-8b-instant"]) {
+      try {
+        const r3 = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Content-Type": "application/json",
+            "Authorization": `Bearer ${groqKey}`,
+          },
+          body: JSON.stringify({
+            model: gModel,
+            temperature: 0.75,
+            messages: [{ role: "user", content: fbPrompt }],
+          }),
+        });
+        if (r3.ok) {
+          const j3 = await r3.json();
+          const out3 = j3 && j3.choices && j3.choices[0] && j3.choices[0].message && j3.choices[0].message.content
+            ? String(j3.choices[0].message.content).trim() : "";
+          if (out3) return { text: out3, watchedVideo: false, provider: `groq/${gModel}` };
+        } else {
+          await shortErr(r3, `groq/${gModel}`);
+        }
+      } catch (e) {
+        errors.push(`groq/${gModel}: network error`);
+      }
+    }
+  }
+
+  return { text: "", watchedVideo: false, error: errors.slice(0, 3).join(" | ") || "No API response" };
+}
 function parseTrendGeminiOutput(raw) {
   const clean = String(raw || "").replace(/```[a-z]*\n?/gi, "").replace(/```/g, "").trim();
   const idx = clean.indexOf("SCRIPT:");
@@ -878,7 +970,9 @@ async function handleTrendCallback(env, cq) {
 
   const gen = await callGeminiTrendScript(env, video, rewrite);
   if (!gen || !gen.text) {
-    const failTxt = "❌ Gemini script nahi bana paya (GEMINI_KEY ya quota check karo).";
+    const reason = (gen && gen.error) ? gen.error : "unknown error";
+    const groqTip = env.GROQ_KEY ? "" : "\n\n💡 Tip: Cloudflare Worker (vg-bots -> Settings -> Variables and Secrets) me GROQ_KEY add kar dein — Gemini quota full hone par free Groq backup turant script bana dega!";
+    const failTxt = `❌ Script nahi ban payi.\n🔍 Wajah: ${reason}${groqTip}`;
     if (statusMsg) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: statusMsg.message_id, text: failTxt });
     else await tgReply(env.TG_TOKEN, chatId, failTxt, true);
     return;
@@ -888,9 +982,12 @@ async function handleTrendCallback(env, cq) {
   const oldDr = await readGhJson(env, TREND_DRAFT_PATH, null);
   await writeGhJson(env, TREND_DRAFT_PATH, { video, script: parsed.script, refs: parsed.refs, ts: Date.now() }, oldDr.sha, "trend draft script");
 
+  const prov = gen.provider || "gemini";
   const badge = gen.watchedVideo
-    ? "👀 Asli YouTube video dekh kar visual references nikaale ✓"
-    : "⚠️ YouTube URL preview temporarily unavailable — topic se script banayi";
+    ? `👀 Asli YouTube video dekh kar visual references nikaale ✓ (${prov})`
+    : (String(prov).startsWith("groq/")
+      ? `⚡ Gemini quota full tha — Groq backup (${prov}) se original script banayi ✓`
+      : `⚠️ YouTube URL preview unavailable — ${prov} se topic script banayi ✓`);
   const preview = `${badge}\n\n${parsed.refs ? "🎬 Visual References:\n" + parsed.refs + "\n\n" : ""}📝 ORIGINAL SCRIPT (Padh kar approve karo):\n\n${parsed.script}`.slice(0, 3950);
   const approveKb = {
     inline_keyboard: [
