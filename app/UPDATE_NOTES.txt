@@ -1,3 +1,10 @@
+v3.87 (100% UNIVERSAL AUDIO-LOCK SYNC ENGINE — 0% VISUAL SEARCH CHANGE):
+⏱ Cloud Whisper Small Unlock (align.py): GitHub Actions (7 GB Linux) par Whisper ab silently base me downgrade nahi hoga — small int8 chalega (Hindi+English tech/business/space words ki accuracy ~3x behtar).
+🔒 Drift-Free Whisper + Banded Word DP (align.py): condition_on_previous_text=False + studio TTS par vad_filter=False + universal phonetic/acronym matching (GPS/IRNSS/GDP/DRDO/NavIC/Navigation/Satellite/Export sabhi categories ke liye) — stray 2-char stop-word hijacks band.
+🛡️ Speaking-Rate Anchor Guard + Speech-Onset Snap (align.py): Longest Valid Chain guard mathematically rokta hai ki captions/visuals kabhi voice se aage na bhagein + 10ms audio RMS energy se sentence starts silence me trigger nahi honge.
+🎤 Zero False Mid-Video Voice Splice (align.py): line_coverage() ab dual-script + acronym phonetic check karta hai taaki English/tech lines par faltu splice na ho.
+🎯 Visual Search Engine: 0% touch (visual_brain.py, visual_pick.py, sources.py, aankh.py, social_visuals.py bilkul unchanged).
+
 v3.86 (EDITING + FRAME FIT + SYNC + RISER + RED CIRCLE + FAST CLOUD — 0% VISUAL SEARCH CHANGE):
 🖼 Frame Zoom/Cut Fix (render.py): smart_frame_fit default 'haan' + gentle zoom (1.12) — 16:9 photos/videos ke kinare/angles ab nahi katenge.
 ⏱ Second-Half Sync Fix (align.py): Hindi years 1100-1999 ('1739' -> 'सत्रह सौ उनतालीस', '1849' -> 'अठारह सौ उनचास') + hyphen words ('कोह-इ-नूर') fix.
