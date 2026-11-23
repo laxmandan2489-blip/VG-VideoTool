@@ -1,3 +1,8 @@
+v3.88 (0%-RISK SMART VISUAL HINT PROMPTS + CUMULATIVE v3.87 SYNC — 0% VISUAL SEARCH ENGINE TOUCH):
+🎯 Smart Visual Hint Prompts (cloudflare_worker.js): 'Aaj shuru karo (5 Prompt)' aur 'Long Prompt' ab ChatGPT/Gemini ko camera-exact concrete visual hints + natural source cues ('official footage', 'archival photo', 'aerial view') likhna sikhate hain — vague 'growth/economy/chart/interview' words strictly banned.
+📦 Cumulative (v3.87 Universal Audio-Lock Sync Engine shamil): app/align.py ke saare v3.87 sync upgrades included.
+🔒 Visual Search Engine: 0% touch (visual_brain.py, visual_pick.py, sources.py, aankh.py, social_visuals.py bilkul unchanged).
+
 v3.87 (100% UNIVERSAL AUDIO-LOCK SYNC ENGINE — 0% VISUAL SEARCH CHANGE):
 ⏱ Cloud Whisper Small Unlock (align.py): GitHub Actions (7 GB Linux) par Whisper ab silently base me downgrade nahi hoga — small int8 chalega (Hindi+English tech/business/space words ki accuracy ~3x behtar).
 🔒 Drift-Free Whisper + Banded Word DP (align.py): condition_on_previous_text=False + studio TTS par vad_filter=False + universal phonetic/acronym matching (GPS/IRNSS/GDP/DRDO/NavIC/Navigation/Satellite/Export sabhi categories ke liye) — stray 2-char stop-word hijacks band.

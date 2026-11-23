@@ -41,11 +41,13 @@ Write 5 complete, high-retention Hindi Shorts scripts separated by a line with o
    - SFX tags (max 2-3 per script): [riser] on suspense buildup, [impact] on shock/army/reveal, [whoosh] on fast jump, [ding] on stat/fact, [typing] on tech/news.
 
 4) VISUAL HINT RULES (MOST IMPORTANT — EVERY LINE EXCEPT LAST CTA MUST HAVE "||"):
-   - REAL FOOTAGE FIRST (80-90% lines): || <3-6 concrete English words naming the EXACT real person/place/event/object + action>
-     * Real person/event/army/news/business/sports -> ALWAYS real footage hint (e.g. "Indian Army tank desert exercise", "Ratan Tata Tata Nano launch 2008", "ISRO Chandrayaan-3 rocket launch"). NEVER use AI for real people or real news!
-   - CUSTOM AI SCENE (ONLY 1-3 lines where real footage DOES NOT EXIST — e.g. inside black hole, deep-sea sunken spaceship, prehistoric dinosaur, microscopic cell):
+   - DESCRIBE WHAT THE CAMERA SEES (3-7 concrete English words: EXACT real person/place/event/object + action/shot):
+     * Real events / army / space / news / sports / business -> ALWAYS add natural footage cues (e.g. "ISRO Chandrayaan-3 rocket launch official footage", "Indian Army soldiers Kargil snowy mountains 1999 footage", "Ratan Tata Tata Nano launch 2008"). NEVER use AI for real people or real news!
+     * Historical / vintage / portrait moments -> add "archival photo" or "vintage photo" (e.g. "1971 Longewala Indian Army archival photo").
+     * Clean cinematic B-roll -> name the exact physical scene + camera angle (e.g. "cargo container ship port aerial view", "satellite orbiting earth space night", "semiconductor microchip close up").
+   - CUSTOM AI SCENE (ONLY 1-3 lines where real footage DOES NOT EXIST — e.g. inside black hole, prehistoric dinosaur, microscopic cell):
      * Format: || AI: <8-14 vivid realistic cinematic documentary words>
-   - NO abstract words ("secret", "shocking", "mystery"), NO emojis, NO hashtags, NO bold (**), NO numbering, NO extra notes.
+   - STRICTLY BANNED in "||" hints: vague concepts ("growth", "economy", "crisis", "power", "secret", "shocking", "mystery", "fact"), platform tags ("[YT]", "[X]"), "interview", "podcast", "chart", "slide", emojis, hashtags, bold (**), numbering, or extra notes.
 
 OUTPUT EXACTLY THIS (copy-paste ready for Telegram Bot):
 MODE: <category>
@@ -81,7 +83,10 @@ PRO EDITING TAGS (put at END of Hindi line, right BEFORE "||"):
 - [ink] or [riser] / [impact] on major chapter reveals (tasteful, documentary tone).
 
 VISUAL HINT RULES (EVERY LINE EXCEPT LAST CTA MUST HAVE "||"):
-- REAL FOOTAGE FIRST (80% lines): || <3-6 concrete English words of exact real person/place/event/documentary shot> (NEVER use AI for real people or real news!).
+- DESCRIBE WHAT THE CAMERA SEES (3-7 concrete English words: EXACT real person/place/event/object + action/shot):
+  * Real events / news / defence / business / science -> add natural cues like "official footage", "launch", "press conference" (NEVER use AI for real people or real news!).
+  * Historical / timeline lines -> add "archival photo" or "vintage photo".
+  * Clean B-roll -> concrete physical scene + camera angle ("cargo ship port aerial view", "factory assembly line close up"), NEVER vague words ("economy", "growth", "crisis", "secret", "interview", "chart", "slide", or "[YT]"/"[X]" tags).
 - IMPOSSIBLE / EXPLAINER RECONSTRUCTION (max 20% lines): || AI: <8-14 vivid realistic documentary words>.
 - NO emojis, NO hashtags, NO bold (**), NO numbering, NO extra notes.
 
@@ -107,7 +112,7 @@ const GUIDE_TEXT = `📖 VIRAL GYAAN CLOUD BOT (24×7)
 export default {
   async fetch(request, env) {
     if (request.method !== "POST") {
-      return new Response("VideoTool Cloud Bridge v3.86 is LIVE!", { status: 200 });
+      return new Response("VideoTool Cloud Bridge v3.88 is LIVE!", { status: 200 });
     }
     let update;
     try {
