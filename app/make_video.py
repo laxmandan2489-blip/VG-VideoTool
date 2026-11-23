@@ -234,20 +234,21 @@ def build_fx(sents, events, eng, total, W, H, style, work, joined, gkey, ink_tim
         for name, val in items:
             try:
                 if name == "label" and val:
-                    out += fx.label_events(val, t0, t1, W, H, font, at); busy.append((t0, t1))
+                    pass  # v3.90 FIX: middle red pill removed (no triple text with top animated counter + bottom caption)
                 elif name == "bubble" and val:
                     out += fx.bubble_events(val, t0, t1, W, H, font, at); busy.append((t0, t1))
                 elif name == "list" and val:
                     out += fx.list_events(re.split(r"[,،;]", val), t0, max(t1, nx), W, H, at); busy.append((t0, t1))
                 elif name == "gola":
-                    golas.append((t0 + 0.1, min(t1, t0 + 2.6), val or (eng[i] if i < len(eng) else "")))
+                    pass  # v3.90 FIX: red circle & arrow disabled per user preference
             except Exception as e:
                 log(f"   (line {i+1} ka {name} effect skip: {e})", show=False)
     for e in events:                                  # purane arrow/circle -> naya gola
         if e["kind"] in ("arrow", "circle") and not any(abs(e["t0"] - g[0]) < 1.5 for g in golas):
             si = max([k for k, s in enumerate(sents) if s["start"] <= e["t0"]] or [0])
             golas.append((e["t0"], min(total, e["t0"] + 1.8), eng[si] if si < len(eng) else ""))
-    if golas:
+    # v3.90 FIX: red circle & arrow (gola) completely disabled
+    if False and golas:
         frames = [fx.frame_at(joined, (a + b) / 2, work, k) for k, (a, b, _) in enumerate(golas)]
         ok = [(k, f) for k, f in enumerate(frames) if f]
         pts = fx.locate([f for _, f in ok], [golas[k][2] for k, _ in ok], gkey) if gkey and ok else []

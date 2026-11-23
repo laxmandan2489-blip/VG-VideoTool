@@ -1,3 +1,16 @@
+v3.90 (CLEAN EDITING POLISH + SINGLE RISER LOCK + NO RED ARROW + SHORT VISUAL HINTS + CUMULATIVE v3.87-v3.89):
+🧹 Zero Triple-Text Overlap (make_video.py): Beech wala chhota red pill ([label:]) hata diya — ab sirf clean upar wala bada animated number + neeche caption dikhega.
+🔊 Strict Single-Riser Lock (render.py + cloudflare_worker.js): Riser ab poori video me sirf 1 baar (opening hook par) bajega — explicit [riser] tag par bhi max=1 strictly enforced!
+🚫 Red Circle & Arrow Removed (make_video.py + cloudflare_worker.js): [gola:] red dashed circle & arrow poori tarah band.
+🎯 Crisp 3-4 Word Visual Hints (cloudflare_worker.js): Prompts ab 3-4 simple lowercase English words dete hain (no 'reconstruction'/'reenactment' ya faltu Capital words -> no false person-name search!).
+📦 Cumulative (v3.87 sync + v3.89 🔥 /trends Competitor Radar + Real-Video Visual Reference shamil): Visual Search Engine par 0% touch!
+
+v3.89 (🔥 COMPETITOR TREND RADAR + REAL-VIDEO VISUAL REFERENCES + APPROVAL SCRIPTWRITER — 0% VISUAL SEARCH TOUCH):
+🔥 /trends Command (cloudflare_worker.js): 6 top Indian Hindi fact/documentary competitors (@FactsMine, @FactTechz, @dhruvrathee, @NitishRajput, @GetsetflyFACT, @AbhiandNiyu) ki top viral Shorts scan (~18 YouTube quota units, 0 GitHub minutes).
+👀 Real-Video Visual References (cloudflare_worker.js): Gemini API YouTube URL se asli video khud dekh kar visual references nikaalta hai (0 download, 0 GitHub minutes) aur 100% original Hindi script + camera-exact '||' hints approval ke liye Telegram par bhejta hai.
+✅ 1-Tap Approval Flow: '✅ Haan, Video Banao' dabate hi seedha 1-by-1 queue me video render; '✏️ Dobara Likho' se naya angle; /competitors se channels add/remove.
+📦 Cumulative (v3.87 sync + v3.88 smart prompts shamil): 0% touch to visual search engine.
+
 v3.88 (0%-RISK SMART VISUAL HINT PROMPTS + CUMULATIVE v3.87 SYNC — 0% VISUAL SEARCH ENGINE TOUCH):
 🎯 Smart Visual Hint Prompts (cloudflare_worker.js): 'Aaj shuru karo (5 Prompt)' aur 'Long Prompt' ab ChatGPT/Gemini ko camera-exact concrete visual hints + natural source cues ('official footage', 'archival photo', 'aerial view') likhna sikhate hain — vague 'growth/economy/chart/interview' words strictly banned.
 📦 Cumulative (v3.87 Universal Audio-Lock Sync Engine shamil): app/align.py ke saare v3.87 sync upgrades included.

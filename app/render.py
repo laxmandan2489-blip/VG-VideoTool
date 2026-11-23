@@ -1223,6 +1223,9 @@ def mix_audio(voice_wav, sents, effects, cap_times, style, out_wav, total, extra
 
         def _sfx_ok(cat_nm, t_at, force=False):
             nonlocal _sfx_last
+            # v3.90 FIX: Riser plays ONLY ONCE (opening hook) — even explicit [riser] tags obey _CAT_MAX['riser']=1!
+            if cat_nm == "riser" and _cat_cnt.get("riser", 0) >= _CAT_MAX.get("riser", 1):
+                return False
             if force:
                 _sfx_last = t_at; _cat_last[cat_nm] = t_at; _cat_cnt[cat_nm] = _cat_cnt.get(cat_nm, 0) + 1
                 return True

@@ -9,9 +9,9 @@
 
 const KEYBOARD = {
   keyboard: [
-    [{ text: "▶️ Aaj shuru karo (5 Prompt)" }, { text: "🎬 Long Prompt" }],
-    [{ text: "📊 /status" }, { text: "🛑 /rok" }, { text: "📜 /log" }],
-    [{ text: "⏪ /purana" }, { text: "📖 /guide" }],
+    [{ text: "🔥 /trends" }, { text: "▶️ Aaj shuru karo (5 Prompt)" }],
+    [{ text: "🎬 Long Prompt" }, { text: "📊 /status" }, { text: "🛑 /rok" }],
+    [{ text: "📜 /log" }, { text: "⏪ /purana" }, { text: "📖 /guide" }],
   ],
   resize_keyboard: true,
   is_persistent: true,
@@ -36,23 +36,22 @@ Write 5 complete, high-retention Hindi Shorts scripts separated by a line with o
    - [map: Place, Country] -> animated 3D satellite map zoom (great for army/news/history/geography)
    - [news: Short Headline | Source] -> yellow-highlighter newspaper/fact proof card (great for news/business/crime/history)
    - [label: 2024 / 828m / ₹500 Cr] -> crisp red typewriter date/number badge (great for science/business/sports)
-   - [gola: object] -> red dashed spotlight circle + arrow (great for mystery/crime/science detail)
    - [ink] -> dramatic red ink-splash transition on the biggest twist line!
-   - SFX tags (max 2-3 per script): [riser] on suspense buildup, [impact] on shock/army/reveal, [whoosh] on fast jump, [ding] on stat/fact, [typing] on tech/news.
+   - SFX tags (max 2-3 per script — NEVER write [riser], opening riser is automatic!): [impact] on shock/army/reveal, [whoosh] on fast jump, [ding] on stat/fact, [typing] on tech/news.
 
-4) VISUAL HINT RULES (MOST IMPORTANT — EVERY LINE EXCEPT LAST CTA MUST HAVE "||"):
-   - DESCRIBE WHAT THE CAMERA SEES (3-7 concrete English words: EXACT real person/place/event/object + action/shot):
-     * Real events / army / space / news / sports / business -> ALWAYS add natural footage cues (e.g. "ISRO Chandrayaan-3 rocket launch official footage", "Indian Army soldiers Kargil snowy mountains 1999 footage", "Ratan Tata Tata Nano launch 2008"). NEVER use AI for real people or real news!
-     * Historical / vintage / portrait moments -> add "archival photo" or "vintage photo" (e.g. "1971 Longewala Indian Army archival photo").
-     * Clean cinematic B-roll -> name the exact physical scene + camera angle (e.g. "cargo container ship port aerial view", "satellite orbiting earth space night", "semiconductor microchip close up").
+4) VISUAL HINT RULES (MOST IMPORTANT — EVERY SINGLE LINE EXCEPT LAST CTA MUST HAVE "||"):
+   - KEEP HINTS SHORT & SIMPLE (STRICTLY 3-4 lowercase English words describing what the camera sees — NEVER 6-8 word essays!):
+     * Real people/events -> name + 2 words (e.g. "ISRO rocket launch", "Indian Army tank desert", "Ratan Tata Nano 2008"). NEVER use AI for real people/news!
+     * Clean B-roll / nature / history -> 3-4 simple lowercase words (e.g. "desert sand dunes aerial", "hippopotamus swimming river", "ancient stone arrowheads", "cargo ship port aerial").
+     * DO NOT capitalize non-person words (write "green grassland lake", NOT "Green Arabia Ancient Lake" — capitalized phrases trick person search!).
    - CUSTOM AI SCENE (ONLY 1-3 lines where real footage DOES NOT EXIST — e.g. inside black hole, prehistoric dinosaur, microscopic cell):
-     * Format: || AI: <8-14 vivid realistic cinematic documentary words>
-   - STRICTLY BANNED in "||" hints: vague concepts ("growth", "economy", "crisis", "power", "secret", "shocking", "mystery", "fact"), platform tags ("[YT]", "[X]"), "interview", "podcast", "chart", "slide", emojis, hashtags, bold (**), numbering, or extra notes.
+     * Format: || AI: <8-12 vivid realistic cinematic documentary words>
+   - STRICTLY BANNED in "||" hints: "reconstruction", "reenactment", "examination", "prehistoric", "cinematic", "footage", "growth", "economy", "crisis", "secret", "interview", "podcast", "chart", "slide", "[YT]", "[X]", emojis, hashtags, bold (**), or numbering.
 
 OUTPUT EXACTLY THIS (copy-paste ready for Telegram Bot):
 MODE: <category>
 TITLE: <2-4 crisp words> | <2-4 hook words>
-<hook line> [riser] || <exact concrete visual hint>
+<hook line> || <exact concrete visual hint>
 <line 2> [map: Place, Country] || <exact concrete visual hint>
 <line 3 with number> [label: 6400 KM] || <exact concrete visual hint>
 <twist line> [ink] [impact] || <exact concrete visual hint>
@@ -79,11 +78,10 @@ PRO EDITING TAGS (put at END of Hindi line, right BEFORE "||"):
 - [map: City or Country] (1-2 geography lines)
 - [news: Short Headline | Official Source] (2-3 proof/report/court/date lines -> yellow highlighter sweep!)
 - [label: Year / Stat] (2-3 key timeline or number badges)
-- [gola: key object] (1-2 visual spotlight callouts)
-- [ink] or [riser] / [impact] on major chapter reveals (tasteful, documentary tone).
+- [ink] or [impact] on major chapter reveals (NEVER write [riser], opening riser is automatic!).
 
 VISUAL HINT RULES (EVERY LINE EXCEPT LAST CTA MUST HAVE "||"):
-- DESCRIBE WHAT THE CAMERA SEES (3-7 concrete English words: EXACT real person/place/event/object + action/shot):
+- KEEP HINTS SHORT (STRICTLY 3-4 simple lowercase English words — NO 'reconstruction', 'reenactment', 'examination', or unnecessary Capital letters):
   * Real events / news / defence / business / science -> add natural cues like "official footage", "launch", "press conference" (NEVER use AI for real people or real news!).
   * Historical / timeline lines -> add "archival photo" or "vintage photo".
   * Clean B-roll -> concrete physical scene + camera angle ("cargo ship port aerial view", "factory assembly line close up"), NEVER vague words ("economy", "growth", "crisis", "secret", "interview", "chart", "slide", or "[YT]"/"[X]" tags).
@@ -101,6 +99,8 @@ TITLE: <documentary title> | <hook subtitle>
 
 const GUIDE_TEXT = `📖 VIRAL GYAAN CLOUD BOT (24×7)
 
+• 🔥 /trends: Competitors ki top viral Shorts scan -> asli video dekh kar visual references + original script (approval ke baad video!).
+• 👥 /competitors: Tracked competitor channels dekho/badlo (/competitors add @Handle ya del @Handle).
 • ▶️ Aaj shuru karo (5 Prompt): ChatGPT/Gemini ke liye 5 Shorts ka micro-beat prompt milta hai.
 • 🎬 Long Prompt: News + Fact documentary (16:9) ka prompt milta hai.
 • Script bhejna: Seedha apni script paste karke bhejo (Long ke liye sabse upar LONG likho).
@@ -110,9 +110,9 @@ const GUIDE_TEXT = `📖 VIRAL GYAAN CLOUD BOT (24×7)
 • ⏪ /purana: Pichhle version par wapas jaane ke liye.`;
 
 export default {
-  async fetch(request, env) {
+  async fetch(request, env, ctx) {
     if (request.method !== "POST") {
-      return new Response("VideoTool Cloud Bridge v3.88 is LIVE!", { status: 200 });
+      return new Response("VideoTool Cloud Bridge v3.90 is LIVE!", { status: 200 });
     }
     let update;
     try {
@@ -127,7 +127,13 @@ export default {
     }
     // v3.83: buttons (Short / Long / meri awaaz) ka jawab
     if (update.callback_query) {
-      await handleChoice(env, update.callback_query);
+      const cdata = (update.callback_query.data || "");
+      if (cdata.startsWith("tr:")) {
+        const p = handleTrendCallback(env, update.callback_query);
+        if (ctx && ctx.waitUntil) ctx.waitUntil(p); else await p;
+      } else {
+        await handleChoice(env, update.callback_query);
+      }
       return new Response("ok", { status: 200 });
     }
     const msg = update.message || update.edited_message;
@@ -190,11 +196,22 @@ export default {
     // 2) Start / Menu / Guide
     if (tl === "/start" || tl === "/menu") {
       await tgReply(env.TG_TOKEN, chatId,
-        "☁️ VideoTool Cloud v3.83 LIVE hai!\nNeeche ke buttons use karo ya seedha script bhejo:", true);
+        "☁️ VideoTool Cloud v3.90 LIVE hai!\nNeeche ke buttons use karo ya seedha script bhejo:", true);
       return new Response("ok", { status: 200 });
     }
     if (tl === "/guide" || text.includes("/guide")) {
       await tgReply(env.TG_TOKEN, chatId, GUIDE_TEXT, true);
+      return new Response("ok", { status: 200 });
+    }
+
+    // 2b) v3.89: 🔥 /trends (Competitor Trend Radar + Real-Video Visual Reference + Approval Script)
+    if (tl === "/trends" || text.includes("/trends") || tl === "trends") {
+      const p = handleTrendsCommand(env, chatId);
+      if (ctx && ctx.waitUntil) ctx.waitUntil(p); else await p;
+      return new Response("ok", { status: 200 });
+    }
+    if (tl.startsWith("/competitors") || tl.startsWith("/comp")) {
+      await handleCompetitorsCommand(env, chatId, text);
       return new Response("ok", { status: 200 });
     }
 
@@ -531,4 +548,359 @@ async function tgReply(token, chatId, text, withKb = false) {
     headers: { "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
+}
+
+
+// ---------------- v3.89: Competitor Trend Radar + Real-Video Visual Reference + Approval Script ----------------
+const DEFAULT_COMPETITORS = [
+  "@FactsMine",
+  "@FactTechz",
+  "@dhruvrathee",
+  "@NitishRajput",
+  "@GetsetflyFACT",
+  "@AbhiandNiyu",
+];
+const COMP_PATH = "/contents/seekha/competitors.json";
+const TRENDS_CACHE_PATH = "/contents/seekha/trends_cache.json";
+const TREND_DRAFT_PATH = "/contents/seekha/trend_draft.json";
+
+async function readGhJson(env, path, fallback) {
+  try {
+    const g = await ghFetch(env, path);
+    if (!g.ok) return { data: fallback, sha: undefined };
+    const j = await g.json();
+    const d = JSON.parse(b64d(j.content) || "null");
+    return { data: d ?? fallback, sha: j.sha };
+  } catch (e) {
+    return { data: fallback, sha: undefined };
+  }
+}
+
+async function writeGhJson(env, path, data, sha, message = "bot state update") {
+  const body = { message, content: b64e(JSON.stringify(data, null, 1)), branch: "main" };
+  if (sha) body.sha = sha;
+  const r = await ghFetch(env, path, "PUT", body);
+  return r.ok;
+}
+
+function parseIsoDurationSec(iso) {
+  const m = String(iso || "").match(/PT(?:(\d+)H)?(?:(\d+)M)?(?:(\d+)S)?/);
+  if (!m) return 0;
+  return (parseInt(m[1] || "0", 10) * 3600) + (parseInt(m[2] || "0", 10) * 60) + parseInt(m[3] || "0", 10);
+}
+
+function fmtViews(v) {
+  const n = Number(v || 0);
+  if (n >= 1e7) return `${(n / 1e7).toFixed(1)}Cr`;
+  if (n >= 1e5) return `${(n / 1e5).toFixed(1)}L`;
+  if (n >= 1e3) return `${(n / 1e3).toFixed(1)}K`;
+  return String(n);
+}
+
+async function handleCompetitorsCommand(env, chatId, text) {
+  const parts = text.trim().split(/\s+/);
+  const sub = (parts[1] || "").toLowerCase();
+  const rawH = (parts[2] || "").trim();
+  const cur = await readGhJson(env, COMP_PATH, DEFAULT_COMPETITORS);
+  let list = Array.isArray(cur.data) && cur.data.length ? cur.data.slice() : DEFAULT_COMPETITORS.slice();
+
+  if (sub === "add" && rawH) {
+    const h = rawH.startsWith("@") ? rawH : "@" + rawH.replace(/^.*youtube\.com\/@?/i, "").replace(/\/.*$/, "");
+    if (!list.some(x => x.toLowerCase() === h.toLowerCase())) {
+      list.push(h);
+      list = list.slice(0, 12);
+      await writeGhJson(env, COMP_PATH, list, cur.sha, `competitors add ${h}`);
+    }
+    await tgReply(env.TG_TOKEN, chatId, `✅ ${h} list me jud gaya!\n\nAbhi tracked channels (${list.length}):\n` + list.join("\n"), true);
+    return;
+  }
+  if ((sub === "del" || sub === "remove") && rawH) {
+    const h = (rawH.startsWith("@") ? rawH : "@" + rawH).toLowerCase();
+    const next = list.filter(x => x.toLowerCase() !== h);
+    await writeGhJson(env, COMP_PATH, next.length ? next : DEFAULT_COMPETITORS, cur.sha, `competitors del ${rawH}`);
+    await tgReply(env.TG_TOKEN, chatId, `🗑 ${rawH} hata diya.\n\nAbhi tracked channels:\n` + (next.length ? next : DEFAULT_COMPETITORS).join("\n"), true);
+    return;
+  }
+  if (sub === "reset") {
+    await writeGhJson(env, COMP_PATH, DEFAULT_COMPETITORS, cur.sha, "competitors reset");
+    await tgReply(env.TG_TOKEN, chatId, "🔄 Default 6 competitor channels restore ho gaye:\n" + DEFAULT_COMPETITORS.join("\n"), true);
+    return;
+  }
+  await tgReply(env.TG_TOKEN, chatId,
+    `👥 Tracked Competitor Channels (${list.length}):\n` + list.join("\n") +
+    `\n\nBadalne ke liye:\n• /competitors add @ChannelName\n• /competitors del @ChannelName\n• /competitors reset`, true);
+}
+
+async function scanCompetitorTrends(env) {
+  const ytKey = (env.YOUTUBE_KEY || "").trim();
+  const cur = await readGhJson(env, COMP_PATH, DEFAULT_COMPETITORS);
+  const handles = (Array.isArray(cur.data) && cur.data.length ? cur.data : DEFAULT_COMPETITORS).slice(0, 10);
+
+  // 1) Resolve uploads playlist for each handle (~1 quota unit each)
+  const chanTasks = handles.map(async (h) => {
+    try {
+      const clean = h.replace(/^@/, "");
+      const r = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=contentDetails,snippet&forHandle=${encodeURIComponent(clean)}&key=${encodeURIComponent(ytKey)}`);
+      if (!r.ok) return null;
+      const j = await r.json();
+      const it = (j.items || [])[0];
+      const up = it && it.contentDetails && it.contentDetails.relatedPlaylists && it.contentDetails.relatedPlaylists.uploads;
+      if (!up) return null;
+      return { handle: h, name: (it.snippet && it.snippet.title) || h, uploads: up };
+    } catch (e) { return null; }
+  });
+  const chans = (await Promise.all(chanTasks)).filter(Boolean);
+  if (!chans.length) return [];
+
+  // 2) Fetch last 6 uploads per channel (~1 quota unit each)
+  const vidTasks = chans.map(async (c) => {
+    try {
+      const r = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId=${encodeURIComponent(c.uploads)}&maxResults=6&key=${encodeURIComponent(ytKey)}`);
+      if (!r.ok) return [];
+      const j = await r.json();
+      return (j.items || []).map(x => ({ id: x.contentDetails && x.contentDetails.videoId, channel: c.name, handle: c.handle })).filter(x => x.id);
+    } catch (e) { return []; }
+  });
+  const rawList = (await Promise.all(vidTasks)).flat();
+  const idMap = new Map();
+  for (const x of rawList) if (!idMap.has(x.id)) idMap.set(x.id, x);
+  const ids = Array.from(idMap.keys()).slice(0, 48);
+  if (!ids.length) return [];
+
+  // 3) Batch video stats + duration (1 quota unit total!)
+  const vr = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=${ids.join(",")}&key=${encodeURIComponent(ytKey)}`);
+  if (!vr.ok) return [];
+  const vj = await vr.json();
+  const now = Date.now();
+  const all = [];
+  for (const v of (vj.items || [])) {
+    const dur = parseIsoDurationSec(v.contentDetails && v.contentDetails.duration);
+    if (dur < 12 || dur > 210) continue; // Focus on Shorts / short-form (<= 3.5 min)
+    const pubMs = Date.parse((v.snippet && v.snippet.publishedAt) || "");
+    const ageH = Math.max(6, (now - (pubMs || now)) / 3600000);
+    const views = Number((v.statistics && v.statistics.viewCount) || 0);
+    if (views < 1000) continue;
+    const meta = idMap.get(v.id) || {};
+    all.push({
+      id: v.id,
+      title: (v.snippet && v.snippet.title) || "Untitled",
+      channel: meta.channel || (v.snippet && v.snippet.channelTitle) || "",
+      handle: meta.handle || "",
+      views,
+      dur,
+      ageDays: Math.round(ageH / 24),
+      score: views / Math.pow(ageH, 0.85),
+      url: `https://www.youtube.com/watch?v=${v.id}`,
+    });
+  }
+  // Prefer videos from last 35 days; fallback to all if < 5
+  const recent = all.filter(x => x.ageDays <= 35);
+  const pool = recent.length >= 5 ? recent : all;
+  pool.sort((a, b) => b.score - a.score);
+
+  // Pick Top 5 diverse (max 1 per channel first, then fill)
+  const picked = [];
+  const usedCh = new Set();
+  for (const v of pool) {
+    if (picked.length >= 5) break;
+    if (!usedCh.has(v.handle)) { picked.push(v); usedCh.add(v.handle); }
+  }
+  for (const v of pool) {
+    if (picked.length >= 5) break;
+    if (!picked.some(p => p.id === v.id)) picked.push(v);
+  }
+  return picked;
+}
+
+async function handleTrendsCommand(env, chatId) {
+  if (!env.YOUTUBE_KEY || !env.GEMINI_KEY) {
+    await tgReply(env.TG_TOKEN, chatId,
+      "🔑 /trends chalane ke liye bas 1 baar Cloudflare Worker (vg-bots) me 2 secrets add karne hain (0 GitHub minutes lagte hain!):\n\n" +
+      "1️⃣ dash.cloudflare.com -> Workers & Pages -> vg-bots -> Settings -> Variables and Secrets\n" +
+      "2️⃣ Add: YOUTUBE_KEY (aapki YouTube API key)\n" +
+      "3️⃣ Add: GEMINI_KEY (aapki Gemini API key)\n\nAdd karte hi 🔥 /trends turant kaam karega!", true);
+    return;
+  }
+  const waitRes = await tgApi(env, "sendMessage", { chat_id: chatId, text: "🔥 Competitor channels ki viral Shorts scan kar raha hoon (~5 sec)..." });
+  const waitMsg = waitRes.ok ? (await waitRes.json()).result : null;
+  const trends = await scanCompetitorTrends(env);
+  if (!trends.length) {
+    const errTxt = "❌ Abhi koi trending Short nahi mili (YOUTUBE_KEY quota ya handles check karein).";
+    if (waitMsg) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: waitMsg.message_id, text: errTxt });
+    else await tgReply(env.TG_TOKEN, chatId, errTxt, true);
+    return;
+  }
+  const prev = await readGhJson(env, TRENDS_CACHE_PATH, {});
+  await writeGhJson(env, TRENDS_CACHE_PATH, { items: trends, ts: Date.now() }, prev.sha, "trends cache update");
+
+  const lines = ["🔥 Top 5 Viral Competitor Shorts (Real Video Visual Reference ke liye number tap karo):\n"];
+  trends.forEach((v, i) => {
+    lines.push(`${i + 1}️⃣ ${v.title.slice(0, 72)}\n   📺 ${v.channel} • 👁 ${fmtViews(v.views)} (${v.ageDays}d) • 🔗 ${v.url}`);
+  });
+  lines.push("\n👇 Jis topic par tap karoge, Gemini uska asli video dekh kar visual references + 100% original Hindi script dega (aapke approval ke baad hi video banegi):");
+
+  const kb = {
+    inline_keyboard: [
+      trends.slice(0, 3).map((_, i) => ({ text: `${i + 1}️⃣ Script Banao`, callback_data: `tr:pick:${i}` })),
+      trends.slice(3, 5).map((_, i) => ({ text: `${i + 4}️⃣ Script Banao`, callback_data: `tr:pick:${i + 3}` })).concat([{ text: "🔄 Refresh", callback_data: "tr:ref" }]),
+    ],
+  };
+  if (waitMsg) {
+    await tgApi(env, "editMessageText", { chat_id: chatId, message_id: waitMsg.message_id, text: lines.join("\n"), disable_web_page_preview: true, reply_markup: kb });
+  } else {
+    await tgApi(env, "sendMessage", { chat_id: chatId, text: lines.join("\n"), disable_web_page_preview: true, reply_markup: kb });
+  }
+}
+
+async function callGeminiTrendScript(env, video, rewrite = false) {
+  const gKey = (env.GEMINI_KEY || "").trim();
+  const basePrompt = `You are India's #1 viral Hindi YouTube Shorts Director for "The Viral Gyaan".
+TASK:
+1) Watch this reference YouTube Short (visuals + audio). Ignore the competitor's editing style/transitions — focus ONLY on WHAT REAL FOOTAGES, IMAGES, OBJECTS, PEOPLE, AND SCENES they showed to explain the facts.
+2) Write a 100% ORIGINAL Hindi YouTube Short script on this same viral topic (NEVER copy/translate the competitor's wording — use a fresh, gripping hook and your own structure${rewrite ? " with a COMPLETELY DIFFERENT opening hook and angle than before" : ""}).
+3) For every script line, put camera-exact English visual references after "||" inspired by the concrete visuals/scenes that best explain this topic (real footage first, archival photo for history, clean B-roll, NO vague words like "growth/economy/secret/interview/chart", NO "[YT]"/"[X]" tags).
+
+OUTPUT FORMAT (strictly follow these two sections):
+VISUAL_REFS:
+- <visual reference 1 seen/needed>
+- <visual reference 2 seen/needed>
+- <visual reference 3 seen/needed>
+
+SCRIPT:
+MODE: <science | army | news | business | history | mystery | sports | influencer | technology | general>
+TITLE: <2-4 crisp words> | <2-4 hook words>
+<14-17 short punchy Hindi lines, 5-9 words each, tasteful [map:]/[news:]/[impact] tags max 3 total (NEVER write [riser] or [gola:] or [label:]), EVERY line except last CTA ends with "|| <3-4 simple lowercase English visual words — NO 'reconstruction'/'reenactment' or capitalized non-person phrases>">
+ऐसे ही चौंकाने वाले फैक्ट्स के लिए अभी सब्सक्राइब करें और अगली वीडियो देखना मत भूलना।`;
+
+  const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash:generateContent?key=${encodeURIComponent(gKey)}`;
+
+  // Primary: Native Gemini YouTube URL video watching (0 download, 0 GitHub minutes!)
+  try {
+    const r = await fetch(endpoint, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        contents: [{
+          role: "user",
+          parts: [
+            { fileData: { fileUri: video.url, mimeType: "video/*" } },
+            { text: basePrompt },
+          ],
+        }],
+      }),
+    });
+    if (r.ok) {
+      const j = await r.json();
+      const out = j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts
+        ? j.candidates[0].content.parts.map(p => p.text || "").join("\n").trim() : "";
+      if (out && out.includes("MODE:")) return { text: out, watchedVideo: true };
+    }
+  } catch (e) {}
+
+  // Clean Fallback: Topic-based generation if YouTube URL preview is temporarily restricted
+  const fbPrompt = basePrompt.replace(
+    "Watch this reference YouTube Short (visuals + audio).",
+    `Reference viral Short title: "${video.title}" (Channel: ${video.channel}).`
+  );
+  const r2 = await fetch(endpoint, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: fbPrompt }] }] }),
+  });
+  if (!r2.ok) return null;
+  const j2 = await r2.json();
+  const out2 = j2.candidates && j2.candidates[0] && j2.candidates[0].content && j2.candidates[0].content.parts
+    ? j2.candidates[0].content.parts.map(p => p.text || "").join("\n").trim() : "";
+  return out2 ? { text: out2, watchedVideo: false } : null;
+}
+
+function parseTrendGeminiOutput(raw) {
+  const clean = String(raw || "").replace(/```[a-z]*\n?/gi, "").replace(/```/g, "").trim();
+  const idx = clean.indexOf("SCRIPT:");
+  if (idx === -1) return { refs: "", script: clean };
+  const refs = clean.slice(0, idx).replace(/VISUAL_REFS:/i, "").trim();
+  const script = clean.slice(idx + 7).trim();
+  return { refs, script };
+}
+
+async function handleTrendCallback(env, cq) {
+  const chatId = String(cq.message && cq.message.chat ? cq.message.chat.id : "");
+  const msgId = cq.message ? cq.message.message_id : null;
+  await tgApi(env, "answerCallbackQuery", { callback_query_id: cq.id });
+  if (env.ALLOWED_CHAT_ID && chatId !== String(env.ALLOWED_CHAT_ID).trim()) return;
+  const data = cq.data || "";
+
+  if (data === "tr:ref") {
+    await handleTrendsCommand(env, chatId);
+    return;
+  }
+  if (data === "tr:no") {
+    if (msgId) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: msgId, text: "❌ Cancel — script discard kar di gayi." });
+    return;
+  }
+  if (data === "tr:go") {
+    const dr = await readGhJson(env, TREND_DRAFT_PATH, null);
+    if (!dr.data || !dr.data.script) {
+      if (msgId) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: msgId, text: "⚠️ Draft script nahi mili. Dobara 🔥 /trends chalao." });
+      return;
+    }
+    const res = await enqueueOrStart(env, [{ script: dr.data.script, mode: "SHORT", ts: Date.now() }]);
+    const reply = res.started > 0
+      ? "🚀 Approved! SHORT video cloud par shuru ho gayi hai!\nBante hi haatho-haath video + download link yahin aayegi."
+      : (res.queued > 0
+        ? `📋 Approved! Queue me lag gayi (queue: ${res.queueLen}). Pehli video khatam hote hi apne aap chalegi.`
+        : "❌ GitHub render trigger fail ho gaya.");
+    if (msgId) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: msgId, text: reply });
+    return;
+  }
+
+  let video = null;
+  const rewrite = data === "tr:rw";
+  if (rewrite) {
+    const dr = await readGhJson(env, TREND_DRAFT_PATH, null);
+    video = dr.data && dr.data.video;
+  } else if (data.startsWith("tr:pick:")) {
+    const idx = parseInt(data.split(":")[2] || "0", 10);
+    const cache = await readGhJson(env, TRENDS_CACHE_PATH, { items: [] });
+    video = (cache.data && cache.data.items || [])[idx];
+  }
+  if (!video) {
+    await tgReply(env.TG_TOKEN, chatId, "⚠️ Purana list expire ho gaya — dobara 🔥 /trends dabao.", true);
+    return;
+  }
+
+  const statusRes = await tgApi(env, "sendMessage", {
+    chat_id: chatId,
+    text: `👀 Gemini asli YouTube video dekh kar visual references aur ${rewrite ? "naya angle" : "original"} Hindi script likh raha hoon (~15 sec)...\n🔗 ${video.url}`,
+    disable_web_page_preview: true,
+  });
+  const statusMsg = statusRes.ok ? (await statusRes.json()).result : null;
+
+  const gen = await callGeminiTrendScript(env, video, rewrite);
+  if (!gen || !gen.text) {
+    const failTxt = "❌ Gemini script nahi bana paya (GEMINI_KEY ya quota check karo).";
+    if (statusMsg) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: statusMsg.message_id, text: failTxt });
+    else await tgReply(env.TG_TOKEN, chatId, failTxt, true);
+    return;
+  }
+
+  const parsed = parseTrendGeminiOutput(gen.text);
+  const oldDr = await readGhJson(env, TREND_DRAFT_PATH, null);
+  await writeGhJson(env, TREND_DRAFT_PATH, { video, script: parsed.script, refs: parsed.refs, ts: Date.now() }, oldDr.sha, "trend draft script");
+
+  const badge = gen.watchedVideo
+    ? "👀 Asli YouTube video dekh kar visual references nikaale ✓"
+    : "⚠️ YouTube URL preview temporarily unavailable — topic se script banayi";
+  const preview = `${badge}\n\n${parsed.refs ? "🎬 Visual References:\n" + parsed.refs + "\n\n" : ""}📝 ORIGINAL SCRIPT (Padh kar approve karo):\n\n${parsed.script}`.slice(0, 3950);
+  const approveKb = {
+    inline_keyboard: [
+      [{ text: "✅ Haan, Video Banao", callback_data: "tr:go" }],
+      [{ text: "✏️ Dobara Likho", callback_data: "tr:rw" }, { text: "❌ Cancel", callback_data: "tr:no" }],
+    ],
+  };
+  if (statusMsg) {
+    await tgApi(env, "editMessageText", { chat_id: chatId, message_id: statusMsg.message_id, text: preview, reply_markup: approveKb });
+  } else {
+    await tgApi(env, "sendMessage", { chat_id: chatId, text: preview, reply_markup: approveKb });
+  }
 }
