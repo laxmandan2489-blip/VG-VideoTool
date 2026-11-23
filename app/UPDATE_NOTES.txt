@@ -1,8 +1,8 @@
-v3.91 (🔥 /trends QUOTA-PROOF 4-MODEL GEMINI FALLBACK + FREE GROQ BACKUP + EXACT ERROR — 0% VISUAL ENGINE TOUCH):
-🔄 4-Model Free Gemini Fallback (cloudflare_worker.js): Sirf gemini-2.5-flash par rukne ki jagah gemini-2.5-flash -> gemini-2.5-flash-lite -> gemini-2.0-flash -> gemini-flash-latest auto-rotate karega (multi-key GEMINI_KEY bhi supported).
-⚡ Free Groq AI Backup (cloudflare_worker.js): Agar Gemini ka daily free quota poori tarah full ho jaye aur Cloudflare Worker me GROQ_KEY add ho, to llama-3.3-70b-versatile / llama-3.1-8b-instant se turant 100% original Hindi script ban jayegi.
-🔍 Exact Error Reporting (cloudflare_worker.js): Generic error ki jagah asli status code (429 Quota full / 400 Invalid key) dikhega.
-🔒 Visual Search Engine: 0% touch (visual_brain.py, visual_pick.py, sources.py, aankh.py, social_visuals.py bilkul unchanged).
+v3.91 (🔥 /trends 404 FIX + TRANSCRIPT FALLBACK + CHARON VOICE LOCK — 0% VISUAL SEARCH TOUCH):
+🤖 Dynamic Gemini Model Auto-Discovery (cloudflare_worker.js): Retired gemini-2.5/2.0-flash 404 error khatam — Worker ab /v1beta/models se active latest Flash models (gemini-3.8-flash -> 3.6-flash -> 3.5-flash-lite) khud chunta hai.
+📝 Video Watch + Auto Transcript Fallback (cloudflare_worker.js): Pehle native YouTube URL se video dekhta hai; unavailable ho to YouTube captions/transcript nikaal kar original Hindi script banata hai (kabhi fail nahi hoga) + 'trend' / '/trend' (bina 's') bhi chalta hai.
+🎙️ Charon Voice 100% Lock (app/voice.py): Naye gemini-3.8-flash-tts + gemini-3.8-flash-lite-tts + automatic multi-key rotation (GEMINI_KEY_2, GEMINI_KEY_3) taaki Charon voice kabhi quota se change na ho.
+📦 Cumulative (v3.87 sync + v3.89 /trends + v3.90 clean editing polish shamil): Visual Search Engine 0% untouched.
 
 v3.90 (CLEAN EDITING POLISH + SINGLE RISER LOCK + NO RED ARROW + SHORT VISUAL HINTS + CUMULATIVE v3.87-v3.89):
 🧹 Zero Triple-Text Overlap (make_video.py): Beech wala chhota red pill ([label:]) hata diya — ab sirf clean upar wala bada animated number + neeche caption dikhega.

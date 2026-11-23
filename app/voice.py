@@ -185,13 +185,33 @@ def tts_prompt(note, text):
 
 
 def _tts_models(key):
+    """v3.91: Prefer latest Gemini 3.8 Flash TTS / Flash-Lite TTS first, then live-discovered TTS models."""
     try:
         import ai
         ms = ai.models(key, "tts")
     except Exception:
         ms = []
-    return ms + [m for m in ("gemini-3.1-flash-tts-preview", "gemini-2.5-flash-preview-tts",
-                             "gemini-2.5-pro-preview-tts") if m not in ms]
+    preferred = ("gemini-3.8-flash-tts", "gemini-3.8-flash-lite-tts",
+                 "gemini-3.1-flash-tts-preview", "gemini-2.5-flash-preview-tts",
+                 "gemini-2.5-pro-preview-tts")
+    # Put discovered newer 3.x/4.x TTS models first, then preferred list without duplicates
+    ordered = [m for m in ms if "tts" in m.lower()]
+    for m in preferred:
+        if m not in ordered:
+            ordered.append(m)
+    return ordered
+
+
+def _gemini_key_pool(primary_key):
+    """v3.91: Automatic multi-key rotation (GEMINI_KEY, GEMINI_KEY_2, GEMINI_KEY_3) so Charon voice never hits quota."""
+    import os
+    keys = []
+    for k in (primary_key, os.environ.get("GEMINI_KEY_2"), os.environ.get("GEMINI_KEY_3"),
+              os.environ.get("GEMINI_KEY_4")):
+        k = (k or "").strip()
+        if k and k not in keys:
+            keys.append(k)
+    return keys
 
 
 TTS_BUSY = {"flag": False}
@@ -199,34 +219,39 @@ TTS_QUOTA = {"out": False}
 
 
 def gemini_tts_raw(key, text, vname, timeout=180):
-    """Gemini TTS -> (pcm bytes, mime) ya (None, None). Bheed (503) pe ruk ke dobara."""
+    """v3.91: Gemini TTS -> (pcm bytes, mime) ya (None, None). Tries latest 3.8 TTS models + backup keys."""
     import requests, base64, time
     TTS_BUSY["flag"] = False
+    TTS_QUOTA["out"] = False
     busy_only = True
-    calls = 0
-    for model in _tts_models(key)[:3]:
-        for attempt in range(2):
-            if calls >= 3: break                       # v2.15b: max 3 koshish, phir Microsoft awaaz
-            calls += 1
-            try:
-                r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
-                                  params={"key": key}, headers={"x-goog-api-key": key}, timeout=timeout, json={
-                                      "contents": [{"parts": [{"text": text}]}],
-                                      "generationConfig": {"responseModalities": ["AUDIO"], "speechConfig": {
-                                          "voiceConfig": {"prebuiltVoiceConfig": {"voiceName": vname}}}}})
-                if r.status_code == 429 and re.search(r"PerDay|per day|daily", r.text or "", re.I):
-                    log(f"  gemini tts {model}: aaj ki awaaz limit khatam", show=False)
-                    TTS_QUOTA["out"] = True; break                 # v2.17c: is model pe dobara bekaar
-                if r.status_code in (429, 500, 503):
-                    log(f"  gemini tts {model}: {r.status_code}, ruk ke dobara", show=False)
-                    time.sleep(5); continue
-                if r.status_code != 200:
-                    busy_only = False
-                    log(f"  gemini tts {model}: {r.status_code} {r.text[:200]}", show=False); break
-                part = r.json()["candidates"][0]["content"]["parts"][0]["inlineData"]
-                return base64.b64decode(part["data"]), part.get("mimeType", "")
-            except Exception as e:
-                log(f"  gemini tts {model} error: {e}", show=False); time.sleep(3)
+    key_pool = _gemini_key_pool(key)
+    for ki, k_cur in enumerate(key_pool):
+        models = _tts_models(k_cur)[:4]
+        for model in models:
+            for attempt in range(2):
+                try:
+                    r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
+                                      params={"key": k_cur}, headers={"x-goog-api-key": k_cur}, timeout=timeout, json={
+                                          "contents": [{"parts": [{"text": text}]}],
+                                          "generationConfig": {"responseModalities": ["AUDIO"], "speechConfig": {
+                                              "voiceConfig": {"prebuiltVoiceConfig": {"voiceName": vname}}}}})
+                    if r.status_code == 429 and re.search(r"PerDay|per day|daily", r.text or "", re.I):
+                        log(f"  gemini tts {model} (key#{ki+1}): aaj ki awaaz limit khatam", show=False)
+                        TTS_QUOTA["out"] = True; break
+                    if r.status_code in (429, 500, 503):
+                        log(f"  gemini tts {model} (key#{ki+1}): {r.status_code}, ruk ke dobara", show=False)
+                        time.sleep(4); continue
+                    if r.status_code == 404:
+                        log(f"  gemini tts {model}: 404 retired – agla model try...", show=False)
+                        break
+                    if r.status_code != 200:
+                        busy_only = False
+                        log(f"  gemini tts {model}: {r.status_code} {r.text[:200]}", show=False); break
+                    part = r.json()["candidates"][0]["content"]["parts"][0]["inlineData"]
+                    TTS_QUOTA["out"] = False
+                    return base64.b64decode(part["data"]), part.get("mimeType", "")
+                except Exception as e:
+                    log(f"  gemini tts {model} error: {e}", show=False); time.sleep(3)
     TTS_BUSY["flag"] = busy_only
     return None, None
 
