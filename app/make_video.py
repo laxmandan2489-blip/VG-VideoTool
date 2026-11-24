@@ -1212,13 +1212,12 @@ def main():
                 from unique_guard import UniqueAssetGuard
                 _UG = UniqueAssetGuard()
             if "_DOC_BEATS" not in locals():
-                _DOC_BEATS = {"stat": 0, "news": 0, "parallax": 0, "flow": 0, "bars": 0, "last_line": -9}
+                _DOC_BEATS = {"stat": 0, "news": 0, "parallax": 0, "last_line": -9}
             for j in range(k):
-                # v3.95 REALISTIC AI DOCUMENTARY DIRECTOR (Nitish Rajput / Dhruv Rathee non-cartoon editorial style):
-                # Inserts surgical realistic explainers (Editorial Bar Comparison, 3-Step Flowchart, Broadsheet/Portal News Proof, Stat)
-                # in BOTH Shorts (9:16) and Long (16:9), with 0% touch to Visual Search Engine!
+                # v3.25 INTENTIONAL DOCUMENTARY DIRECTOR: insert up to 3 high-impact motion-graphics beats
+                # (StatCounterPro, NewsHighlight yellow sweep, 2.5D CutoutParallax) directly into the story timeline!
                 _doc_forced = None
-                if (yes(style.get("documentary_mode", "haan")) and j == 0
+                if (yes(style.get("documentary_mode", "haan")) and W < H and j == 0
                         and 1 <= i <= len(sents) - 2 and (i - _DOC_BEATS["last_line"]) >= 2):
                     _ltxt = str(s.get("script") or s["text"] or "")
                     _kw_i = str(sources.KEYW.get(i) or "")
@@ -1226,65 +1225,53 @@ def main():
                     try:
                         from cine import doc_cards as _dc, bible as _bible
                         _pal_b = _bible.build(lines, eng, style)["palette"]
-                        _ai_dir = yes(style.get("ai_director", "haan"))
+                        # v3.62: In Shorts (or when real footage exists), NEVER black-out real footage with a dark Stat card —
+                        # let the real footage play full-screen with animated stat overlay on top! (Use Stat card only if no footage or LONG mode)
+                        # v3.86 (v3.35 Remotion DocumentaryBeat): Shorts me 1 crisp stat_slam beat on big-number lines
                         _stat_cap = 3 if LONG else 1
+                        # v3.85 (v3.35 Remotion DocumentaryBeat restored): Shorts me 1 crisp Remotion news_highlight beat
+                        # (sirf historical/fact line par, action/launch line par nahi); LONG me up to 3 beats.
                         _is_action_line = bool(re.search(r"(लॉन्च|उड़ान|क्रैश|हमला|विस्फोट|launch|liftoff|crash|explosion|blast|attack)", _ltxt, re.I))
                         _news_cap = 3 if LONG else (0 if (_is_action_line and items) else 1)
-                        _flow_cap = (2 if LONG else 1) if (_ai_dir and not (_is_action_line and items)) else 0
-                        _bars_cap = (2 if LONG else 1) if (_ai_dir and not (_is_action_line and items)) else 0
                         _px_cap = 2 if LONG else 1
-                        _cmp_bars = _dc.extract_compare_bars(_ltxt) if _DOC_BEATS["bars"] < _bars_cap else []
-                        _flow_steps = _dc.extract_flowchart_steps(_ltxt) if (
-                            _DOC_BEATS["flow"] < _flow_cap
-                            and re.search(r"(पहले|फिर|उसके बाद|जिसकी वजह से|नतीजा|आखिर में|प्रोसेस|तरीके से|कैसे काम|स्टेप|then|because|process|step)", _ltxt, re.I)
-                        ) else []
-                        # Beat A1 (v3.95): 2+ numbers comparison -> Realistic Economist/Nitish Rajput Editorial Bar Chart
-                        if _cmp_bars and _DOC_BEATS["bars"] < _bars_cap and (
-                            len(_cmp_bars) >= 2 and re.search(r"(बनाम|vs|जबकि|से बढ़कर|से गिरकर|गुना|तुलना|ज्यादा|कम|compared|versus)", _ltxt, re.I)
-                        ):
-                            _bc = work / "shots" / f"doc_bars_{i:02d}.mp4"
-                            if not _bc.exists():
-                                _t_clean = _clean_title(title, "DATA COMPARISON")
-                                _sub_clean = _ltxt[:56].rsplit(" ", 1)[0] if len(_ltxt) > 56 else _ltxt
-                                _dc.render_editorial_bars(_t_clean[:32], _cmp_bars, _dur_b, _bc, W, H, style, _pal_b, subtitle=_sub_clean, fps=render.FPS)
-                            _doc_forced = {"kind": "video", "path": _bc, "credit": "", "src": "kinetic card", "ss": 0.0}
-                            _DOC_BEATS["bars"] += 1; _DOC_BEATS["last_line"] = i
-                        # Beat A2 (v3.95): Process / cause-effect chain -> Realistic Dark Glass Editorial Flowchart
-                        elif len(_flow_steps) >= 2 and _DOC_BEATS["flow"] < _flow_cap:
-                            _bc = work / "shots" / f"doc_flow_{i:02d}.mp4"
-                            if not _bc.exists():
-                                _t_clean = _clean_title(title, "CASE BREAKDOWN")
-                                _dc.render_editorial_flowchart(_t_clean[:32], _flow_steps, _dur_b, _bc, W, H, style, _pal_b, tag="EXPLAINER BREAKDOWN", fps=render.FPS)
-                            _doc_forced = {"kind": "video", "path": _bc, "credit": "", "src": "kinetic card", "ss": 0.0}
-                            _DOC_BEATS["flow"] += 1; _DOC_BEATS["last_line"] = i
-                        # Beat A: Big number / money / percent -> Realistic StatCounterProCard
-                        elif _DOC_BEATS["stat"] < _stat_cap and re.search(r"(\d[\d,.]*\s*(?:%|प्रतिशत|लाख|करोड़|अरब|मिलियन|बिलियन|हजार|फीट|किलोमीटर|°C|डिग्री))", _ltxt):
+                        # Beat A: Big number / money / percent -> StatCounterProCard
+                        if _DOC_BEATS["stat"] < _stat_cap and re.search(r"(\d[\d,.]*\s*(?:%|प्रतिशत|लाख|करोड़|अरब|मिलियन|बिलियन|हजार|फीट|किलोमीटर|°C|डिग्री))", _ltxt):
                             _mnum = re.search(r"(-?\d[\d,.]*\s*(?:%|प्रतिशत|लाख|करोड़|अरब|मिलियन|बिलियन|हजार|फीट|किलोमीटर|°C|डिग्री)?)", _ltxt)
                             _val_s = (_kw_i if re.search(r"\d", _kw_i) else (_mnum.group(1) if _mnum else _kw_i)).strip()
                             if _val_s:
                                 _bc = work / "shots" / f"doc_stat_{i:02d}.mp4"
                                 if not _bc.exists():
                                     _stmp = "ALERT" if re.search(r"(खतरनाक|स्कैम|scam|danger|हमला|माइनस|-\d)", _ltxt, re.I) else ""
+                                    _rem_ok = None
                                     _t_clean = _clean_title(title, "KEY FACT")
                                     _sub_clean = _ltxt[:56].rsplit(" ", 1)[0] if len(_ltxt) > 56 else _ltxt
-                                    _dc.render_stat_pro(_val_s[:18], _t_clean[:26], _dur_b, _bc, W, H, style, _pal_b,
-                                                        sub=_sub_clean, stamp=_stmp, trend="up", fps=render.FPS)
+                                    if yes(style.get("remotion_beats", "haan")):
+                                        from cine import remotion_bridge as _rb
+                                        _rem_ok = _rb.render_beat("stat_slam", {"value": _val_s[:18], "label": _t_clean[:26], "sub": _sub_clean, "stamp": _stmp}, _dur_b, _bc, W, H, render.FPS)
+                                    if not _rem_ok:
+                                        _dc.render_stat_pro(_val_s[:18], _t_clean[:26], _dur_b, _bc, W, H, style, _pal_b,
+                                                            sub=_sub_clean, stamp=_stmp, trend="up", fps=render.FPS)
                                 _doc_forced = {"kind": "video", "path": _bc, "credit": "", "src": "kinetic card", "ss": 0.0}
                                 _DOC_BEATS["stat"] += 1; _DOC_BEATS["last_line"] = i
-                        # Beat B: Historical year OR news/report/court/RTI proof -> Realistic Broadsheet/Portal/Broadcast Proof Card (never cartoonish!)
+                        # Beat B: Historical year OR breaking news/report/court/survey proof -> NewsHighlightCard (yellow highlighter sweep!)
                         elif _DOC_BEATS["news"] < _news_cap and (
                             re.search(r"\b(1[89]\d\d|20[0-2]\d)\b", _ltxt)
-                            or re.search(r"(रिपोर्ट|रिसर्च|सर्वे|अदालत|कोर्ट|सुप्रीम|सरकार|ब्रेकिंग|न्यूज़|खबर|वैज्ञानिक|अध्ययन|स्टडी|घोषणा|कानून|फैसला|RTI|report|study|survey|court|breaking|news|research|government|official|confirmed)", _ltxt, re.I)
+                            or (LONG and re.search(r"(रिपोर्ट|रिसर्च|सर्वे|अदालत|कोर्ट|सुप्रीम|सरकार|ब्रेकिंग|न्यूज़|खबर|वैज्ञानिक|अध्ययन|स्टडी|घोषणा|कानून|फैसला|report|study|survey|court|breaking|news|research|government|official|confirmed)", _ltxt, re.I))
                         ):
                             _ym = re.search(r"\b(1[89]\d\d|20[0-2]\d)\b", _ltxt)
-                            _nm = re.search(r"(रिपोर्ट|रिसर्च|सर्वे|अदालत|कोर्ट|सुप्रीम|सरकार|ब्रेकिंग|न्यूज़|खबर|वैज्ञानिक|अध्ययन|स्टडी|घोषणा|कानून|फैसला|RTI|report|study|survey|court|breaking|news|research|government|official|confirmed)", _ltxt, re.I)
+                            _nm = re.search(r"(रिपोर्ट|रिसर्च|सर्वे|अदालत|कोर्ट|सुप्रीम|सरकार|ब्रेकिंग|न्यूज़|खबर|वैज्ञानिक|अध्ययन|स्टडी|घोषणा|कानून|फैसला|report|study|survey|court|breaking|news|research|government|official|confirmed)", _ltxt, re.I)
                             _hl = (_ym.group(1) if _ym else (_kw_i[:20] if _kw_i else (_nm.group(1) if _nm else "FACT"))).strip()
                             _dtag = f"ARCHIVE • {_ym.group(1)}" if _ym else "NEWS & FACT BRIEF"
                             _bc = work / "shots" / f"doc_news_{i:02d}.mp4"
                             if not _bc.exists():
+                                _rem_ok = None
                                 _t_clean = _clean_title(title, "FACT BRIEF")
-                                _dc.render_news_highlight(_t_clean[:28], _ltxt[:115],
-                                                          _hl, _dur_b, _bc, W, H, style, _pal_b, date_str=_dtag, fps=render.FPS)
+                                if yes(style.get("remotion_beats", "haan")):
+                                    from cine import remotion_bridge as _rb
+                                    _rem_ok = _rb.render_beat("news_highlight", {"source": _t_clean[:28], "headline": _ltxt[:115], "highlight": _hl, "dateStr": _dtag}, _dur_b, _bc, W, H, render.FPS)
+                                if not _rem_ok:
+                                    _dc.render_news_highlight(_t_clean[:28], _ltxt[:115],
+                                                              _hl, _dur_b, _bc, W, H, style, _pal_b, date_str=_dtag, fps=render.FPS)
                             _doc_forced = {"kind": "video", "path": _bc, "credit": "", "src": "kinetic card", "ss": 0.0}
                             _DOC_BEATS["news"] += 1; _DOC_BEATS["last_line"] = i
                         # Beat C: Archival/entity photo -> Real Blender 3D Documentary Stage (if Blender available), else 2.5D CutoutParallax!

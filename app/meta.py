@@ -462,150 +462,54 @@ def _pick_hero_image(video, srcs, work):
 
 
 def make_reel_cover_and_story(video, meta, out_base, work, srcs=(), category=""):
-    """v3.93: Generates 1080x1920 Center-Safe Reel Cover (3 styles) + Magazine-Grade IG Story (4 styles)."""
-    from PIL import Image, ImageDraw, ImageOps, ImageEnhance
+    """v3.98 (Option A): Purane clean thumbnail style (smart _compose frame-fit + crisp FFmpeg libass Hindi shaping)
+    for BOTH 1080x1920 Reel Cover Photo and IG Story — zero broken PIL Devanagari, zero cartoon/cropped boxes!"""
+    from PIL import Image
     video = Path(video)
     base = Path(out_base)
     work = Path(work)
     hero_im = _pick_hero_image(video, srcs, work)
-    hero_im = ImageEnhance.Contrast(hero_im).enhance(1.12)
-    hero_im = ImageEnhance.Color(hero_im).enhance(1.16)
-
     W, H = 1080, 1920
-    cat = (category or "general").strip().lower()
-    seed = abs(hash((meta.get("yt_title") or video.stem) + cat))
 
-    # --- 1) CENTER-SAFE REEL COVER PHOTO (3 Styles — never cropped on IG 3:4/1:1 grid!) ---
-    cover_style = {"history": 0, "business": 0, "general": 0, "news": 1, "mystery": 1, "army": 1,
-                   "science": 2, "technology": 2, "sports": 2}.get(cat, seed % 3)
-    cover_style = (cover_style + (seed % 3)) % 3
+    logo = None
+    try:
+        from common import ASSETS
+        lp = ASSETS / "logo" / "logo.png"
+        if lp.exists():
+            logo = Image.open(lp).convert("RGBA")
+    except Exception:
+        pass
 
-    cov = ImageOps.fit(hero_im, (W, H), method=Image.LANCZOS).convert("RGBA")
-    yy = np.linspace(0, 1, H, dtype=np.float32)[:, None]
-    band = np.exp(-((yy - 0.54) / 0.24) ** 2) * 0.72 + 0.18
-    ov = np.zeros((H, W, 4), dtype=np.uint8)
-    ov[..., 0] = 8; ov[..., 1] = 10; ov[..., 2] = 16
-    ov[..., 3] = np.clip(band * 235, 35, 222).astype(np.uint8)
-    cov = Image.alpha_composite(cov, Image.fromarray(ov, "RGBA"))
-    dc = ImageDraw.Draw(cov, "RGBA")
+    def _render_clean_card(text_str, out_path, tag_name, cta_line=""):
+        comp, _ = _compose(hero_im, W, H, "top", focus=None)
+        if logo is not None:
+            s_ = int(min(W, H) * 0.12)
+            lg = logo.copy()
+            lg.thumbnail((s_, s_))
+            comp.paste(lg, (W - lg.width - int(W * 0.03), H - lg.height - int(H * 0.03)), lg)
+        bp = work / f"social_base_{tag_name}.png"
+        comp.save(bp)
+        ass = work / f"social_{tag_name}.ass"
+        _thumb_text_ass(ass, W, H, text_str, "top")
+        if cta_line:
+            try:
+                _a = ass.read_text(encoding="utf-8")
+                _a += f"Dialogue: 2,0:00:00.00,0:00:05.00,Sub,,0,0,0,,{{\an2\pos({W//2},{H-140})\fs38\b1\c&H00D4FF&\bord4\shad2}}{cta_line}\n"
+                ass.write_text(_a, encoding="utf-8")
+            except Exception:
+                pass
+        try:
+            run(["ffmpeg", "-y", "-v", "error", "-i", bp.name, "-vf", f"ass={ass.name}:fontsdir=fonts",
+                 "-q:v", "2", str(out_path.resolve())], cwd=work)
+            if out_path.exists() and out_path.stat().st_size > 5000:
+                return out_path
+        except Exception as _e:
+            log(f"   ({tag_name} ass render fallback: {_e})", show=False)
+        comp.convert("RGB").save(out_path, "JPEG", quality=93)
+        return out_path
 
-    f_tag = _load_social_font("Poppins-ExtraBold.ttf", 34)
-    f_hi_xl = _load_social_font("NotoSansDevanagari-Bold.ttf", 92)
-    f_hi_lg = _load_social_font("NotoSansDevanagari-Bold.ttf", 74)
-    cover_lines = _wrap_hi_lines(meta.get("thumb_text") or meta.get("yt_title") or "असली सच", f_hi_xl, W - 180, max_lines=2)
-    l1 = cover_lines[0] if cover_lines else "असली सच"
-    l2 = cover_lines[1] if len(cover_lines) > 1 else ""
-
-    if cover_style == 0:  # Editorial Gold & White
-        dc.rectangle([38, 38, W - 38, H - 38], outline=(245, 198, 95, 150), width=4)
-        dc.rounded_rectangle([W // 2 - 220, 620, W // 2 + 220, 692], radius=36, fill=(240, 188, 72, 245))
-        dc.text((W // 2, 656), "THE VIRAL GYAAN", fill=(14, 14, 16, 255), font=f_tag, anchor="mm")
-        dc.text((W // 2, 850), l1, fill=(255, 255, 255, 255), font=f_hi_xl, anchor="mm")
-        if l2:
-            dc.text((W // 2, 985), l2, fill=(255, 205, 85, 255), font=f_hi_xl, anchor="mm")
-        dc.line([(W // 2 - 190, 1110), (W // 2 + 190, 1110)], fill=(255, 205, 85, 210), width=5)
-    elif cover_style == 1:  # Breaking Fact Crimson Band
-        dc.rounded_rectangle([W // 2 - 210, 615, W // 2 + 210, 690], radius=12, fill=(215, 38, 34, 248))
-        dc.text((W // 2, 652), "SHOCKING FACT", fill=(255, 255, 255, 255), font=f_tag, anchor="mm")
-        dc.text((W // 2, 840), l1, fill=(255, 255, 255, 255), font=f_hi_xl, anchor="mm")
-        if l2:
-            dc.rounded_rectangle([110, 920, W - 110, 1060], radius=18, fill=(215, 38, 34, 240))
-            dc.text((W // 2, 990), l2, fill=(255, 255, 255, 255), font=f_hi_lg, anchor="mm")
-        dc.text((W // 2, 1150), "THE VIRAL GYAAN", fill=(255, 215, 130, 235), font=f_tag, anchor="mm")
-    else:  # Tech HUD Cyan
-        dc.rounded_rectangle([W // 2 - 220, 618, W // 2 + 220, 694], radius=36,
-                             fill=(10, 18, 30, 220), outline=(85, 210, 255, 220), width=4)
-        dc.text((W // 2, 656), "EXPLAINED IN 60s", fill=(125, 225, 255, 255), font=f_tag, anchor="mm")
-        dc.text((W // 2, 850), l1, fill=(115, 220, 255, 255), font=f_hi_xl, anchor="mm")
-        if l2:
-            dc.text((W // 2, 985), l2, fill=(255, 255, 255, 255), font=f_hi_xl, anchor="mm")
-        dc.text((W // 2, 1140), "THE VIRAL GYAAN", fill=(225, 235, 248, 230), font=f_tag, anchor="mm")
-
-    cover_path = Path(f"{base}_reel_cover.jpg")
-    cov.convert("RGB").save(cover_path, "JPEG", quality=93)
-
-    # --- 2) MAGAZINE-GRADE DESIGNER IG STORY (4 Styles — ZERO cartoon circles!) ---
-    story_style = seed % 4
-    f_st_tag = _load_social_font("Poppins-ExtraBold.ttf", 34)
-    f_st_hi = _load_social_font("NotoSansDevanagari-Bold.ttf", 76)
-    f_st_md = _load_social_font("NotoSansDevanagari-Bold.ttf", 56)
-    f_st_cta = _load_social_font("Poppins-ExtraBold.ttf", 38)
-    f_st_serif = _load_social_font("DMSerifDisplay-Regular.ttf", 64)
-
-    hook = meta.get("story_hook") or meta.get("yt_title") or "क्या आप इसका असली सच जानते हैं?"
-    h_lines = _wrap_hi_lines(hook, f_st_hi, W - 160, max_lines=3)
-
-    if story_style == 0:  # Style 1: Brut / Vox Editorial Magazine Cover
-        st = ImageOps.fit(hero_im, (W, H), method=Image.LANCZOS).convert("RGBA")
-        grad = np.clip((yy - 0.35) / 0.65, 0.0, 1.0) ** 1.35
-        ov1 = np.zeros((H, W, 4), dtype=np.uint8)
-        ov1[..., 0] = 8; ov1[..., 1] = 10; ov1[..., 2] = 16; ov1[..., 3] = (grad * 240).astype(np.uint8)
-        st = Image.alpha_composite(st, Image.fromarray(ov1, "RGBA"))
-        ds = ImageDraw.Draw(st, "RGBA")
-        ds.rectangle([42, 42, W - 42, H - 42], outline=(240, 195, 105, 160), width=4)
-        ds.rectangle([82, 94, 470, 160], fill=(235, 185, 75, 242))
-        ds.text((276, 127), "THE VIRAL GYAAN", fill=(14, 14, 16, 255), font=f_st_tag, anchor="mm")
-        ds.text((82, 1110), "क्या आप जानते हैं?", fill=(250, 205, 95, 255), font=f_st_md)
-        for idx, hl in enumerate(h_lines):
-            col = (250, 205, 95, 255) if idx == len(h_lines) - 1 else (252, 253, 255, 255)
-            ds.text((82, 1210 + idx * 108), hl, fill=col, font=f_st_hi)
-        ds.line([(82, 1590), (W - 82, 1590)], fill=(255, 255, 255, 75), width=3)
-        ds.text((82, 1650), "NEW REEL LIVE  •  TAP PROFILE TO WATCH", fill=(245, 248, 252, 238), font=f_st_tag)
-
-    elif story_style == 1:  # Style 2: Classified Dossier / Tilted Photo Print
-        st = Image.new("RGBA", (W, H), (16, 15, 14, 255))
-        ds = ImageDraw.Draw(st, "RGBA")
-        for gx in range(0, W, 90): ds.line([(gx, 0), (gx, H)], fill=(255, 245, 225, 14), width=1)
-        for gy_i in range(0, H, 90): ds.line([(0, gy_i), (W, gy_i)], fill=(255, 245, 225, 14), width=1)
-        ph = ImageOps.fit(hero_im, (860, 620), method=Image.LANCZOS)
-        card = Image.new("RGBA", (908, 688), (242, 238, 230, 255))
-        card.paste(ph, (24, 24))
-        card_rot = card.rotate(-3.0, resample=Image.BICUBIC, expand=True)
-        st.paste(card_rot, ((W - card_rot.width) // 2, 270), card_rot)
-        ds = ImageDraw.Draw(st, "RGBA")
-        ds.rectangle([76, 94, 520, 162], fill=(205, 38, 34, 245))
-        ds.text((298, 128), "NEW FACT • UNCOVERED", fill=(255, 255, 255, 255), font=f_st_tag, anchor="mm")
-        for idx, hl in enumerate(h_lines):
-            col = (255, 195, 85, 255) if idx == 1 else (245, 240, 230, 255)
-            ds.text((82, 1080 + idx * 112), hl, fill=col, font=f_st_hi)
-        ds.rounded_rectangle([82, 1580, W - 82, 1706], radius=22, fill=(215, 42, 36, 245))
-        ds.text((W // 2, 1643), "WATCH FULL REEL NOW", fill=(255, 255, 255, 255), font=f_st_cta, anchor="mm")
-
-    elif story_style == 2:  # Style 3: Split-Screen Curiosity Card
-        st = Image.new("RGBA", (W, H), (13, 17, 26, 255))
-        st.paste(ImageOps.fit(hero_im, (W, 1080), method=Image.LANCZOS), (0, 0))
-        ov3 = np.zeros((H, W, 4), dtype=np.uint8)
-        g3 = np.clip((yy - 0.38) / 0.22, 0.0, 1.0)
-        ov3[..., 0] = 13; ov3[..., 1] = 17; ov3[..., 2] = 26; ov3[..., 3] = (g3 * 255).astype(np.uint8)
-        st = Image.alpha_composite(st, Image.fromarray(ov3, "RGBA"))
-        ds = ImageDraw.Draw(st, "RGBA")
-        ds.rounded_rectangle([64, 88, 490, 158], radius=34, fill=(12, 16, 26, 215), outline=(120, 195, 255, 200), width=3)
-        ds.text((277, 123), "THE VIRAL GYAAN", fill=(155, 215, 255, 255), font=f_st_tag, anchor="mm")
-        ds.line([(82, 1095), (320, 1095)], fill=(95, 185, 255, 245), width=8)
-        for idx, hl in enumerate(h_lines):
-            col = (135, 205, 255, 255) if idx == 1 else (250, 252, 255, 255)
-            ds.text((82, 1145 + idx * 112), hl, fill=col, font=f_st_hi)
-        ds.rounded_rectangle([82, 1600, W - 82, 1724], radius=62, fill=(255, 255, 255, 245))
-        ds.text((W // 2, 1662), "NEW REEL LIVE  •  WATCH NOW", fill=(14, 18, 28, 255), font=f_st_cta, anchor="mm")
-
-    else:  # Style 4: MagnatesMedia Minimalist Cinema Poster
-        st = ImageOps.fit(hero_im, (W, H), method=Image.LANCZOS).convert("RGBA")
-        sy, sx = np.mgrid[0:H, 0:W].astype(np.float32)
-        vr = np.sqrt(((sx / W - 0.5) * 1.2) ** 2 + ((sy / H - 0.45) * 1.1) ** 2)
-        ov4 = np.zeros((H, W, 4), dtype=np.uint8)
-        ov4[..., 0] = 6; ov4[..., 1] = 8; ov4[..., 2] = 14
-        ov4[..., 3] = np.clip(95 + vr * 145, 85, 236).astype(np.uint8)
-        st = Image.alpha_composite(st, Image.fromarray(ov4, "RGBA"))
-        ds = ImageDraw.Draw(st, "RGBA")
-        ds.text((W // 2, 155), "THE VIRAL GYAAN", fill=(255, 255, 255, 200), font=f_st_serif, anchor="mm")
-        for idx, hl in enumerate(h_lines):
-            col = (255, 205, 85, 255) if idx == 1 else (255, 255, 255, 255)
-            ds.text((W // 2, 1210 + idx * 114), hl, fill=col, font=f_st_hi, anchor="mm")
-        ds.rounded_rectangle([210, 1615, W - 210, 1730], radius=56,
-                             fill=(10, 14, 22, 185), outline=(255, 205, 85, 228), width=4)
-        ds.text((W // 2, 1672), "TAP TO WATCH REEL", fill=(255, 220, 130, 255), font=f_st_tag, anchor="mm")
-
-    story_path = Path(f"{base}_ig_story.jpg")
-    st.convert("RGB").save(story_path, "JPEG", quality=93)
-    log(f"   Reel Cover + Designer IG Story ready ✓ ({cover_path.name}, {story_path.name})")
+    cover_txt = (meta.get("thumb_text") or meta.get("yt_title") or "असली सच").strip()
+    story_txt = (meta.get("story_hook") or meta.get("yt_title") or cover_txt).strip()
+    cover_path = _render_clean_card(cover_txt, Path(f"{base}_reel_cover.jpg"), "cover")
+    story_path = _render_clean_card(story_txt, Path(f"{base}_ig_story.jpg"), "story", cta_line="NEW REEL LIVE  •  WATCH NOW")
     return cover_path, story_path

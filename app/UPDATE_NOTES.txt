@@ -1,3 +1,10 @@
+v3.98 (🧹 CLEAN v3.93 RESTORE + 🎙️ MID-VIDEO WRONG-VOICE PERMANENT FIX + 🖼️ CLEAN PURANA THUMBNAIL COVER/STORY — 0% VISUAL SEARCH TOUCH):
+🧹 Clean v3.93 Video Pipeline Restored (app/make_video.py + app/cine/doc_cards.py): v3.95 ka ai_director / extra cards 100% hata kar exact v3.93 clean state restore kar diya; Script-to-Visual Search Engine 0% untouched!
+🎙️ Mid-Video Wrong-Script Voice Permanent Fix (app/voice.py + cloudflare_worker.js): Mid-video partial splice (fix_gi) band kar diya + broken '\n।||' newlines auto-clean — ab poori video ek hi clean Charon voice take me banegi (beech me kabhi kisi aur script ki awaaz nahi aayegi!).
+🖼️ Option A Clean Cover & IG Story (app/meta.py + cloud_run.py): Broken PIL boxes hata kar purane crisp FFmpeg libass + smart _compose() frame-fit thumbnail style me Cover & Story + proper .jpg MIME upload fix!
+📦 Safe cumulative features preserved: YouTube Auto-Publish permanent Telegram file_id backup + /trends 503 Groq backup + Zero-Repeat Refresh & 5-Category menu.
+🔒 Visual Search Engine: 0% untouched!
+
 v3.97 (🔄 ZERO-REPEAT /TRENDS REFRESH + 📱🎬🚀 MULTI-CATEGORY RADAR + CUMULATIVE v3.94–v3.96 — 0% VISUAL SEARCH TOUCH):
 🔄 Smart Zero-Repeat Refresh (cloudflare_worker.js): Har channel se 12 uploads scan + seenIds memory (last 50) — ab '🔄 Naye 5 (Refresh)' dabane par purane dikh chuke videos kabhi repeat nahi honge, hamesha 5 naye viral topics milenge!
 📂 1-Tap Multi-Category /trends Menu (cloudflare_worker.js): 🧠 Facts & Science | 📱 Tech & Gadgets | 🎬 Movies & Reviews | 🚀 YT/IG/AI Updates | 🌍 Mix All + category-specific exact visual hint rules (Tech me exact phone/app model, Movies me exact movie/scene name) taaki aapka untouched Visual Search Engine bilkul exact visuals laye!

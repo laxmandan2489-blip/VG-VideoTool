@@ -280,7 +280,9 @@ def gemini_voice(lines, style, work, key, strict_plain=False):
     import requests, base64
     vname = GEMINI_VOICES.get(style.get("gemini_awaaz", "charon").lower(), "Charon")
     note = (style.get("gemini_andaaz") or "").strip() or DEFAULT_NOTE        # aapki AI Studio wali style line
-    text = tts_prompt(note, "\n".join(lines), strict_plain=strict_plain)
+    # v3.98: Strip standalone punctuation-only lines (like '।') so Gemini TTS never hallucinates on empty fragments
+    _clean_tts_lines = [l.strip() for l in lines if re.search(r"[\w\u0900-\u097F]", str(l or ""))]
+    text = tts_prompt(note, "\n".join(_clean_tts_lines or lines), strict_plain=strict_plain)
     pcm, mime = gemini_tts_raw(key, text, vname)
     if not pcm:
         return None
@@ -403,6 +405,10 @@ def gemini_voice_checked(lines, style, work, key):
         if len(miss) >= max(3, int(len(lines) * 0.55)):
             log(f"  awaaz check: Whisper {len(miss)}/{len(lines)} lines pakad nahi paya – best available awaaz rakhi")
             return r
+    # v3.98 FIX: NEVER splice 1-2 fragment lines into the middle of voice.wav (caused Gemini TTS mid-video wrong-script hallucinations & tone jumps!)
+    log(f"  awaaz check: {len(miss)}/{len(lines)} lines par Whisper score kam tha (English/brand names) – single-take Charon awaaz safe rakhi ✓", show=False)
+    return r
+    # (Legacy partial splice intentionally bypassed below)
     log(f"  awaaz check: line {', '.join(str(i+1) for i in miss)} theek se nahi boli – SIRF wahi dobara bana raha hoon...")
     # v2.17d: sirf chhooti line(s) dobara (pehle saari lines dobara banti thi -> Gemini ki awaaz limit jaldi khatam)
     sents0 = [dict(x, words=[dict(w) for w in x["words"]]) for x in r[1]]

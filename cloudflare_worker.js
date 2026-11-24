@@ -1142,7 +1142,9 @@ TITLE: <2-4 crisp words> | <2-4 hook words>
 }
 
 function parseTrendGeminiOutput(raw) {
-  const clean = String(raw || "").replace(/```[a-z]*\n?/gi, "").replace(/```/g, "").trim();
+  let clean = String(raw || "").replace(/```[a-z]*\n?/gi, "").replace(/```/g, "").trim();
+  // v3.98 FIX: Join accidental newlines before punctuation or '||' (prevents empty '।' lines that trigger voice glitches!)
+  clean = clean.replace(/\r\n/g, "\n").replace(/\n+\s*([।.!?]+\s*\|\||\|\|)/g, " $1");
   const idx = clean.indexOf("SCRIPT:");
   if (idx === -1) return { refs: "", script: clean };
   const refs = clean.slice(0, idx).replace(/VISUAL_REFS:/i, "").trim();

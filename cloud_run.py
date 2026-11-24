@@ -181,8 +181,11 @@ def public_link(video_path):
         if size_mb > max_mb:
             errs.append(f"{name}: file badi"); continue
         try:
+            _ext = (vp.suffix or ".mp4").lower()
+            _mime = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}.get(_ext, "video/mp4")
+            _up_name = f"VG_media_{time.strftime('%Y%m%d_%H%M%S')}{_ext}"
             with open(vp, "rb") as f:
-                r = requests.post(url, data=data, files={field: (f"VG_video_{time.strftime('%Y%m%d_%H%M')}.mp4", f, "video/mp4")},
+                r = requests.post(url, data=data, files={field: (_up_name, f, _mime)},
                                   headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/128.0.0.0 Safari/537.36"}, timeout=45)
             if name == "tmpfiles" and r.ok:
                 j = r.json()
