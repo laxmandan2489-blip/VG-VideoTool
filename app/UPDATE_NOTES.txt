@@ -1,3 +1,19 @@
+v3.96 (🎙️ GEMINI TTS WRONG-TOPIC / SCIENCE HALLUCINATION FIX + CUMULATIVE v3.94–v3.95 — 0% VISUAL SEARCH TOUCH):
+🎙️ Topic-Neutral Clean TTS Prompt (app/voice.py): DEFAULT_NOTE se 'mystery / science fact channel' aur markdown headings hata di gayi hain taaki Gemini 3.8 Flash TTS kabhi aapki script chhod kar khud ka Science speech invent na kare (Charon voice 100% locked!).
+🛡️ Smart Voice Hallucination Auto-Retry Guard (app/voice.py): Agar Whisper ko saaf awaaz sunai de (ratio >= 0.30) par 55%+ script lines match na karein, to bot galat awaaz ko reject karke clean verbatim prompt se Charon voice me dobara regenerate karega aur best matching audio chunega!
+📦 Cumulative v3.94 + v3.95 included: YouTube Auto-Publish permanent Telegram file_id backup + Realistic Nitish/Dhruv Editorial Explainers (Flowchart + Comparison Bars + News Proof) + /trends 503 Groq backup.
+🔒 Visual Search Engine: 0% untouched!
+
+v3.95 (▶️ YOUTUBE AUTO-PUBLISH PERMANENT FIX + 🎬 REALISTIC NITISH/DHRUV EDITORIAL EXPLAINERS + CUMULATIVE v3.94 — 0% VISUAL SEARCH TOUCH):
+▶️ Bulletproof YouTube Auto-Publish (app/yt_publish.py + cloud_run.py + cloudflare_worker.js):
+   - Browser User-Agent + 3x retry + HTML/empty MP4 rejection + HTTPS tmpfiles fix.
+   - Permanent Telegram file_id backup (#vg_tg=<file_id>) — agar external download link expire/fail ho jaye to YouTube uploader seedha Telegram server se MP4 utha kar Unlisted upload kar dega (zero manual GitHub workflow edit!).
+🎬 Realistic Nitish Rajput / Dhruv Rathee Editorial Explainers (app/cine/doc_cards.py + app/make_video.py — ai_director = haan):
+   - Zero cartoonish graphics! Matte dark archival studio + real photographic film grain + 1px metallic hairlines + macro camera push-in.
+   - NEW EditorialFlowchartCard (animated 3-step dossier cards + hairline arrows) & EditorialBarCompareCard (Economist/Nitish Rajput rising comparison bars) + realistic Broadsheet/Portal/Broadcast News Highlighter — works in BOTH 9:16 Shorts and 16:9 Long!
+⚡ Cumulative v3.94 included: 🔥 /trends 503 Flash-Lite Priority + Key Rotation + Instant Groq Backup.
+🔒 Visual Search Engine: 0% untouched!
+
 v3.94 (🔥 /TRENDS 503 ZERO-DOWNTIME FIX: FLASH-LITE PRIORITY + KEY ROTATION + INSTANT GROQ BACKUP — 0% VISUAL SEARCH TOUCH):
 ⚡ Instant Groq Script Backup (cloudflare_worker.js): Gemini 3.8/3.7 Flash par Google ka 503 (high demand) aane par Worker ab aapki Cloudflare GROQ_KEY se (llama-3.3-70b-versatile -> gpt-oss-120b -> llama-3.1-8b-instant) YouTube transcript + viral title padh kar 1-2 sec me 100% original Hindi script + '||' visual hints bana dega!
 🔄 Smart Flash-Lite Priority & 503 Backoff (cloudflare_worker.js): Sirf 2 heavy Flash models par atakna band — ab low-congestion Flash-Lite models (gemini-3.8-flash-lite / 3.7-flash-lite) + comma-separated GEMINI_KEY rotation + Cloudflare 30s time-budget guard ke saath smoothly chalta hai.

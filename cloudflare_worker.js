@@ -1178,6 +1178,7 @@ async function registerPublishCard(env, payload) {
     id, ts: Date.now(), mode,
     category: payload.category || "general",
     video_url: payload.video_url || "",
+    tg_file_id: payload.tg_file_id || "",
     cover_url: payload.cover_url || "",
     story_url: payload.story_url || "",
     title: payload.title || "The Viral Gyaan",
@@ -1379,7 +1380,7 @@ async function handlePublishCallback(env, cq) {
 
     const store = await readGhJson(env, PUB_PATH, {});
     const item = store.data && store.data[id];
-    if (!item || !item.video_url) {
+    if (!item || (!item.video_url && !item.tg_file_id)) {
       if (msgId) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: msgId, text: "⚠️ Ye publish card purana ho gaya (sirf aakhri 5 videos saved rehte hain)." });
       return;
     }
@@ -1392,8 +1393,11 @@ async function handlePublishCallback(env, cq) {
     let pendingIgCid = null;
 
     if (action === "yt" || action === "all") {
+      const ytVideoUrl = item.video_url
+        ? (item.tg_file_id ? `${item.video_url}#vg_tg=${item.tg_file_id}` : item.video_url)
+        : (item.tg_file_id ? `tgfile://${item.tg_file_id}` : "");
       const ok = await dispatchGH(env, "publish_video.yml", {
-        video_url: item.video_url,
+        video_url: ytVideoUrl,
         title: item.title,
         description: item.description,
         tags: item.tags,

@@ -169,19 +169,19 @@ _ALL = ("Zephyr Puck Charon Kore Fenrir Leda Orus Aoede Callirrhoe Autonoe Encel
 GEMINI_VOICES = {v.lower(): v for v in _ALL}                   # v2.10: saari 30 awaazein
 DEEP_MALE = ["Charon", "Orus", "Algenib", "Alnilam", "Iapetus", "Fenrir", "Rasalgethi", "Sadaltager", "Schedar",
              "Enceladus"]
-DEFAULT_NOTE = ("Deep, heavy, serious male narrator of a mystery / science fact channel. Strong, bold, low-pitched "
-                "voice with full chest resonance - not soft, not sweet, not whispery. Confident and gripping, builds "
-                "curiosity, stresses the shocking words and numbers, medium-fast pace, clear Hindi pronunciation, "
-                "short natural pause between lines.")
+DEFAULT_NOTE = ("Deep, heavy, serious male Hindi narrator with full chest resonance - not soft, not sweet, "
+                "not whispery. Confident and gripping documentary tone, stresses key words and numbers, "
+                "medium-fast pace, clear Hindi pronunciation, short natural pause between lines.")
 
 
-def tts_prompt(note, text):
-    """v2.14: Notes ko TRANSCRIPT se bilkul alag rakho – model sirf TRANSCRIPT bolta hai."""
-    return ("# AUDIO PROFILE\nA professional Hindi voice-over artist recording a YouTube fact video.\n\n"
-            "## DIRECTOR'S NOTES (do NOT read these aloud)\n" + note.strip() + "\n\n"
-            "## RULES\nSpeak ONLY the text under TRANSCRIPT, word for word. Do not say any of the notes, headings or "
-            "instructions. Do not add or translate anything.\n\n"
-            "#### TRANSCRIPT\n" + text.strip())
+def tts_prompt(note, text, strict_plain=False):
+    """v3.96: Topic-neutral verbatim TTS prompt (no 'science fact channel' bias or markdown headings that cause hallucination)."""
+    if strict_plain:
+        return ("Read the following Hindi script aloud verbatim, word for word. "
+                "Do not change the topic or add any extra words:\n\n" + text.strip())
+    return ("Read the following Hindi script aloud word for word in this voice style: " + note.strip() +
+            "\nSpeak ONLY the exact lines below. Do not improvise, change the topic, translate, or add extra words:\n\n"
+            + text.strip())
 
 
 def _tts_models(key):
@@ -275,12 +275,12 @@ def gemini_demo(key, line, names, out_dir, note=None):
     return out
 
 
-def gemini_voice(lines, style, work, key):
+def gemini_voice(lines, style, work, key, strict_plain=False):
     """One call to Gemini TTS for the whole script, then split into lines at pauses."""
     import requests, base64
     vname = GEMINI_VOICES.get(style.get("gemini_awaaz", "charon").lower(), "Charon")
     note = (style.get("gemini_andaaz") or "").strip() or DEFAULT_NOTE        # aapki AI Studio wali style line
-    text = tts_prompt(note, "\n".join(lines))
+    text = tts_prompt(note, "\n".join(lines), strict_plain=strict_plain)
     pcm, mime = gemini_tts_raw(key, text, vname)
     if not pcm:
         return None
@@ -370,12 +370,39 @@ def gemini_voice_checked(lines, style, work, key):
     if not miss:
         log(f"  awaaz check: saari {len(lines)} lines boli gayi ✓", show=False)
         return r
-    if len(miss) >= max(3, int(len(lines) * 0.6)):
-        # v3.1: lagbhag saari lines "chhooti" = Whisper hi samajh nahi paya (awaaz theek thi). Dobara banane se
-        # Gemini limit kharch hoti thi aur tukde jodne se awaaz me jhatke aate the -> awaaz waise hi rakho.
-        log(f"  awaaz check: Whisper {len(miss)}/{len(lines)} lines pakad nahi paya – ye Whisper ki kamzori hai, "
-            "awaaz waise hi rakhi (dobara nahi banayi)")
-        return r
+    if len(miss) >= max(3, int(len(lines) * 0.55)):
+        # v3.96 HALLUCINATION GUARD: If Whisper clearly heard speech (ratio >= 0.30) but >=55% of script lines
+        # did not match, Gemini TTS hallucinated a wrong topic/script! Retry with clean verbatim prompt (Charon locked).
+        avg_cov = sum(cov) / max(1, len(cov))
+        if ratio >= 0.30 and avg_cov < 0.45:
+            log(f"  ⚠️ awaaz check: Gemini TTS topic/script mismatch ({len(miss)}/{len(lines)} lines, avg={avg_cov:.2f}) – "
+                "clean verbatim prompt se Charon awaaz dobara bana raha hoon...")
+            best_r, best_cov, best_avg = r, cov, avg_cov
+            for h_try in range(2):
+                h_sub = work / f"halluc_fix_{h_try}"; h_sub.mkdir(exist_ok=True)
+                rh = gemini_voice(lines, style, h_sub, key, strict_plain=True)
+                if not rh:
+                    continue
+                ch = _coverage(lines, rh[0], style)
+                if ch is None:
+                    continue
+                ah = sum(ch) / max(1, len(ch))
+                if ah > best_avg:
+                    best_r, best_cov, best_avg = rh, ch, ah
+                if ah >= 0.65:
+                    break
+            if best_r is not r:
+                import shutil as _sh
+                _sh.copy(best_r[0], work / "voice.wav")
+                r = (work / "voice.wav", best_r[1])
+                cov = best_cov
+                miss = [i for i, c in enumerate(cov) if c < lim]
+                log(f"  ✅ awaaz hallucination fixed! Naya script match = {best_avg*100:.0f}% ✓")
+                if not miss:
+                    return r
+        if len(miss) >= max(3, int(len(lines) * 0.55)):
+            log(f"  awaaz check: Whisper {len(miss)}/{len(lines)} lines pakad nahi paya – best available awaaz rakhi")
+            return r
     log(f"  awaaz check: line {', '.join(str(i+1) for i in miss)} theek se nahi boli – SIRF wahi dobara bana raha hoon...")
     # v2.17d: sirf chhooti line(s) dobara (pehle saari lines dobara banti thi -> Gemini ki awaaz limit jaldi khatam)
     sents0 = [dict(x, words=[dict(w) for w in x["words"]]) for x in r[1]]

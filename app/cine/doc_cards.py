@@ -946,3 +946,310 @@ def render_timeline(title, milestones, active_idx, dur, out, W, H, style, pal, f
     import fx
     c = TimelineCard(title, milestones, active_idx, W, H, pal, dur)
     return fx._pipe_frames(lambda i: c.frame(i, fps), max(2, int(round(dur * fps))), W, H, out, style, fps)
+
+
+# =====================================================================
+# v3.95 REALISTIC NITISH RAJPUT / DHRUV RATHEE EDITORIAL EXPLAINERS
+# Zero cartoonish bright shapes — matte dark archival studio, subtle film grain,
+# 1px metallic hairlines, crisp editorial typography, smooth macro camera push-in.
+# =====================================================================
+
+def _editorial_studio_bg(W, H, seed=7):
+    """Matte obsidian-charcoal documentary desk with real photographic grain, subtle grid & lens vignette."""
+    rng = np.random.default_rng(seed)
+    yy, xx = np.mgrid[0:H, 0:W].astype(np.float32)
+    cx, cy = W * 0.50, H * 0.44
+    dist = np.sqrt(((xx - cx) / max(W, 1)) ** 2 + ((yy - cy) / max(H, 1)) ** 2)
+    spot = np.clip(1.0 - dist * 1.45, 0.0, 1.0)
+    r = 10 + 18 * spot
+    g = 13 + 22 * spot
+    b = 19 + 30 * spot
+    noise = rng.normal(0.0, 3.2, (H, W)).astype(np.float32)
+    arr = np.stack([
+        np.clip(r + noise, 0, 255),
+        np.clip(g + noise, 0, 255),
+        np.clip(b + noise, 0, 255),
+    ], axis=-1).astype(np.uint8)
+    img = Image.fromarray(arr, "RGB").convert("RGBA")
+    ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+    d = ImageDraw.Draw(ov)
+    step = max(56, min(W, H) // 14)
+    for gx in range(0, W, step):
+        d.line([(gx, 0), (gx, H)], fill=(255, 255, 255, 9), width=1)
+    for gy in range(0, H, step):
+        d.line([(0, gy), (W, gy)], fill=(255, 255, 255, 9), width=1)
+    return Image.alpha_composite(img, ov)
+
+
+def extract_flowchart_steps(line_text):
+    """Universal Hindi/Hinglish/English step-chain extractor for realistic 3-step editorial flowchart."""
+    txt = re.sub(r"\[[^\]]+\]", "", str(line_text or "")).strip()
+    if not txt:
+        return []
+    # Split by explicit arrows or Hindi/English sequential connectors
+    parts = re.split(
+        r"\s*(?:->|→|=>|\bफिर\b|\bउसके बाद\b|\bजिसके बाद\b|\bजिसकी वजह से\b|\bनतीजा\b|\bआखिर में\b|\bतब\b|\bthen\b|\band then\b|\bresulting in\b|[,;।])\s*",
+        txt,
+        flags=re.I,
+    )
+    steps = [p.strip(" -–—:•") for p in parts if len(p.strip(" -–—:•")) >= 6]
+    if len(steps) >= 3:
+        return [s[:46] for s in steps[:3]]
+    if len(steps) == 2:
+        return [steps[0][:46], steps[1][:46]]
+    return []
+
+
+def extract_compare_bars(line_text):
+    """Universal 2-number comparison extractor for realistic Economist/Nitish Rajput bar chart."""
+    txt = re.sub(r"\[[^\]]+\]", "", str(line_text or "")).strip()
+    nums = list(re.finditer(
+        r"(\d[\d,.]*)\s*(%|प्रतिशत|परसेंट|करोड़|लाख|अरब|हजार|मिलियन|बिलियन|गुना|साल|किलोमीटर|मीटर|°C|x|X|K|M|B)?",
+        txt,
+    ))
+    valid = []
+    for m in nums:
+        raw_n = m.group(1).replace(",", "")
+        unit = (m.group(2) or "").strip()
+        try:
+            val = float(raw_n)
+        except Exception:
+            continue
+        if val <= 0:
+            continue
+        # Skip plain calendar years like 2024 unless paired with another year-metric
+        if 1800 <= val <= 2035 and not unit:
+            continue
+        # Grab a short context label near the number
+        before = txt[max(0, m.start() - 26):m.start()].strip(" ,:-–—()।")
+        words = [w for w in before.split() if len(w) > 1]
+        lbl = " ".join(words[-2:]) if words else f"DATA {len(valid)+1}"
+        disp = f"{m.group(1)}{(' ' + unit) if unit and unit != '%' else unit}"
+        valid.append((lbl[:22], val, disp[:16]))
+    if len(valid) >= 2:
+        return valid[:3]
+    return []
+
+
+class EditorialFlowchartCard:
+    """v3.95 Realistic Nitish Rajput / Vox Editorial Process Flowchart (matte obsidian glass + hairline connectors)."""
+
+    def __init__(self, header, steps, W, H, pal, dur, tag="CASE BREAKDOWN"):
+        self.W, self.H, self.pal, self.dur = W, H, pal, max(1.0, dur)
+        self.header = (header or "EXPLAINER").strip()[:34]
+        self.tag = (tag or "CASE BREAKDOWN").strip().upper()[:26]
+        self.steps = [str(s).strip()[:52] for s in (steps or []) if str(s).strip()][:3]
+        self.bg = _editorial_studio_bg(W, H, seed=abs(hash(self.header)) % 997)
+        self.short = W < H
+
+    def frame(self, i, fps=30):
+        W, H = self.W, self.H
+        t = min(1.0, i / max(1.0, self.dur * fps))
+        base = self.bg.copy()
+        ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        d = ImageDraw.Draw(ov)
+
+        gold = (214, 178, 96, 255)
+        crimson = (206, 58, 52, 255)
+        muted = (165, 174, 190, 235)
+        white = (242, 244, 248, 255)
+
+        pad_x = int(W * (0.08 if self.short else 0.07))
+        top_y = int(H * (0.14 if self.short else 0.13))
+
+        # Subtle editorial masthead
+        f_tag = _dc_font("bold", max(18, int(min(W, H) * 0.021)))
+        f_hdr = _dc_font("bold", max(28, int(min(W, H) * 0.036)))
+        f_num = _dc_font("bold", max(26, int(min(W, H) * 0.034)))
+        f_txt = _dc_font("bold", max(24, int(min(W, H) * 0.030)))
+
+        d.rectangle([pad_x, top_y, pad_x + 6, top_y + int(min(W, H) * 0.082)], fill=gold)
+        d.text((pad_x + 20, top_y), self.tag, font=f_tag, fill=gold)
+        d.text((pad_x + 20, top_y + int(min(W, H) * 0.030)), self.header, font=f_hdr, fill=white)
+        d.line([(pad_x, top_y + int(min(W, H) * 0.098)), (W - pad_x, top_y + int(min(W, H) * 0.098))], fill=(255, 255, 255, 34), width=1)
+
+        n_steps = max(1, len(self.steps))
+        if self.short:
+            # Vertical stacked dossier cards with animated downward hairline arrows
+            avail_top = top_y + int(H * 0.085)
+            avail_h = int(H * 0.56)
+            gap = int(H * 0.042)
+            card_h = min(int(H * 0.155), (avail_h - gap * (n_steps - 1)) // n_steps)
+            card_w = W - 2 * pad_x
+            for idx, stxt in enumerate(self.steps):
+                st_p = _ease_out(max(0.0, min(1.0, (t - idx * 0.19) / 0.24)))
+                if st_p <= 0.01:
+                    continue
+                cy = avail_top + idx * (card_h + gap) + int((1.0 - st_p) * 32)
+                alpha_c = int(235 * st_p)
+                box = [pad_x, cy, pad_x + card_w, cy + card_h]
+                d.rounded_rectangle([box[0] + 6, box[1] + 10, box[2] + 6, box[3] + 10], radius=14, fill=(0, 0, 0, int(115 * st_p)))
+                d.rounded_rectangle(box, radius=14, fill=(22, 27, 38, alpha_c), outline=(214, 178, 96, int(130 * st_p)) if idx == n_steps - 1 else (255, 255, 255, int(44 * st_p)), width=2)
+                accent_c = crimson if idx == n_steps - 1 else gold
+                d.rectangle([pad_x, cy + 16, pad_x + 6, cy + card_h - 16], fill=(accent_c[0], accent_c[1], accent_c[2], int(255 * st_p)))
+                d.text((pad_x + 28, cy + 20), f"0{idx + 1}", font=f_num, fill=(accent_c[0], accent_c[1], accent_c[2], int(245 * st_p)))
+                lines_w = _wrap_text(stxt, f_txt, card_w - 135)[:2]
+                ty = cy + (card_h - len(lines_w) * int(min(W, H) * 0.040)) // 2
+                for lw in lines_w:
+                    d.text((pad_x + 98, ty), lw, font=f_txt, fill=(242, 244, 248, int(255 * st_p)))
+                    ty += int(min(W, H) * 0.042)
+                # Animated vertical hairline connector to next card
+                if idx < n_steps - 1:
+                    ar_p = _ease_out(max(0.0, min(1.0, (t - (idx * 0.19 + 0.14)) / 0.16)))
+                    if ar_p > 0.05:
+                        ax = W // 2
+                        y_start = cy + card_h + 6
+                        y_end = y_start + int((gap - 14) * ar_p)
+                        d.line([(ax, y_start), (ax, y_end)], fill=(214, 178, 96, 210), width=3)
+                        if ar_p > 0.85:
+                            d.polygon([(ax, y_end + 8), (ax - 9, y_end - 4), (ax + 9, y_end - 4)], fill=gold)
+        else:
+            # 16:9 Horizontal documentary timeline-flow cards
+            avail_y = top_y + int(H * 0.22)
+            card_h = int(H * 0.36)
+            gap = int(W * 0.045)
+            card_w = (W - 2 * pad_x - gap * (n_steps - 1)) // n_steps
+            for idx, stxt in enumerate(self.steps):
+                st_p = _ease_out(max(0.0, min(1.0, (t - idx * 0.19) / 0.24)))
+                if st_p <= 0.01:
+                    continue
+                cx = pad_x + idx * (card_w + gap)
+                cy = avail_y + int((1.0 - st_p) * 28)
+                box = [cx, cy, cx + card_w, cy + card_h]
+                d.rounded_rectangle([box[0] + 6, box[1] + 10, box[2] + 6, box[3] + 10], radius=14, fill=(0, 0, 0, int(115 * st_p)))
+                d.rounded_rectangle(box, radius=14, fill=(22, 27, 38, int(235 * st_p)), outline=(214, 178, 96, int(130 * st_p)) if idx == n_steps - 1 else (255, 255, 255, int(44 * st_p)), width=2)
+                accent_c = crimson if idx == n_steps - 1 else gold
+                d.rectangle([cx + 22, cy, cx + card_w - 22, cy + 5], fill=(accent_c[0], accent_c[1], accent_c[2], int(255 * st_p)))
+                d.text((cx + 26, cy + 26), f"STEP 0{idx + 1}", font=f_tag, fill=(accent_c[0], accent_c[1], accent_c[2], int(245 * st_p)))
+                lines_w = _wrap_text(stxt, f_txt, card_w - 52)[:3]
+                ty = cy + 78
+                for lw in lines_w:
+                    d.text((cx + 26, ty), lw, font=f_txt, fill=(242, 244, 248, int(255 * st_p)))
+                    ty += int(min(W, H) * 0.046)
+                if idx < n_steps - 1:
+                    ar_p = _ease_out(max(0.0, min(1.0, (t - (idx * 0.19 + 0.14)) / 0.16)))
+                    if ar_p > 0.05:
+                        ay = cy + card_h // 2
+                        x_start = cx + card_w + 8
+                        x_end = x_start + int((gap - 18) * ar_p)
+                        d.line([(x_start, ay), (x_end, ay)], fill=(214, 178, 96, 210), width=3)
+                        if ar_p > 0.85:
+                            d.polygon([(x_end + 9, ay), (x_end - 4, ay - 9), (x_end - 4, ay + 9)], fill=gold)
+
+        comp = Image.alpha_composite(base, ov).convert("RGB")
+        # Gentle macro camera push-in (1.00 -> 1.045) for cinematic documentary feel
+        zoom = 1.0 + 0.045 * t
+        nw, nh = int(W * zoom), int(H * zoom)
+        if nw > W and nh > H:
+            comp = comp.resize((nw, nh), Image.LANCZOS)
+            ox, oy = (nw - W) // 2, (nh - H) // 2
+            comp = comp.crop((ox, oy, ox + W, oy + H))
+        return comp
+
+
+class EditorialBarCompareCard:
+    """v3.95 Realistic Economist / Nitish Rajput Editorial Comparison Bar Chart (matte dark studio + metallic bars)."""
+
+    def __init__(self, title, bars, W, H, pal, dur, subtitle=""):
+        self.W, self.H, self.pal, self.dur = W, H, pal, max(1.0, dur)
+        self.title = (title or "DATA COMPARISON").strip()[:36]
+        self.subtitle = (subtitle or "VERIFIED DATA BRIEF").strip()[:56]
+        self.bars = list(bars or [])[:3]  # list of (label, float_val, display_str)
+        self.max_val = max([float(b[1]) for b in self.bars] + [1.0])
+        self.bg = _editorial_studio_bg(W, H, seed=abs(hash(self.title)) % 991 + 17)
+        self.short = W < H
+
+    def frame(self, i, fps=30):
+        W, H = self.W, self.H
+        t = min(1.0, i / max(1.0, self.dur * fps))
+        base = self.bg.copy()
+        ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        d = ImageDraw.Draw(ov)
+
+        gold = (214, 178, 96, 255)
+        crimson = (206, 62, 54, 255)
+        slate_bar = (118, 146, 178, 255)
+        white = (242, 244, 248, 255)
+        muted = (172, 180, 196, 230)
+
+        pad_x = int(W * (0.09 if self.short else 0.10))
+        top_y = int(H * (0.14 if self.short else 0.12))
+
+        f_tag = _dc_font("bold", max(18, int(min(W, H) * 0.020)))
+        f_hdr = _dc_font("bold", max(28, int(min(W, H) * 0.036)))
+        f_val = _dc_font("bold", max(28, int(min(W, H) * 0.036)))
+        f_lbl = _dc_font("bold", max(22, int(min(W, H) * 0.026)))
+
+        d.rectangle([pad_x, top_y, pad_x + 6, top_y + int(min(W, H) * 0.082)], fill=crimson)
+        d.text((pad_x + 20, top_y), "DATA COMPARISON", font=f_tag, fill=gold)
+        d.text((pad_x + 20, top_y + int(min(W, H) * 0.030)), self.title, font=f_hdr, fill=white)
+
+        # Chart plot frame
+        plot_top = top_y + int(H * (0.13 if self.short else 0.18))
+        plot_bot = int(H * (0.68 if self.short else 0.74))
+        plot_h = max(120, plot_bot - plot_top)
+        plot_w = W - 2 * pad_x
+
+        # Subtle Economist-style horizontal reference gridlines
+        for g_idx in range(5):
+            gy = plot_top + int(plot_h * g_idx / 4)
+            d.line([(pad_x, gy), (W - pad_x, gy)], fill=(255, 255, 255, 24 if g_idx < 4 else 90), width=1 if g_idx < 4 else 2)
+
+        n = max(1, len(self.bars))
+        bar_gap = int(plot_w * 0.10)
+        bar_w = min(int(plot_w * 0.28), (plot_w - bar_gap * (n + 1)) // n)
+        total_bw = n * bar_w + (n - 1) * bar_gap
+        start_x = (W - total_bw) // 2
+
+        bar_colors = [slate_bar, gold, crimson]
+        for idx, (lbl, val, disp) in enumerate(self.bars):
+            bp = _ease_out(max(0.0, min(1.0, (t - idx * 0.14) / 0.42)))
+            frac = max(0.10, min(1.0, float(val) / self.max_val))
+            bh = int(plot_h * 0.86 * frac * bp)
+            bx = start_x + idx * (bar_w + bar_gap)
+            by = plot_bot - bh
+            col = bar_colors[idx % len(bar_colors)]
+            # Shadow + crisp metallic editorial bar
+            if bh > 8:
+                d.rounded_rectangle([bx + 6, by + 6, bx + bar_w + 6, plot_bot], radius=8, fill=(0, 0, 0, 95))
+                d.rounded_rectangle([bx, by, bx + bar_w, plot_bot], radius=8, fill=(col[0], col[1], col[2], 235))
+                # Subtle top highlight edge
+                d.rectangle([bx + 4, by, bx + bar_w - 4, by + 5], fill=(255, 255, 255, 165))
+            # Value above bar
+            if bp > 0.2:
+                tb = d.textbbox((0, 0), disp, font=f_val)
+                tw = tb[2] - tb[0]
+                d.text((bx + (bar_w - tw) // 2, max(plot_top - 48, by - 52)), disp, font=f_val, fill=white)
+            # Label below baseline
+            lb = d.textbbox((0, 0), lbl, font=f_lbl)
+            lw = lb[2] - lb[0]
+            d.text((bx + (bar_w - lw) // 2, plot_bot + 20), lbl, font=f_lbl, fill=muted)
+
+        # Clean subtitle footnote
+        if self.subtitle:
+            d.text((pad_x, plot_bot + int(H * 0.068)), self.subtitle, font=f_tag, fill=(140, 150, 168, 200))
+
+        comp = Image.alpha_composite(base, ov).convert("RGB")
+        zoom = 1.0 + 0.035 * t
+        nw, nh = int(W * zoom), int(H * zoom)
+        if nw > W and nh > H:
+            comp = comp.resize((nw, nh), Image.LANCZOS)
+            ox, oy = (nw - W) // 2, (nh - H) // 2
+            comp = comp.crop((ox, oy, ox + W, oy + H))
+        return comp
+
+
+def render_editorial_flowchart(header, steps, dur, out, W, H, style, pal, tag="CASE BREAKDOWN", fps=30):
+    """v3.95: Realistic Nitish Rajput / Vox editorial 3-step flowchart card."""
+    import fx
+    c = EditorialFlowchartCard(header, steps, W, H, pal, dur, tag=tag)
+    n = max(2, int(round(dur * fps)))
+    return fx._pipe_frames(lambda i: c.frame(i, fps), n, W, H, out, style, fps)
+
+
+def render_editorial_bars(title, bars, dur, out, W, H, style, pal, subtitle="", fps=30):
+    """v3.95: Realistic Economist / Nitish Rajput editorial comparison bar chart."""
+    import fx
+    c = EditorialBarCompareCard(title, bars, W, H, pal, dur, subtitle=subtitle)
+    n = max(2, int(round(dur * fps)))
+    return fx._pipe_frames(lambda i: c.frame(i, fps), n, W, H, out, style, fps)

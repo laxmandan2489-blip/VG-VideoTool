@@ -145,6 +145,14 @@ def tg_send_video(token, chat_id, video_path, caption=""):
                 timeout=300,
             )
         print("TG sendVideo status:", r.status_code)
+        if r.ok:
+            try:
+                _res_v = (r.json() or {}).get("result") or {}
+                _fid = ((_res_v.get("video") or _res_v.get("document") or {}).get("file_id") or "").strip()
+                if _fid:
+                    globals()["_LAST_TG_VIDEO_FILE_ID"] = _fid
+            except Exception:
+                pass
         return r.ok
     except Exception as e:
         print("TG video error:", e)
@@ -175,12 +183,12 @@ def public_link(video_path):
         try:
             with open(vp, "rb") as f:
                 r = requests.post(url, data=data, files={field: (f"VG_video_{time.strftime('%Y%m%d_%H%M')}.mp4", f, "video/mp4")},
-                                  headers={"User-Agent": "VG-VideoTool/3.86"}, timeout=45)
+                                  headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/128.0.0.0 Safari/537.36"}, timeout=45)
             if name == "tmpfiles" and r.ok:
                 j = r.json()
                 link = str(((j.get("data") or {}).get("url")) or "").strip()
                 if link.startswith("http"):
-                    return link.replace("tmpfiles.org/", "tmpfiles.org/dl/"), "1 ghanta"
+                    return link.replace("http://tmpfiles.org/", "https://tmpfiles.org/").replace("tmpfiles.org/", "tmpfiles.org/dl/"), "1 ghanta"
             link = (r.text or "").strip()
             if r.ok and link.startswith("http") and " " not in link and len(link) < 200:
                 return link, ("72 ghante" if name == "litterbox" else "kam se kam 30 din")
@@ -586,7 +594,8 @@ def main():
             _ig_cap = (vid_meta.get("ig_caption") or f"{_desc}\n\n{' '.join(_htags)}").strip()
             if _ig_cap:
                 tg_send_text(tg_token, tg_chat, f"📋 Viral IG/FB Caption (1-Tap Copy):\n\n{_ig_cap}")
-            if dl_link and tg_token:
+            _tg_vid_fid = str(globals().get("_LAST_TG_VIDEO_FILE_ID") or "").strip()
+            if (dl_link or _tg_vid_fid) and tg_token:
                 _pub_url = os.environ.get("VG_WORKER_URL", "https://vg-bots.laxmandan2489.workers.dev").rstrip("/") + "/register-publish"
                 requests.post(
                     _pub_url,
@@ -594,7 +603,8 @@ def main():
                         "_vg_register_publish": True,
                         "auth": tg_token[:16],
                         "chat_id": tg_chat,
-                        "video_url": dl_link,
+                        "video_url": dl_link or "",
+                        "tg_file_id": _tg_vid_fid,
                         "cover_url": cover_url or "",
                         "story_url": story_url or "",
                         "title": _title,
