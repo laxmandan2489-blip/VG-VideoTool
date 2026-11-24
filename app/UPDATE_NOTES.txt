@@ -1,3 +1,8 @@
+v3.94 (🔥 /TRENDS 503 ZERO-DOWNTIME FIX: FLASH-LITE PRIORITY + KEY ROTATION + INSTANT GROQ BACKUP — 0% VISUAL SEARCH TOUCH):
+⚡ Instant Groq Script Backup (cloudflare_worker.js): Gemini 3.8/3.7 Flash par Google ka 503 (high demand) aane par Worker ab aapki Cloudflare GROQ_KEY se (llama-3.3-70b-versatile -> gpt-oss-120b -> llama-3.1-8b-instant) YouTube transcript + viral title padh kar 1-2 sec me 100% original Hindi script + '||' visual hints bana dega!
+🔄 Smart Flash-Lite Priority & 503 Backoff (cloudflare_worker.js): Sirf 2 heavy Flash models par atakna band — ab low-congestion Flash-Lite models (gemini-3.8-flash-lite / 3.7-flash-lite) + comma-separated GEMINI_KEY rotation + Cloudflare 30s time-budget guard ke saath smoothly chalta hai.
+🔒 Visual Search Engine: 0% untouched!
+
 v3.93 (AUTO-PUBLISH YT/FB/IG + DESIGNER STORIES & COVERS + CINEMATIC 3D MAPS/NEWS/VS/BLUR + /TRENDS FIX — 0% VISUAL SEARCH TOUCH):
 🚀 Post-Approval Auto-Publish (cloudflare_worker.js + cloud_run.py + app/yt_publish.py): Video render hote hi Telegram par 1-tap buttons — ✅ Sab Par Publish (YT Unlisted + FB + IG + Cover + Story), ▶️ Sirf YouTube (Unlisted), 📱 Sirf FB + IG + Story, ❌ Skip! FB/IG/Story = 0 GitHub min; YT Unlisted = ~1 min.
 🖼️ 3 Center-Safe Reel Covers + 4 Magazine-Grade Designer IG Stories (app/meta.py): Har video ke asli hero frame + Gemini curiosity sawaal par 3 IG-grid-safe Cover styles + 4 non-cartoon Story styles + ready-to-copy Viral Caption.

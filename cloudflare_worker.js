@@ -747,7 +747,7 @@ async function scanCompetitorTrends(env) {
 }
 
 async function handleTrendsCommand(env, chatId) {
-  if (!env.YOUTUBE_KEY || !env.GEMINI_KEY) {
+  if (!env.YOUTUBE_KEY || (!env.GEMINI_KEY && !env.GROQ_KEY)) {
     await tgReply(env.TG_TOKEN, chatId,
       "🔑 /trends chalane ke liye bas 1 baar Cloudflare Worker (vg-bots) me 2 secrets add karne hain (0 GitHub minutes lagte hain!):\n\n" +
       "1️⃣ dash.cloudflare.com -> Workers & Pages -> vg-bots -> Settings -> Variables and Secrets\n" +
@@ -791,6 +791,14 @@ function getGeminiKeys(env) {
   return String(env.GEMINI_KEY || "").split(",").map(s => s.trim()).filter(Boolean);
 }
 
+function getGroqKeys(env) {
+  return String(env.GROQ_KEY || "").split(",").map(s => s.trim()).filter(Boolean);
+}
+
+function sleepMs(ms) {
+  return new Promise(r => setTimeout(r, ms));
+}
+
 async function fetchWithTimeout(url, opts = {}, ms = 12000) {
   const ctrl = new AbortController();
   const id = setTimeout(() => ctrl.abort("timeout"), ms);
@@ -802,9 +810,17 @@ async function fetchWithTimeout(url, opts = {}, ms = 12000) {
 }
 
 async function discoverGeminiModels(gKey) {
-  const defaults = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-2.5-flash"];
+  const defaults = [
+    "gemini-3.8-flash",
+    "gemini-3.8-flash-lite",
+    "gemini-3.7-flash",
+    "gemini-3.7-flash-lite",
+    "gemini-3.6-flash",
+    "gemini-2.5-flash",
+  ];
+  if (!gKey) return defaults;
   try {
-    const r = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(gKey)}`, {}, 4000);
+    const r = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(gKey)}`, {}, 3500);
     if (!r.ok) return defaults;
     const j = await r.json();
     const avail = (j.models || [])
@@ -817,9 +833,18 @@ async function discoverGeminiModels(gKey) {
       if (vb !== va) return vb - va;
       return (/lite/i.test(a) ? 1 : 0) - (/lite/i.test(b) ? 1 : 0);
     });
+    // v3.94: Interleave standard Flash + low-congestion Flash-Lite so 503 on heavy Flash jumps to Lite!
+    const std = avail.filter(m => !/lite/i.test(m));
+    const lite = avail.filter(m => /lite/i.test(m));
+    const interleaved = [];
+    const maxLen = Math.max(std.length, lite.length);
+    for (let i = 0; i < maxLen; i++) {
+      if (std[i]) interleaved.push(std[i]);
+      if (lite[i]) interleaved.push(lite[i]);
+    }
     const out = [];
-    for (const m of avail.concat(defaults)) if (m && !out.includes(m)) out.push(m);
-    return out.slice(0, 4);
+    for (const m of interleaved.concat(defaults)) if (m && !out.includes(m)) out.push(m);
+    return out.slice(0, 6);
   } catch (e) {
     return defaults;
   }
@@ -829,7 +854,7 @@ async function fetchYouTubeTranscriptText(videoId) {
   try {
     const page = await fetchWithTimeout(`https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`, {
       headers: { "Accept-Language": "hi-IN,hi;q=0.9,en;q=0.8", "User-Agent": "Mozilla/5.0" },
-    }, 5000);
+    }, 4500);
     if (!page.ok) return "";
     const html = await page.text();
     const m = html.match(/"captionTracks":(\[[\s\S]*?\])/);
@@ -838,7 +863,7 @@ async function fetchYouTubeTranscriptText(videoId) {
     if (!Array.isArray(tracks) || !tracks.length) return "";
     const pick = tracks.find(t => /^hi/i.test(t.languageCode || "")) || tracks.find(t => /^en/i.test(t.languageCode || "")) || tracks[0];
     if (!pick || !pick.baseUrl) return "";
-    const tr = await fetchWithTimeout(pick.baseUrl, {}, 4000);
+    const tr = await fetchWithTimeout(pick.baseUrl, {}, 3500);
     if (!tr.ok) return "";
     const xml = await tr.text();
     return xml.replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
@@ -848,9 +873,62 @@ async function fetchYouTubeTranscriptText(videoId) {
   }
 }
 
+async function callGroqTrendScript(env, prompt, hasTranscript, errs) {
+  const groqKeys = getGroqKeys(env);
+  if (!groqKeys.length) {
+    errs.push("groq: GROQ_KEY missing");
+    return null;
+  }
+  const groqModels = [
+    "llama-3.3-70b-versatile",
+    "openai/gpt-oss-120b",
+    "llama-3.1-8b-instant",
+  ];
+  for (const gk of groqKeys.slice(0, 2)) {
+    for (const gm of groqModels) {
+      try {
+        const r = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
+          method: "POST",
+          headers: {
+            "Authorization": `Bearer ${gk}`,
+            "Content-Type": "application/json",
+          },
+          body: JSON.stringify({
+            model: gm,
+            temperature: 0.7,
+            max_tokens: 1400,
+            messages: [
+              { role: "system", content: "You are India's #1 viral Hindi YouTube Shorts Director for The Viral Gyaan. Follow the exact requested output format with VISUAL_REFS: and SCRIPT: sections." },
+              { role: "user", content: prompt },
+            ],
+          }),
+        }, 7000);
+        if (r.ok) {
+          const j = await r.json();
+          const out = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || "").trim();
+          if (out && out.includes("MODE:")) {
+            return { text: out, mode: hasTranscript ? "groq_transcript" : "groq_topic", model: `groq/${gm}` };
+          }
+          if (out) {
+            return { text: out, mode: hasTranscript ? "groq_transcript" : "groq_topic", model: `groq/${gm}` };
+          }
+        } else {
+          errs.push(`groq/${gm}: ${r.status}`);
+        }
+      } catch (e) {
+        errs.push(`groq/${gm}: ${String(e).slice(0, 32)}`);
+      }
+    }
+  }
+  return null;
+}
+
 async function callGeminiTrendScript(env, video, rewrite = false) {
+  const t0 = Date.now();
   const keys = getGeminiKeys(env);
-  if (!keys.length) return { text: "", error: "GEMINI_KEY missing" };
+  const groqKeys = getGroqKeys(env);
+  if (!keys.length && !groqKeys.length) return { text: "", error: "GEMINI_KEY aur GROQ_KEY dono missing hain" };
+
   const basePrompt = `You are India's #1 viral Hindi YouTube Shorts Director for "The Viral Gyaan".
 TASK:
 1) Study this reference viral YouTube Short. Ignore competitor editing — focus ONLY on the factual topic and WHAT REAL FOOTAGES, IMAGES, OBJECTS, PEOPLE, AND SCENES best explain it.
@@ -869,64 +947,99 @@ TITLE: <2-4 crisp words> | <2-4 hook words>
 <14-17 short punchy Hindi lines, 5-9 words each, tasteful [map:]/[news:]/[impact] tags max 3 total (NEVER write [riser] or [gola:] or [label:]), EVERY line except last CTA ends with "|| <3-4 simple lowercase English visual words>">
 ऐसे ही चौंकाने वाले फैक्ट्स के लिए अभी सब्सक्राइब करें और अगली वीडियो देखना मत भूलना।`;
 
-  const gKey = keys[0];
-  const models = await discoverGeminiModels(gKey);
   const errs = [];
+  let models = [];
+  let vidFailedModel = "";
 
-  // Step 1: Fast 12s-bounded native YouTube URL video watch (1 top model only -> never hits CF 30s kill!)
-  for (const model of models.slice(0, 1)) {
-    try {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(gKey)}`;
-      const r = await fetchWithTimeout(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          contents: [{ role: "user", parts: [{ fileData: { fileUri: video.url, mimeType: "video/*" } }, { text: basePrompt }] }],
-        }),
-      }, 12000);
-      if (r.ok) {
-        const j = await r.json();
-        const out = j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts
-          ? j.candidates[0].content.parts.map(p => p.text || "").join("\n").trim() : "";
-        if (out && out.includes("MODE:")) return { text: out, mode: "video", model };
-      } else {
-        errs.push(`${model}(vid): ${r.status}`);
+  // Step 1: Fast 9s-bounded native YouTube URL video watch (1 top model only -> safe inside CF 30s!)
+  if (keys.length) {
+    const gKey = keys[0];
+    models = await discoverGeminiModels(gKey);
+    const vidModel = models.find(m => !/lite/i.test(m)) || models[0];
+    if (vidModel) {
+      try {
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${vidModel}:generateContent?key=${encodeURIComponent(gKey)}`;
+        const r = await fetchWithTimeout(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({
+            contents: [{ role: "user", parts: [{ fileData: { fileUri: video.url, mimeType: "video/*" } }, { text: basePrompt }] }],
+          }),
+        }, 9000);
+        if (r.ok) {
+          const j = await r.json();
+          const out = j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts
+            ? j.candidates[0].content.parts.map(p => p.text || "").join("\n").trim() : "";
+          if (out && out.includes("MODE:")) return { text: out, mode: "video", model: vidModel };
+        } else {
+          errs.push(`${vidModel}(vid): ${r.status}`);
+          if (r.status === 503 || r.status === 429) vidFailedModel = vidModel;
+        }
+      } catch (e) {
+        errs.push(`${vidModel}(vid): ${String(e).slice(0, 32)}`);
       }
-    } catch (e) {
-      errs.push(`${model}(vid): ${String(e).slice(0, 40)}`);
     }
   }
 
-  // Step 2: Fast YouTube Transcript/Captions + Topic fallback (10s timeout per call, rotates comma-separated keys!)
+  // Step 2: Fast YouTube Transcript/Captions + Topic fallback (v3.94: Flash-Lite priority + key rotation + time budget!)
   const transcript = await fetchYouTubeTranscriptText(video.id);
   const ctxBlock = transcript
     ? `Reference viral Short title: "${video.title}" (Channel: ${video.channel}).\nSpoken transcript (DO NOT copy wording — extract only facts & visuals):\n${transcript}`
     : `Reference viral Short title: "${video.title}" (Channel: ${video.channel}).`;
   const fbPrompt = basePrompt + "\n\nREFERENCE INFO:\n" + ctxBlock;
 
-  for (const k of keys.slice(0, 2)) {
-    for (const model of models.slice(0, 2)) {
-      try {
-        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(k)}`;
-        const r2 = await fetchWithTimeout(endpoint, {
-          method: "POST",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: fbPrompt }] }] }),
-        }, 10000);
-        if (r2.ok) {
-          const j2 = await r2.json();
-          const out2 = j2.candidates && j2.candidates[0] && j2.candidates[0].content && j2.candidates[0].content.parts
-            ? j2.candidates[0].content.parts.map(p => p.text || "").join("\n").trim() : "";
-          if (out2) return { text: out2, mode: transcript ? "transcript" : "topic", model };
-        } else {
-          errs.push(`${model}: ${r2.status}`);
+  if (keys.length) {
+    // Prioritize Flash-Lite & non-failed models first so 503 on top Flash doesn't block fallback
+    const liteModels = models.filter(m => /lite/i.test(m));
+    const otherStd = models.filter(m => !/lite/i.test(m) && m !== vidFailedModel);
+    const textModels = [...liteModels.slice(0, 2), ...otherStd.slice(0, 2), ...(vidFailedModel ? [vidFailedModel] : [])]
+      .filter((m, idx, arr) => m && arr.indexOf(m) === idx)
+      .slice(0, 4);
+
+    // Reserve at least ~8s for Groq backup if GROQ_KEY is available
+    const geminiDeadlineMs = groqKeys.length ? 16000 : 24000;
+    let tried503 = false;
+
+    for (const model of textModels) {
+      for (const k of keys.slice(0, 2)) {
+        if (Date.now() - t0 > geminiDeadlineMs) break;
+        try {
+          if (tried503) {
+            await sleepMs(450);
+            tried503 = false;
+          }
+          const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(k)}`;
+          const r2 = await fetchWithTimeout(endpoint, {
+            method: "POST",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: fbPrompt }] }] }),
+          }, 6500);
+          if (r2.ok) {
+            const j2 = await r2.json();
+            const out2 = j2.candidates && j2.candidates[0] && j2.candidates[0].content && j2.candidates[0].content.parts
+              ? j2.candidates[0].content.parts.map(p => p.text || "").join("\n").trim() : "";
+            if (out2) return { text: out2, mode: transcript ? "transcript" : "topic", model };
+          } else {
+            errs.push(`${model}: ${r2.status}`);
+            if (r2.status === 503 || r2.status === 429) tried503 = true;
+            // If non-transient (404/400), no point retrying same model on second key
+            if (r2.status === 404 || r2.status === 400) break;
+          }
+        } catch (e) {
+          errs.push(`${model}: ${String(e).slice(0, 32)}`);
         }
-      } catch (e) {
-        errs.push(`${model}: ${String(e).slice(0, 40)}`);
       }
+      if (Date.now() - t0 > geminiDeadlineMs) break;
     }
   }
-  return { text: "", error: errs.slice(0, 3).join(" | ") };
+
+  // Step 3 (v3.94 NEW): Instant Groq Zero-Downtime Backup (uses Cloudflare GROQ_KEY!)
+  if (groqKeys.length) {
+    const groqRes = await callGroqTrendScript(env, fbPrompt, Boolean(transcript), errs);
+    if (groqRes && groqRes.text) return groqRes;
+  }
+
+  return { text: "", error: errs.slice(0, 6).join(" | ") };
 }
 
 function parseTrendGeminiOutput(raw) {
@@ -1006,7 +1119,11 @@ async function handleTrendCallback(env, cq) {
       ? `👀 Asli YouTube video dekh kar visual references nikaale ✓ (${gen.model})`
       : (gen.mode === "transcript"
         ? `📝 YouTube transcript se 100% original script + visual hints banaye ✓ (${gen.model})`
-        : `⚡ Viral topic se 100% original script + visual hints banaye ✓ (${gen.model})`);
+        : (gen.mode === "groq_transcript"
+          ? `⚡ Gemini busy (503) tha — Groq backup ne YouTube transcript se original script + visual hints banaye ✓ (${gen.model})`
+          : (gen.mode === "groq_topic"
+            ? `⚡ Gemini busy (503) tha — Groq backup ne viral topic se original script + visual hints banaye ✓ (${gen.model})`
+            : `⚡ Viral topic se 100% original script + visual hints banaye ✓ (${gen.model})`)));
     const preview = `${badge}\n\n${parsed.refs ? "🎬 Visual References:\n" + parsed.refs + "\n\n" : ""}📝 ORIGINAL SCRIPT (Padh kar approve karo):\n\n${parsed.script}`.slice(0, 3950);
     const approveKb = {
       inline_keyboard: [
