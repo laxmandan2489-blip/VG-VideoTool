@@ -85,20 +85,66 @@ def _make_tg_copy(video_path):
     return None
 
 
+_LAST_TG_DOC_FILE_ID = ""
+
+
 def tg_send_document(token, chat_id, path, caption=""):
-    """v3.66: chhoti report file (VISUAL_REPORT.md) Telegram par."""
+    """v4.02: report/log file Telegram par + file_id capture for /log command."""
+    global _LAST_TG_DOC_FILE_ID
     p = Path(path) if path else None
     if not (token and chat_id and p and p.exists()) or p.stat().st_size > 45 * 1024 * 1024:
         return False
     try:
+        mime = "text/plain" if p.suffix.lower() == ".txt" else "text/markdown"
         with open(p, "rb") as f:
             r = requests.post(f"https://api.telegram.org/bot{token}/sendDocument",
                               data={"chat_id": chat_id, "caption": caption[:950]},
-                              files={"document": (p.name, f, "text/markdown")}, timeout=120)
+                              files={"document": (p.name, f, mime)}, timeout=120)
+        if r.ok:
+            try:
+                _LAST_TG_DOC_FILE_ID = str((r.json().get("result") or {}).get("document", {}).get("file_id") or "")
+            except Exception:
+                pass
         return r.ok
     except Exception as e:
         print("TG doc error:", e)
         return False
+
+
+def register_run_log(tg_token, tg_chat, title, mode, status_str, elapsed_str, vrep_fid="", log_fid=""):
+    """v4.02: Upload last_video_log.txt (350KB) & register with Worker so Telegram `/log` delivers exact downloadable files."""
+    if not tg_token:
+        return
+    try:
+        lf = ROOT / "log.txt"
+        log_url = ""
+        tail = ""
+        if lf.exists():
+            raw = lf.read_text(encoding="utf-8", errors="ignore")
+            tail = "\n".join(raw.splitlines()[-25:])
+            lp = JOBS / "last_video_log.txt"
+            lp.write_text(raw[-350000:], encoding="utf-8")
+            log_url, _ = public_link(lp)
+        _url = os.environ.get("VG_WORKER_URL", "https://vg-bots.laxmandan2489.workers.dev").rstrip("/") + "/register-log"
+        requests.post(
+            _url,
+            json={
+                "_vg_register_log": True,
+                "auth": tg_token[:16],
+                "chat_id": tg_chat,
+                "title": str(title or "")[:120],
+                "mode": str(mode or "SHORT"),
+                "status": str(status_str or "done"),
+                "elapsed": str(elapsed_str or ""),
+                "log_url": log_url or "",
+                "log_file_id": str(log_fid or ""),
+                "vrep_file_id": str(vrep_fid or ""),
+                "tail": tail[-1800:],
+            },
+            timeout=20,
+        )
+    except Exception as e:
+        print("register_run_log skip:", e)
 
 
 def tg_send_photo(token, chat_id, path, caption=""):
@@ -590,6 +636,7 @@ def main():
                     elif _y.get("why") and not _y.get("clips"):
                         _cap += f"\n⚠️ {_y['why'][:120]}"
                 tg_send_document(tg_token, tg_chat, vrep_md, _cap)
+                _vrep_fid = str(globals().get("_LAST_TG_DOC_FILE_ID") or "")
             except Exception as _e:
                 print("visual report send skip:", _e)
 
@@ -652,6 +699,11 @@ def main():
                 if _d.exists(): _sh_cl.rmtree(_d, ignore_errors=True)
         except Exception:
             pass
+        register_run_log(
+            tg_token, tg_chat, first_line, video_mode, "success",
+            _fmt_elapsed(time.time() - t0),
+            vrep_fid=locals().get("_vrep_fid", ""),
+        )
         tg_edit_text(
             tg_token, tg_chat, status_id,
             f"✅ [{video_mode}] {first_line}\nसब कुछ पूरा हो गया! ({size_mb:.1f} MB • {_fmt_elapsed(time.time() - t0)})"
@@ -672,8 +724,14 @@ def main():
                 lp = JOBS / "log_for_fix.txt"
                 lp.write_text(log_file.read_text(encoding="utf-8", errors="ignore")[-400000:], encoding="utf-8")
                 tg_send_document(tg_token, tg_chat, lp, "📋 Poori log file – ye file Claude/Gemini ko bhej do, wo wajah pakad lenge.")
+                _fail_log_fid = str(globals().get("_LAST_TG_DOC_FILE_ID") or "")
             except Exception as e:
                 print("log send skip:", e)
+        register_run_log(
+            tg_token, tg_chat, first_line, video_mode, f"failed ({why})",
+            _fmt_elapsed(time.time() - t0),
+            log_fid=locals().get("_fail_log_fid", ""),
+        )
         sys.exit(rc or 1)
 
 

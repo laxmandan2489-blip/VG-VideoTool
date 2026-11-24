@@ -558,15 +558,30 @@ def materialize(c, i, verify_text, avoid=()):
                     if key in yt_clips.USED: continue
                     yt_clips.USED.add(key)
                 d = CACHE / "ytclips"; d.mkdir(parents=True, exist_ok=True)
-                p = yt_clips._cut(c["yt"], st, secs, d / f"{c['yt']}_{int(st)}")
+                _yt_risk = yt_clips.is_copyright_risk(c.get("channel", ""), c.get("title", ""), is_film=bool(TOPIC.get("film")))
+                if _yt_risk:
+                    p = yt_clips._extract_screenshot(c["yt"], st, d / f"{c['yt']}_{int(st)}_ss")
+                    _yt_kind = "image"
+                else:
+                    p = yt_clips._cut(c["yt"], st, secs, d / f"{c['yt']}_{int(st)}")
+                    _yt_kind = "video"
                 if not p: return None
-                if sources.verify(p, "video", verify_text, (c.get("_q") or "",), avoid, i) is False:
+                try:
+                    import visual_quality_gate as _vqg
+                    _qok, _qwhy = _vqg.check(p, _yt_kind)
+                    if not _qok:
+                        log(f"   🧹 vfilter skip YT ({_qwhy}): {c.get('title','')[:45]}", show=False)
+                        continue
+                except Exception:
+                    pass
+                if sources.verify(p, _yt_kind, verify_text, (c.get("_q") or "",), avoid, i) is False:
                     continue
                 with yt_clips._LOCK:
                     yt_clips._N["n"] += 1; yt_clips.USED_VIDS[c["yt"]] = yt_clips.USED_VIDS.get(c["yt"], 0) + 1
                 url = f"https://www.youtube.com/watch?v={c['yt']}&t={int(st)}"
                 _mn = TOPIC.get("main") or ""
-                return {"kind": "video", "path": p, "url": url, "src": f"youtube ({c.get('_src')})",
+                return {"kind": _yt_kind, "path": p, "url": url,
+                        "src": f"youtube screenshot (copyright-safe)" if _yt_risk else f"youtube ({c.get('_src')})",
                         "entity": _mn if (c.get("pool") or (_mn and _mn.lower() in (c.get("title") or "").lower())) else "",
                         "credit": f"YouTube: \"{(c.get('title') or '')[:70]}\" – {c.get('channel','')} ({url})",
                         "score": c.get("_score")}
@@ -578,6 +593,14 @@ def materialize(c, i, verify_text, avoid=()):
         sources._used.add(c.get("url"))
     p = sources.download(c)
     if not p: return None
+    try:
+        import visual_quality_gate as _vqg
+        _qok, _qwhy = _vqg.check(p, c["kind"])
+        if not _qok:
+            log(f"   🧹 vfilter skip ({_qwhy}): {str(c.get('_src') or '')}", show=False)
+            return None
+    except Exception:
+        pass
     if sources.verify(p, c["kind"], verify_text, (c.get("_q") or "",), avoid, i) is False:
         return None
     return {"kind": c["kind"], "path": p, "url": c.get("url"), "credit": c.get("credit", ""), "query": c.get("_q"),

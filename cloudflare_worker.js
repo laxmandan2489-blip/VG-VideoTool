@@ -130,6 +130,11 @@ export default {
       await registerPublishCard(env, update);
       return new Response("ok", { status: 200 });
     }
+    // v4.02 LAST-RUN LOG: cloud_run.py saves downloadable log_url & vrep_file_id for instant /log command
+    if (update && update._vg_register_log && env.TG_TOKEN && update.auth === env.TG_TOKEN.slice(0, 16)) {
+      await registerRunLog(env, update);
+      return new Response("ok", { status: 200 });
+    }
     // v3.83: buttons (Short / Long / meri awaaz) ka jawab
     if (update.callback_query) {
       const cdata = (update.callback_query.data || "");
@@ -139,6 +144,8 @@ export default {
       } else if (cdata.startsWith("pub:")) {
         const p = handlePublishCallback(env, update.callback_query);
         if (ctx && ctx.waitUntil) ctx.waitUntil(p); else await p;
+      } else if (cdata.startsWith("vf:")) {
+        await handleVfilterCallback(env, update.callback_query);
       } else if (cdata.startsWith("rb:")) {
         await handleRollbackConfirm(env, update.callback_query);
       } else {
@@ -249,10 +256,29 @@ export default {
       return new Response("ok", { status: 200 });
     }
 
-    // 5) Live /status & /log from GitHub Actions API
-    if (tl === "/status" || text.includes("/status") || tl === "/log" || text.includes("/log")) {
+    // 5a) Live /status from GitHub Actions API
+    if (tl === "/status" || text.includes("/status")) {
       const summary = await getRunsSummary(env);
       await tgReply(env.TG_TOKEN, chatId, summary, true);
+      return new Response("ok", { status: 200 });
+    }
+
+    // 5b) v4.02 Instant /log -> sends actual downloadable last_video_log.txt + VISUAL_REPORT.md in Telegram!
+    if (tl === "/log" || text.includes("/log") || tl === "log") {
+      await sendLatestLogFiles(env, chatId);
+      return new Response("ok", { status: 200 });
+    }
+
+    // 5c) v4.02 Reversible Visual Quality Filter Toggle (/vfilter on | /vfilter off | /vfilter)
+    if (tl === "/vfilter" || tl.startsWith("/vfilter ")) {
+      const arg = tl.replace("/vfilter", "").trim();
+      if (arg === "off" || arg === "band" || arg === "0") {
+        await setVfilterState(env, chatId, false);
+      } else if (arg === "on" || arg === "chalu" || arg === "1") {
+        await setVfilterState(env, chatId, true);
+      } else {
+        await showVfilterMenu(env, chatId);
+      }
       return new Response("ok", { status: 200 });
     }
 
@@ -1607,4 +1633,105 @@ async function handlePublishCallback(env, cq) {
     if (msgId) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: msgId, text: em });
     else if (chatId) await tgReply(env.TG_TOKEN, chatId, em, false);
   }
+}
+
+
+// =========================================================================
+// v4.02: INSTANT /log DOWNLOADABLE FILE SYSTEM + /vfilter REVERSIBLE TOGGLE
+// =========================================================================
+const LAST_LOG_PATH = "seekha/last_run_log.json";
+const SETTINGS_PATH = "seekha/aapki_settings.json";
+
+async function registerRunLog(env, payload) {
+  const cur = await readGhJson(env, LAST_LOG_PATH, {});
+  const entry = {
+    ts: Date.now(),
+    title: String(payload.title || "Latest Video").slice(0, 120),
+    mode: String(payload.mode || "SHORT").toUpperCase(),
+    status: String(payload.status || "done"),
+    elapsed: String(payload.elapsed || ""),
+    log_url: String(payload.log_url || ""),
+    log_file_id: String(payload.log_file_id || ""),
+    vrep_file_id: String(payload.vrep_file_id || ""),
+    tail: String(payload.tail || "").slice(-1800),
+  };
+  await writeGhJson(env, LAST_LOG_PATH, entry, cur.sha, `save last run log (${entry.mode})`);
+}
+
+async function sendLatestLogFiles(env, chatId) {
+  const cur = await readGhJson(env, LAST_LOG_PATH, null);
+  const info = cur && cur.data && typeof cur.data === "object" ? cur.data : null;
+  let sentDoc = false;
+
+  if (info && (info.log_file_id || info.log_url || info.vrep_file_id)) {
+    const cap = `📋 Last Video Log (${info.mode || "SHORT"} • ${info.status || "done"}${info.elapsed ? " • " + info.elapsed : ""})\n🎬 ${(info.title || "").slice(0, 90)}\n\n👉 Ye file seedha Gemini ko forward kar do!`;
+    if (info.log_file_id) {
+      const r = await tgApi(env, "sendDocument", { chat_id: chatId, document: info.log_file_id, caption: cap.slice(0, 950) });
+      if (r && r.ok) sentDoc = true;
+    }
+    if (!sentDoc && info.log_url) {
+      const r = await tgApi(env, "sendDocument", { chat_id: chatId, document: info.log_url, caption: cap.slice(0, 950) });
+      if (r && r.ok) sentDoc = true;
+    }
+    if (info.vrep_file_id) {
+      await tgApi(env, "sendDocument", {
+        chat_id: chatId,
+        document: info.vrep_file_id,
+        caption: `🧾 Visual Report — ${(info.title || "").slice(0, 80)}`,
+      });
+    }
+    if (!sentDoc && info.tail) {
+      await tgReply(env.TG_TOKEN, chatId, `📋 Last Video Log Tail (${info.title || ""}):\n\n${info.tail.slice(-3200)}`, false);
+      sentDoc = true;
+    }
+  }
+
+  if (!sentDoc) {
+    const summary = await getRunsSummary(env);
+    await tgReply(
+      env.TG_TOKEN,
+      chatId,
+      `ℹ️ Abhi koi naya v4.02 video log saved nahi hai (agli video bante hi /log par seedha downloadable .txt file aayegi).\n\n${summary}`,
+      true
+    );
+  }
+}
+
+async function getVfilterEnabled(env) {
+  const cur = await readGhJson(env, SETTINGS_PATH, []);
+  const arr = Array.isArray(cur.data) ? cur.data : [];
+  return { enabled: !arr.includes("vfilter_off"), arr, sha: cur.sha };
+}
+
+async function setVfilterState(env, chatId, enable) {
+  const st = await getVfilterEnabled(env);
+  const next = st.arr.filter(x => x !== "vfilter_off");
+  if (!enable) next.push("vfilter_off");
+  await writeGhJson(env, SETTINGS_PATH, next, st.sha, `vfilter ${enable ? "on" : "off"}`);
+  const msg = enable
+    ? "✅ Visual Quality Filter ON kar diya!\nBlurry / low-res / ganda visuals ab auto-reject honge.\n(Voice fix, Copyright Shield aur /log 100% active hain.)"
+    : "↩️ Visual Quality Filter OFF kar diya (Purana v4.0 Visual Mode wapas)!\n✅ Aapka Voice fix, Copyright Screenshot Shield aur /log system 100% SAFE & ACTIVE hain.";
+  await tgReply(env.TG_TOKEN, chatId, msg, true);
+}
+
+async function showVfilterMenu(env, chatId) {
+  const st = await getVfilterEnabled(env);
+  await tgApi(env, "sendMessage", {
+    chat_id: chatId,
+    text: `🎨 Visual Quality Filter abhi: ${st.enabled ? "✅ ON (Blurry/Low-res reject)" : "↩️ OFF (Purana Visual Mode)"}\n\nNote: Isko OFF karne par sirf visual filter purana hota hai — Voice fix, Copyright Shield aur /log bilkul nahi hatenge!`,
+    reply_markup: {
+      inline_keyboard: [[
+        { text: "✅ Filter ON", callback_data: "vf:on" },
+        { text: "↩️ Filter OFF (Purana Mode)", callback_data: "vf:off" },
+      ]],
+    },
+  });
+}
+
+async function handleVfilterCallback(env, cq) {
+  const chatId = String(cq.message && cq.message.chat ? cq.message.chat.id : "");
+  await tgApi(env, "answerCallbackQuery", { callback_query_id: cq.id });
+  if (env.ALLOWED_CHAT_ID && chatId !== String(env.ALLOWED_CHAT_ID).trim()) return;
+  const enable = cq.data === "vf:on";
+  await setVfilterState(env, chatId, enable);
 }

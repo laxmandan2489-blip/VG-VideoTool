@@ -167,6 +167,93 @@ def _cut(vid, start, secs, out):
     return None
 
 
+
+
+# ------------------------------------------------------------------ v4.02: COPYRIGHT SHIELD (Screenshot-Only for News / OTT / Studios / Sports)
+COPYRIGHT_RISK_RE = re.compile(
+    r"\b("
+    # Indian & Global TV News Channels
+    r"aaj\s*tak|abp\s*(news|live|majha|ananda|asmita|ganga)|zee\s*(news|business|hindustan|24|media)|"
+    r"ndtv|republic\s*(bharat|world|tv)|india\s*today|news\s*18|cnn|bbc\s*(news|world|hindi)?|"
+    r"al\s*jazeera|fox\s*news|sky\s*news|wion|tv9|news\s*24|times\s*now|mirror\s*now|"
+    r"lallantop|firstpost|ani\s*news|pti\s*news|dd\s*news|cnbc|bloomberg|reuters|associated\s*press|"
+    r"hindustan\s*times|india\s*tv|news\s*nation|good\s*news\s*today|et\s*now|bharat\s*tak|livenews|"
+    # OTT / Movie Studios / Music Labels / TV Networks
+    r"t-?series|netflix|prime\s*video|amazon\s*(prime|mgm)|sonyliv|sony\s*(liv|music|sab|max|pictures|entertainment)|"
+    r"set\s*india|jiohotstar|hotstar|disney|zee5|zee\s*(music|tv|studios|cinema)|"
+    r"yash\s*raj|yrf|dharma\s*productions|red\s*chillies|eros\s*now|viacom18|jiocinema|jio\s*studios|"
+    r"colors\s*tv|star\s*(plus|gold|bharat|utsav)|goldmines|pen\s*movies|saregama|tips\s*(official|films|music)|"
+    r"shemaroo|warner\s*bros|marvel|dc\s*comics|hbo|universal\s*pictures|paramount|lionsgate|"
+    r"20th\s*century|columbia\s*pictures|pixar|dreamworks|apple\s*tv|peacock|hulu|crunchyroll|"
+    r"maddock\s*films|hombale|mythri\s*movie|geetha\s*arts|lyca\s*productions|sun\s*tv|sun\s*nxt|"
+    # Sports Broadcasters & Leagues
+    r"icc|bcci|ipl|fifa|uefa|wwe|ufc|nba|nfl|formula\s*1|star\s*sports|sony\s*sports|espn|olympics"
+    r")\b",
+    re.I,
+)
+
+# Also catch generic TV/News channel names (e.g., "XYZ News", "ABC TV Live")
+_NEWS_CHANNEL_RE = re.compile(r"\b(news|samachar|breaking\s*news|live\s*tv|bulletins?)\b", re.I)
+
+
+def is_copyright_risk(channel="", title="", is_film=False):
+    """v4.02: Returns True for News channels, OTT/Movie Studios, Music Labels, Films/Trailers & Sports Broadcasters.
+    For these sources, NEVER cut a video clip — extract a crisp HD still screenshot instead (Content-ID safe)."""
+    if is_film:
+        return True
+    ch = str(channel or "").strip()
+    ti = str(title or "").strip()
+    if COPYRIGHT_RISK_RE.search(ch) or COPYRIGHT_RISK_RE.search(ti):
+        return True
+    if ch and _NEWS_CHANNEL_RE.search(ch):
+        return True
+    return False
+
+
+def _extract_screenshot(vid, start, out):
+    """v4.02: Extract a single crisp HD still frame (.jpg) at timestamp `start` from YouTube (copyright-safe).
+    Falls back to YouTube maxres/hq thumbnail only if direct frame grab fails."""
+    out = Path(out)
+    dst = out.with_suffix(".jpg")
+    if dst.exists() and dst.stat().st_size > 8000:
+        return dst
+    t0 = time.time()
+    try:
+        import cookie_jar
+        _px = bool(cookie_jar.proxy())
+    except Exception:
+        _px = False
+    url = None if _px else _stream_url(vid)
+    if url:
+        try:
+            r = subprocess.run(
+                ["ffmpeg", "-nostdin", "-y", "-v", "error", "-rw_timeout", "15000000",
+                 "-ss", f"{max(0.5, float(start)):.2f}", "-i", url, "-frames:v", "1",
+                 "-vf", "scale='min(1920,iw)':-2", "-q:v", "2", str(dst)],
+                capture_output=True, text=True, timeout=25, stdin=subprocess.DEVNULL,
+                creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
+            )
+            if r.returncode == 0 and dst.exists() and dst.stat().st_size > 8000:
+                log(f"   📸 Copyright-safe HD screenshot ({vid} @{int(start)}s, {time.time()-t0:.1f}s)", show=False)
+                return dst
+            with _LOCK:
+                _URLS.pop(vid, None)
+        except Exception as e:
+            log(f"   (YT screenshot frame fail {vid}: {str(e)[:90]})", show=False)
+    # Fallback: official high-res thumbnail (maxresdefault -> sddefault -> hqdefault)
+    try:
+        import requests
+        for qname in ("maxresdefault.jpg", "sddefault.jpg", "hqdefault.jpg"):
+            r = requests.get(f"https://i.ytimg.com/vi/{vid}/{qname}", timeout=10)
+            if r.ok and len(r.content) > 10000:
+                dst.write_bytes(r.content)
+                log(f"   📸 Copyright-safe YT thumbnail fallback ({vid}/{qname})", show=False)
+                return dst
+    except Exception:
+        pass
+    return None
+
+
 # ------------------------------------------------------------------ naam / channel pehchaan
 def _norm(t):
     return re.sub(r"[^a-z0-9 ]", " ", (t or "").lower())
@@ -496,17 +583,24 @@ def find(query, api_key, need=1, verify_text="", avoid=(), prefer_channel="", li
             with _LOCK:
                 if key in USED: continue
                 USED.add(key)
-            p = _cut(r["video_id"], st, ON["secs"], d / f"{r['video_id']}_{int(st)}")
-            if not p: break                                    # ye video kat hi nahi rahi – agli video
-            ok = sources.verify(p, "video", verify_text, (query,), avoid) if verify_text else None
+            _risk = is_copyright_risk(r.get("channel", ""), r.get("title", ""), is_film=film)
+            if _risk:
+                p = _extract_screenshot(r["video_id"], st, d / f"{r['video_id']}_{int(st)}_ss")
+                _kind = "image"
+            else:
+                p = _cut(r["video_id"], st, ON["secs"], d / f"{r['video_id']}_{int(st)}")
+                _kind = "video"
+            if not p: break                                    # ye video nahi chal rahi – agli video
+            ok = sources.verify(p, _kind, verify_text, (query,), avoid) if verify_text else None
             if ok is False:
                 continue
             with _LOCK:
                 _N["n"] += 1; USED_VIDS[r["video_id"]] = USED_VIDS.get(r["video_id"], 0) + 1
-            out.append({"kind": "video", "path": p, "url": r["url"] + f"&t={int(st)}", "src": "youtube clip",
+            out.append({"kind": _kind, "path": p, "url": r["url"] + f"&t={int(st)}",
+                        "src": "youtube screenshot (copyright-safe)" if _risk else "youtube clip",
                         "credit": f"YouTube: \"{r['title'][:70]}\" – {r['channel']} ({r['url']}&t={int(st)})",
                         "yt_title": r["title"][:90], "yt_channel": r.get("channel", "")})
-            log(f"   🎞 YouTube clip: [{r.get('channel', '')}] {r['title'][:50]} ({int(st)}s)", show=False)
+            log(f"   {'📸 Copyright-safe screenshot' if _risk else '🎞 YouTube clip'}: [{r.get('channel', '')}] {r['title'][:50]} ({int(st)}s)", show=False)
             break
     return out
 

@@ -219,21 +219,42 @@ TTS_BUSY = {"flag": False}
 TTS_QUOTA = {"out": False}
 
 
-def gemini_tts_raw(key, text, vname, timeout=180):
-    """v3.91: Gemini TTS -> (pcm bytes, mime) ya (None, None). Tries latest 3.8 TTS models + backup keys."""
+def _is_verbatim_tts_model(model_name):
+    """v4.02: Gemini 3.8+ TTS speaks `contents[].parts[].text` 100% verbatim — NEVER put English style prompts in `text`."""
+    m = re.search(r"gemini-(\d+(?:\.\d+)?)", str(model_name or ""), re.I)
+    if not m:
+        return False
+    try:
+        return float(m.group(1)) >= 3.8
+    except Exception:
+        return False
+
+
+def _strip_prompt_header(text):
+    """Safety fallback if raw_script wasn't passed: remove English tts_prompt header before double newline."""
+    s = str(text or "").strip()
+    if s.lower().startswith("read the following hindi script") and "\n\n" in s:
+        return s.split("\n\n", 1)[1].strip()
+    return s
+
+
+def gemini_tts_raw(key, text, vname, timeout=180, raw_script=None):
+    """v4.02: Gemini TTS -> (pcm bytes, mime). For Gemini 3.8+ TTS sends PURE Hindi script verbatim (never speaks prompt!)."""
     import requests, base64, time
     TTS_BUSY["flag"] = False
     TTS_QUOTA["out"] = False
     busy_only = True
     key_pool = _gemini_key_pool(key)
+    pure_script = (raw_script or "").strip() or _strip_prompt_header(text)
     for ki, k_cur in enumerate(key_pool):
         models = _tts_models(k_cur)[:4]
         for model in models:
+            send_text = pure_script if _is_verbatim_tts_model(model) else text
             for attempt in range(2):
                 try:
                     r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
                                       params={"key": k_cur}, headers={"x-goog-api-key": k_cur}, timeout=timeout, json={
-                                          "contents": [{"parts": [{"text": text}]}],
+                                          "contents": [{"parts": [{"text": send_text}]}],
                                           "generationConfig": {"responseModalities": ["AUDIO"], "speechConfig": {
                                               "voiceConfig": {"prebuiltVoiceConfig": {"voiceName": vname}}}}})
                     if r.status_code == 429 and re.search(r"PerDay|per day|daily", r.text or "", re.I):
@@ -261,7 +282,7 @@ def gemini_demo(key, line, names, out_dir, note=None):
     """v2.10: ek line kai awaazon me -> [(naam, ogg path)] (Telegram voice note)."""
     out = []
     for n in names:
-        pcm, mime = gemini_tts_raw(key, tts_prompt(note or DEFAULT_NOTE, line), GEMINI_VOICES.get(n.lower(), n), 120)
+        pcm, mime = gemini_tts_raw(key, tts_prompt(note or DEFAULT_NOTE, line), GEMINI_VOICES.get(n.lower(), n), 120, raw_script=line)
         if not pcm: continue
         rate = int((re.search(r"rate=(\d+)", mime or "") or [None, 24000])[1])
         raw = out_dir / f"demo_{n}.raw"; raw.write_bytes(pcm)
@@ -282,8 +303,9 @@ def gemini_voice(lines, style, work, key, strict_plain=False):
     note = (style.get("gemini_andaaz") or "").strip() or DEFAULT_NOTE        # aapki AI Studio wali style line
     # v3.98: Strip standalone punctuation-only lines (like '।') so Gemini TTS never hallucinates on empty fragments
     _clean_tts_lines = [l.strip() for l in lines if re.search(r"[\w\u0900-\u097F]", str(l or ""))]
-    text = tts_prompt(note, "\n".join(_clean_tts_lines or lines), strict_plain=strict_plain)
-    pcm, mime = gemini_tts_raw(key, text, vname)
+    _pure_script = "\n".join(_clean_tts_lines or lines)
+    text = tts_prompt(note, _pure_script, strict_plain=strict_plain)
+    pcm, mime = gemini_tts_raw(key, text, vname, raw_script=_pure_script)
     if not pcm:
         return None
     rate = 24000
