@@ -1,3 +1,9 @@
+v4.01 (⚡ GROQ ZERO-404 AUTO-DISCOVERY + REASONING FIX + AUTO-PUBLISH CARD CLEANUP — 0% VISUAL SEARCH TOUCH):
+⚡ Groq Live Model Auto-Discovery (cloudflare_worker.js): Deprecated llama-3.3-70b-versatile / llama-3.1-8b-instant (404) hata kar live /openai/v1/models discovery + active replacements (qwen/qwen3.8-27b -> qwen/qwen3.6-27b -> openai/gpt-oss-120b -> openai/gpt-oss-20b) lagaye — ab Gemini 503 hone par Groq backup 2-3 sec me bina 404 ke turant Hindi script dega!
+🧠 Reasoning Empty-Output Fix (cloudflare_worker.js): Qwen3 par reasoning_effort="none", GPT-OSS par reasoning_effort="low" + max_completion_tokens=2600 + 11s timeout + clean 400 retry aur balanced Gemini+Groq error summary.
+✨ Auto-Publish Card Fix (cloudflare_worker.js): Telegram Auto-Publish card me literal '\n' bug theek kar ke crisp line-breaks kiye.
+🔒 Visual Search Engine & v4.0 pipeline: 0% untouched!
+
 v4.0 (🚀 1-TAP YOUTUBE PUBLIC + UNLISTED BUTTONS + CUMULATIVE v3.99 — 0% VISUAL SEARCH TOUCH):
 🚀 Public + Unlisted Choice (cloudflare_worker.js): Telegram Auto-Publish card par ab dono options hain — '🚀 Sab Par PUBLIC' / '▶️ YT PUBLIC' aur '✅ Sab Par (YT Unlisted)' / '🔒 YT Unlisted'!
 📦 Cumulative v3.99 included: 72h–30d reliable video hosting (litterbox 90s+2x, qu.ax, uguu.se) + clean v3.93 video pipeline + single-take Charon voice + Option A clean Cover/Story + /trends 5-category zero-repeat Refresh.

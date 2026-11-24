@@ -971,36 +971,85 @@ async function fetchYouTubeTranscriptText(videoId) {
   }
 }
 
-async function callGroqTrendScript(env, prompt, hasTranscript, errs) {
+async function discoverGroqModels(gk) {
+  const defaults = [
+    "qwen/qwen3.8-27b",
+    "qwen/qwen3.6-27b",
+    "openai/gpt-oss-120b",
+    "openai/gpt-oss-20b",
+  ];
+  if (!gk) return defaults;
+  try {
+    const r = await fetchWithTimeout("https://api.groq.com/openai/v1/models", {
+      headers: { "Authorization": `Bearer ${gk}` },
+    }, 3000);
+    if (!r.ok) return defaults;
+    const j = await r.json();
+    const ids = (j.data || [])
+      .map(m => String(m && m.id || "").trim())
+      .filter(id => id && !/(whisper|tts|audio|guard|safeguard|embed|orpheus|playai|vision|distil-whisper)/i.test(id));
+    if (!ids.length) return defaults;
+    const preferred = [
+      "qwen/qwen3.8-27b",
+      "qwen/qwen3.6-27b",
+      "openai/gpt-oss-120b",
+      "openai/gpt-oss-20b",
+      "moonshotai/kimi-k2-instruct",
+    ];
+    const ranked = [];
+    for (const p of preferred) {
+      if (ids.includes(p)) ranked.push(p);
+    }
+    for (const id of ids) {
+      if (!ranked.includes(id) && /(qwen3|gpt-oss|llama-4|kimi|deepseek|mistral)/i.test(id)) {
+        ranked.push(id);
+      }
+    }
+    return (ranked.length ? ranked : ids).slice(0, 5);
+  } catch (e) {
+    return defaults;
+  }
+}
+
+async function callGroqTrendScript(env, prompt, hasTranscript, errs, deadlineTs = 0) {
   const groqKeys = getGroqKeys(env);
   if (!groqKeys.length) {
     errs.push("groq: GROQ_KEY missing");
     return null;
   }
-  const groqModels = [
-    "llama-3.3-70b-versatile",
-    "openai/gpt-oss-120b",
-    "llama-3.1-8b-instant",
-  ];
+  const groqModels = await discoverGroqModels(groqKeys[0]);
   for (const gk of groqKeys.slice(0, 2)) {
     for (const gm of groqModels) {
+      if (deadlineTs && Date.now() > deadlineTs) break;
+      const baseBody = {
+        model: gm,
+        temperature: 0.7,
+        max_completion_tokens: 2600,
+        messages: [
+          { role: "system", content: "You are India's #1 viral Hindi YouTube Shorts Director for The Viral Gyaan. Follow the exact requested output format with VISUAL_REFS: and SCRIPT: sections." },
+          { role: "user", content: prompt },
+        ],
+      };
+      if (/^qwen\/qwen3/i.test(gm)) baseBody.reasoning_effort = "none";
+      else if (/gpt-oss/i.test(gm)) baseBody.reasoning_effort = "low";
+
+      const tryCall = async (payload) => fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
+        method: "POST",
+        headers: {
+          "Authorization": `Bearer ${gk}`,
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify(payload),
+      }, 11000);
+
       try {
-        const r = await fetchWithTimeout("https://api.groq.com/openai/v1/chat/completions", {
-          method: "POST",
-          headers: {
-            "Authorization": `Bearer ${gk}`,
-            "Content-Type": "application/json",
-          },
-          body: JSON.stringify({
-            model: gm,
-            temperature: 0.7,
-            max_tokens: 1400,
-            messages: [
-              { role: "system", content: "You are India's #1 viral Hindi YouTube Shorts Director for The Viral Gyaan. Follow the exact requested output format with VISUAL_REFS: and SCRIPT: sections." },
-              { role: "user", content: prompt },
-            ],
-          }),
-        }, 7000);
+        let r = await tryCall(baseBody);
+        // If a model rejects reasoning_effort with 400, retry cleanly without it
+        if (r.status === 400 && baseBody.reasoning_effort) {
+          const cleanBody = { ...baseBody };
+          delete cleanBody.reasoning_effort;
+          r = await tryCall(cleanBody);
+        }
         if (r.ok) {
           const j = await r.json();
           const out = (j.choices && j.choices[0] && j.choices[0].message && j.choices[0].message.content || "").trim();
@@ -1010,8 +1059,10 @@ async function callGroqTrendScript(env, prompt, hasTranscript, errs) {
           if (out) {
             return { text: out, mode: hasTranscript ? "groq_transcript" : "groq_topic", model: `groq/${gm}` };
           }
+          errs.push(`groq/${gm}: empty`);
         } else {
           errs.push(`groq/${gm}: ${r.status}`);
+          if (r.status === 404) continue;
         }
       } catch (e) {
         errs.push(`groq/${gm}: ${String(e).slice(0, 32)}`);
@@ -1132,13 +1183,16 @@ TITLE: <2-4 crisp words> | <2-4 hook words>
     }
   }
 
-  // Step 3 (v3.94 NEW): Instant Groq Zero-Downtime Backup (uses Cloudflare GROQ_KEY!)
+  // Step 3 (v4.01): Instant Groq Zero-Downtime Backup (auto-discovered active models + non-empty reasoning guard!)
   if (groqKeys.length) {
-    const groqRes = await callGroqTrendScript(env, fbPrompt, Boolean(transcript), errs);
+    const groqRes = await callGroqTrendScript(env, fbPrompt, Boolean(transcript), errs, t0 + 27500);
     if (groqRes && groqRes.text) return groqRes;
   }
 
-  return { text: "", error: errs.slice(0, 6).join(" | ") };
+  const gemErrs = errs.filter(e => !e.startsWith("groq")).slice(0, 4);
+  const grqErrs = errs.filter(e => e.startsWith("groq")).slice(0, 4);
+  const mergedErrs = [...gemErrs, ...grqErrs];
+  return { text: "", error: (mergedErrs.length ? mergedErrs : errs.slice(0, 6)).join(" | ") };
 }
 
 function parseTrendGeminiOutput(raw) {
@@ -1317,9 +1371,9 @@ async function registerPublishCard(env, payload) {
   };
 
   const cardText =
-    `🚀 Auto-Publish Ready! (${isLong ? "LONG 16:9" : "SHORT 9:16"})\\n\\n` +
-    `🎬 Title: ${store[id].title.slice(0, 95)}\\n` +
-    `📝 Desc: ${store[id].description.slice(0, 260)}\\n\\n` +
+    `🚀 Auto-Publish Ready! (${isLong ? "LONG 16:9" : "SHORT 9:16"})\n\n` +
+    `🎬 Title: ${store[id].title.slice(0, 95)}\n` +
+    `📝 Desc: ${store[id].description.slice(0, 260)}\n\n` +
     `👇 Kahan aur kaise publish karun? (YouTube PUBLIC ya UNLISTED dono chalu hain!)`;
   await tgApi(env, "sendMessage", { chat_id: chatId, text: cardText.slice(0, 3900), reply_markup: kb });
 }
