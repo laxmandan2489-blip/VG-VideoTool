@@ -1,4 +1,4 @@
-name: ▶️ Publish Video to YouTube (Unlisted — ~1 min)
+name: ▶️ Publish Video to YouTube (~1 min)
 
 on:
   workflow_dispatch:
@@ -31,6 +31,11 @@ on:
         required: false
         default: "general"
         type: string
+      privacy:
+        description: "unlisted or public"
+        required: false
+        default: "unlisted"
+        type: string
 
 jobs:
   youtube-upload:
@@ -48,7 +53,7 @@ jobs:
       - name: Install requests
         run: pip install -q requests
 
-      - name: Upload to YouTube (Unlisted)
+      - name: Upload to YouTube
         env:
           PUB_VIDEO_URL: ${{ inputs.video_url }}
           PUB_TITLE: ${{ inputs.title }}
@@ -56,7 +61,7 @@ jobs:
           PUB_TAGS: ${{ inputs.tags }}
           PUB_MODE: ${{ inputs.mode }}
           PUB_CATEGORY: ${{ inputs.category }}
-          YT_PRIVACY: "unlisted"
+          YT_PRIVACY: ${{ inputs.privacy || 'unlisted' }}
           YT_CLIENT_ID: ${{ secrets.YT_CLIENT_ID }}
           YT_CLIENT_SECRET: ${{ secrets.YT_CLIENT_SECRET }}
           YT_REFRESH_TOKEN: ${{ secrets.YT_REFRESH_TOKEN }}
