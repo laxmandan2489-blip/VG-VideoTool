@@ -1,4 +1,4 @@
-name: 🎬 Make Video (Online Cloud - Full Blender + Remotion)
+name: 🎬 Make Video (Online Cloud - Fast)
 
 on:
   workflow_dispatch:
@@ -24,7 +24,6 @@ jobs:
       - name: 0. Disk khali karo (No space left error kabhi na aaye)
         run: |
           sudo rm -rf /usr/share/dotnet /usr/local/lib/android /opt/ghc /opt/hostedtoolcache/CodeQL /usr/local/share/boost || true
-          sudo docker image prune -af > /dev/null 2>&1 || true
           df -h /
 
       - name: 1. Download VideoTool Code
@@ -43,32 +42,33 @@ jobs:
         with:
           deno-version: v2.x
 
-      - name: 3. Cache Whisper Models & Remotion Studio
+      - name: 3. Cache Whisper, HuggingFace & Remotion Studio
         uses: actions/cache@v4
         with:
           path: |
+            ~/.cache/huggingface
             ~/.cache/whisper
             remotion_studio/node_modules
             ai_aankh
-          key: vg-cloud-v2-${{ hashFiles('remotion_studio/package.json') }}
+          key: vg-cloud-v3-${{ hashFiles('remotion_studio/package.json') }}
           restore-keys: |
+            vg-cloud-v3-
             vg-cloud-v2-
 
-      - name: 4. Install FFmpeg, Blender, Headless Display (xvfb), Fonts & rclone
+      - name: 4. Install FFmpeg, Headless Display (xvfb) & Hindi Fonts (Fast — No Blender/rclone)
         run: |
           sudo apt-get update -qq
-          sudo apt-get install -y -qq ffmpeg blender xvfb libgl1 libegl1 libxi6 libxrender1 fonts-noto-core fonts-noto-extra rclone
+          sudo apt-get install -y -qq ffmpeg xvfb libgl1 libegl1 libxi6 libxrender1 fonts-noto-core fonts-noto-extra
 
-      - name: 5. Install Python Packages & Remotion Dependencies
+      - name: 5. Install Python Packages & Remotion Dependencies (Fast — No openai-whisper)
         run: |
-          python -m pip install --upgrade pip -q
-          pip install -q -r app/requirements.txt openai-whisper
+          pip install -q -r app/requirements.txt
           pip install -q -U "yt-dlp[default]"
           if [ -f remotion_studio/package.json ] && [ ! -d remotion_studio/node_modules ]; then
             cd remotion_studio && npm install --no-audit --no-fund && cd ..
           fi
 
-      - name: 6. Render FULL v3.45 Video (Blender + Remotion) & Send to Telegram + Drive
+      - name: 6. Render Video & Send to Telegram
         env:
           INPUT_SCRIPT: ${{ inputs.script }}
           INPUT_MODE: ${{ inputs.mode }}
