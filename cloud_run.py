@@ -101,6 +101,25 @@ def tg_send_document(token, chat_id, path, caption=""):
         return False
 
 
+def tg_send_photo(token, chat_id, path, caption=""):
+    """v3.93: Send Reel Cover / Designer IG Story photo directly to Telegram."""
+    p = Path(path) if path else None
+    if not (token and chat_id and p and p.exists()) or p.stat().st_size > 10 * 1024 * 1024:
+        return False
+    try:
+        with open(p, "rb") as f:
+            r = requests.post(
+                f"https://api.telegram.org/bot{token}/sendPhoto",
+                data={"chat_id": chat_id, "caption": caption[:950]},
+                files={"photo": (p.name, f, "image/jpeg")},
+                timeout=90,
+            )
+        return r.ok
+    except Exception as e:
+        print("TG photo error:", e)
+        return False
+
+
 def tg_send_video(token, chat_id, video_path, caption=""):
     if not token or not chat_id:
         return False
@@ -467,12 +486,17 @@ def main():
 
     out_mp4 = None
     vrep_md = None; vrep_sum = None; review_sc = None
+    vid_meta = {}; reel_cover_p = None; ig_story_p = None; vid_cat = "general"
     if res.exists():
         try:
             data = json.loads(res.read_text(encoding="utf-8"))
             cand = data.get("video") or data.get("out") or data.get("path")
             vrep_md = data.get("visual_report"); vrep_sum = data.get("visual_summary")
             review_sc = (data.get("review") or {}).get("score")
+            vid_meta = data.get("meta") or {}
+            reel_cover_p = data.get("reel_cover")
+            ig_story_p = data.get("ig_story")
+            vid_cat = data.get("category") or "general"
             if cand and Path(cand).exists():
                 out_mp4 = Path(cand)
         except Exception as e:
@@ -545,6 +569,46 @@ def main():
         # STEP 3: Upload _EDIT_KIT & thumbnails only if VG_ENABLE_DRIVE=1
         if _use_drive:
             upload_extras_background(out_mp4)
+        # v3.93 POST-APPROVAL AUTO-PUBLISH PACK: Cover Photo + Designer IG Story + Viral Caption + Approval Buttons
+        try:
+            cover_url = None
+            story_url = None
+            if reel_cover_p and Path(reel_cover_p).exists():
+                tg_send_photo(tg_token, tg_chat, reel_cover_p, "🖼️ Reel Cover Photo (IG Grid Center-Safe)")
+                cover_url, _ = public_link(reel_cover_p)
+            if ig_story_p and Path(ig_story_p).exists():
+                tg_send_photo(tg_token, tg_chat, ig_story_p, "✨ Designer Instagram Story (Curiosity Hook)")
+                story_url, _ = public_link(ig_story_p)
+            _title = (vid_meta.get("yt_title") or first_line).strip()
+            _desc = (vid_meta.get("yt_description") or _title).strip()
+            _htags = vid_meta.get("hashtags") or ["#shorts", "#TheViralGyaan"]
+            _tags_csv = ", ".join(str(t).lstrip("#") for t in _htags)
+            _ig_cap = (vid_meta.get("ig_caption") or f"{_desc}\n\n{' '.join(_htags)}").strip()
+            if _ig_cap:
+                tg_send_text(tg_token, tg_chat, f"📋 Viral IG/FB Caption (1-Tap Copy):\n\n{_ig_cap}")
+            if dl_link and tg_token:
+                _pub_url = os.environ.get("VG_WORKER_URL", "https://vg-bots.laxmandan2489.workers.dev").rstrip("/") + "/register-publish"
+                requests.post(
+                    _pub_url,
+                    json={
+                        "_vg_register_publish": True,
+                        "auth": tg_token[:16],
+                        "chat_id": tg_chat,
+                        "video_url": dl_link,
+                        "cover_url": cover_url or "",
+                        "story_url": story_url or "",
+                        "title": _title,
+                        "description": _desc + "\n\n" + " ".join(_htags),
+                        "ig_caption": _ig_cap,
+                        "tags": _tags_csv,
+                        "mode": video_mode,
+                        "category": vid_cat,
+                    },
+                    timeout=25,
+                )
+        except Exception as _pe:
+            print("publish register skip:", _pe)
+
         # v3.86 AUTO-QUEUE: trigger next queued script (if any) via Cloudflare Worker
         try:
             _q_url = os.environ.get("VG_WORKER_URL", "https://vg-bots.laxmandan2489.workers.dev").rstrip("/") + "/queue-next"

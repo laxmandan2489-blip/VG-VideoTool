@@ -435,9 +435,284 @@ class DataTableCard:
 
 
 # ------------------------------------------------------------------ Public Render Helpers
+def _dc_font(name, size):
+    from common import ASSETS
+    for p in (
+        ASSETS / "fonts" / name,
+        Path("/usr/share/fonts/truetype/noto/NotoSansDevanagari-Bold.ttf"),
+        ASSETS / "fonts" / "Mukta-ExtraBold.ttf",
+        ASSETS / "fonts" / "Poppins-ExtraBold.ttf",
+    ):
+        if p.exists():
+            try:
+                return ImageFont.truetype(str(p), size)
+            except Exception:
+                pass
+    return ImageFont.load_default()
+
+
+def _dc_persp(src_pts, dst_pts):
+    m = []
+    for s, d in zip(src_pts, dst_pts):
+        m.append([d[0], d[1], 1, 0, 0, 0, -s[0] * d[0], -s[0] * d[1]])
+        m.append([0, 0, 0, d[0], d[1], 1, -s[1] * d[0], -s[1] * d[1]])
+    return np.linalg.solve(np.array(m, dtype=np.float64), np.array([c for pt in src_pts for c in pt], dtype=np.float64)).tolist()
+
+
+class RealisticNewsProofCard:
+    """v3.93 3 Realistic Documentary News Proof Styles (auto-rotated by category/headline):
+      - broadsheet : Aged newsprint + halftone photo + warm amber multiply highlighter + macro DOF + dust motes
+      - portal     : Modern Dark Digital News Portal (BBC/Reuters dark glass browser article)
+      - broadcast  : 3D Paper-Cutout Headline Clipping + Breaking Broadcast Lower-Third Glass Bar
+    """
+    def __init__(self, source, headline, highlight_phrase, W, H, pal, dur, date_str="", variant="broadsheet"):
+        self.W, self.H, self.pal, self.dur = W, H, pal, max(1.0, dur)
+        self.source = (source or "VERIFIED ARCHIVE").strip()[:36].upper()
+        self.headline = (headline or "Verified Documentary Record").strip()[:120]
+        self.highlight = (highlight_phrase or self.headline).strip()[:90]
+        self.date_str = (date_str or "DOCUMENTARY RECORD").strip()[:32].upper()
+        self.variant = variant
+        self.rng = np.random.default_rng(abs(hash(self.headline + variant)) % 10000)
+
+        self.f_serif = _dc_font("DMSerifDisplay-Regular.ttf", max(28, int(W * 0.058)))
+        self.f_sans = _dc_font("Poppins-ExtraBold.ttf", max(24, int(W * 0.044)))
+        self.f_sm = _dc_font("Poppins-SemiBold.ttf", max(14, int(W * 0.024)))
+        self.f_hi = _dc_font("NotoSansDevanagari-Bold.ttf", max(24, int(W * 0.040)))
+        self.f_hi_lg = _dc_font("NotoSansDevanagari-Bold.ttf", max(30, int(W * 0.052)))
+        self.motes = [(self.rng.uniform(0, W), self.rng.uniform(0, H), self.rng.uniform(1.5, 3.8),
+                       self.rng.uniform(-10, 10), self.rng.uniform(-16, -4)) for _ in range(24)]
+
+        if variant == "broadsheet":
+            self._prep_broadsheet()
+
+    def _prep_broadsheet(self):
+        PW, PH = 960, 1280
+        self.PW, self.PH = PW, PH
+        yy, _ = np.mgrid[0:PH, 0:PW].astype(np.float32)
+        p = np.zeros((PH, PW, 3), dtype=np.float32)
+        p[..., 0] = 236 - 10 * (yy / PH)
+        p[..., 1] = 229 - 12 * (yy / PH)
+        p[..., 2] = 213 - 15 * (yy / PH)
+        p = np.clip(p + self.rng.normal(0, 4.2, (PH, PW, 1)), 0, 255).astype(np.uint8)
+        page = Image.fromarray(p, "RGB")
+        d = ImageDraw.Draw(page, "RGBA")
+        f_m = _dc_font("DMSerifDisplay-Regular.ttf", 48)
+        f_s = _dc_font("Poppins-SemiBold.ttf", 19)
+        d.line([(55, 65), (PW - 55, 65)], fill=(25, 22, 20, 230), width=4)
+        d.text((PW // 2, 108), self.source[:28], fill=(20, 18, 16, 245), font=f_m, anchor="mm")
+        d.text((62, 152), self.date_str, fill=(65, 60, 54, 210), font=f_s)
+        d.text((PW - 62, 152), "ARCHIVAL VERIFIED EDITION", fill=(65, 60, 54, 210), font=f_s, anchor="ra")
+        d.line([(55, 184), (PW - 55, 184)], fill=(25, 22, 20, 220), width=2)
+        for idx in range(5):
+            d.text((62, 212 + idx * 32), "Independent documentary records & verified telemetry confirm", fill=(55, 50, 45, 155), font=f_s)
+        d.line([(55, 396), (PW - 55, 396)], fill=(30, 28, 25, 190), width=2)
+        d.text((62, 424), f"VERIFIED REPORT • {self.source[:22]}", fill=(150, 32, 24, 235), font=f_s)
+        # Monochrome archival halftone graphic block at bottom
+        hx0, hy0, hx1, hy1 = 62, 820, 440, 1120
+        hy, hx = np.mgrid[0:hy1 - hy0, 0:hx1 - hx0].astype(np.float32)
+        rad = np.sqrt(((hx - 190) / 190) ** 2 + ((hy - 150) / 150) ** 2)
+        tone = np.clip(95 + 85 * np.exp(-rad * rad * 1.6) + self.rng.normal(0, 7, rad.shape), 25, 215)
+        h_arr = np.stack([tone * 0.96, tone * 0.93, tone * 0.86], axis=-1).astype(np.uint8)
+        page.paste(Image.fromarray(h_arr), (hx0, hy0))
+        d.rectangle([hx0, hy0, hx1, hy1], outline=(35, 32, 28, 200), width=2)
+        for idx in range(7):
+            d.text((470, 828 + idx * 38), "Archival cross-reference verified", fill=(55, 50, 45, 155), font=f_s)
+        self.page_base = page
+        self.f_pg_hi = _dc_font("NotoSansDevanagari-Bold.ttf", 40)
+        self.hl_lines = _wrap_text(self.headline, self.f_pg_hi, PW - 140)[:3]
+
+    def frame(self, i, fps):
+        W, H = self.W, self.H
+        t = min(1.0, max(0.0, i / max(1.0, self.dur * fps - 1.0)))
+        ent = _ease_out(min(1.0, t / 0.24))
+        hl = _ease_out(max(0.0, min(1.0, (t - 0.22) / 0.42)))
+
+        if self.variant == "broadsheet":
+            pg = self.page_base.copy()
+            if hl > 0.01:
+                arr = np.asarray(pg, dtype=np.float32)
+                for li, ln in enumerate(self.hl_lines):
+                    y0 = 490 + li * 82
+                    xe = int(62 + (self.PW - 124) * min(1.0, max(0.0, hl * len(self.hl_lines) - li)))
+                    if xe > 68:
+                        arr[y0:y0 + 68, 62:xe, 0] *= 0.99
+                        arr[y0:y0 + 68, 62:xe, 1] *= 0.84
+                        arr[y0:y0 + 68, 62:xe, 2] *= 0.36
+                pg = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+            dp = ImageDraw.Draw(pg, "RGBA")
+            for li, ln in enumerate(self.hl_lines):
+                dp.text((74, 500 + li * 82), ln, fill=(18, 16, 14, 252), font=self.f_pg_hi)
+
+            tilt = -0.05 + 0.08 * (3 * t * t - 2 * t * t * t)
+            z = 0.88 + 0.14 * ent + 0.07 * t
+            pws = W * 0.94 * z; phs = pws * (self.PH / self.PW)
+            cx, cy = W * 0.50, H * 0.52 + (1 - ent) * 110 - t * 18
+            dst = [
+                (cx - pws * (0.5 - tilt * 0.6), cy - phs * 0.5 - tilt * 38),
+                (cx + pws * (0.5 - tilt * 0.6), cy - phs * 0.5 + tilt * 38),
+                (cx + pws * (0.5 + tilt * 0.6), cy + phs * 0.5 - tilt * 26),
+                (cx - pws * (0.5 + tilt * 0.6), cy + phs * 0.5 + tilt * 26),
+            ]
+            warped = pg.convert("RGBA").transform((W, H), Image.PERSPECTIVE, _dc_persp([(0, 0), (self.PW, 0), (self.PW, self.PH), (0, self.PH)], dst), Image.BICUBIC)
+            comp = Image.alpha_composite(Image.new("RGBA", (W, H), (16, 15, 18, 255)), warped)
+            # Macro Depth-of-Field blur at top & bottom edges
+            blurred = comp.filter(ImageFilter.GaussianBlur(5.0))
+            dof_y = np.linspace(0, 1, H, dtype=np.float32)[:, None]
+            sharp = np.repeat(np.clip(1.0 - np.maximum(0.0, np.abs(dof_y - 0.50) - 0.16) / 0.24, 0.0, 1.0), W, axis=1)
+            out_arr = np.asarray(comp.convert("RGB"), dtype=np.float32) * sharp[..., None] + np.asarray(blurred.convert("RGB"), dtype=np.float32) * (1.0 - sharp[..., None])
+            frame = Image.fromarray(np.clip(out_arr, 0, 255).astype(np.uint8), "RGB")
+            df = ImageDraw.Draw(frame, "RGBA")
+            for mx, my, mr, vx, vy in self.motes:
+                px = (mx + vx * t * self.dur) % W; py = (my + vy * t * self.dur) % H
+                df.ellipse([px - mr, py - mr, px + mr, py + mr], fill=(255, 225, 175, 42))
+            return frame
+
+        if self.variant == "portal":
+            # Style 2: Modern Dark Digital News Portal (BBC / Reuters Dark Mode)
+            frame = Image.new("RGBA", (W, H), (10, 14, 22, 255))
+            ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+            d = ImageDraw.Draw(ov)
+            cw = int(W * 0.88); ch = int(H * 0.56)
+            cx0 = (W - cw) // 2; cy0 = int(H * 0.22 + (1 - ent) * 80 - t * 14)
+            d.rounded_rectangle([cx0, cy0, cx0 + cw, cy0 + ch], radius=22,
+                                fill=(18, 24, 36, 245), outline=(85, 110, 145, 125), width=2)
+            d.rounded_rectangle([cx0, cy0, cx0 + cw, cy0 + 62], radius=22, fill=(26, 34, 48, 255))
+            for ki, kc in enumerate(((235, 75, 68), (240, 185, 65), (75, 200, 115))):
+                d.ellipse([cx0 + 24 + ki * 22, cy0 + 23, cx0 + 38 + ki * 22, cy0 + 37], fill=(*kc, 255))
+            d.text((cx0 + 106, cy0 + 20), f"verified-report / {self.source.lower()[:20]}", fill=(160, 178, 200, 210), font=self.f_sm)
+            d.rectangle([cx0 + 30, cy0 + 96, cx0 + 240, cy0 + 134], fill=(205, 36, 36, 255))
+            d.text((cx0 + 135, cy0 + 115), "VERIFIED REPORT", fill=(255, 255, 255, 255), font=self.f_sm, anchor="mm")
+            d.text((cx0 + 30, cy0 + 158), self.source, fill=(155, 185, 215, 225), font=self.f_sm)
+            lines = _wrap_text(self.headline, self.f_hi, cw - 68)[:3]
+            for li, ln in enumerate(lines):
+                ly = cy0 + 220 + li * int(self.f_hi.size * 1.45)
+                if hl > 0.01:
+                    hw = int((cw - 64) * min(1.0, max(0.0, hl * len(lines) - li)))
+                    if hw > 8:
+                        d.rounded_rectangle([cx0 + 28, ly - 8, cx0 + 28 + hw, ly + int(self.f_hi.size * 1.18)], radius=8, fill=(235, 175, 55, 65))
+                        d.rectangle([cx0 + 28, ly + int(self.f_hi.size * 1.14), cx0 + 28 + hw, ly + int(self.f_hi.size * 1.19)], fill=(245, 195, 75, 240))
+                d.text((cx0 + 36, ly), ln, fill=(250, 246, 232, 255), font=self.f_hi)
+            d.rounded_rectangle([cx0 + 30, cy0 + ch - 95, cx0 + cw - 30, cy0 + ch - 28], radius=12, fill=(255, 255, 255, 14))
+            d.text((cx0 + 50, cy0 + ch - 72), f"SOURCE: {self.source} • {self.date_str}", fill=(140, 195, 255, 230), font=self.f_sm)
+            return Image.alpha_composite(frame, ov).convert("RGB")
+
+        # Style 3: 3D Paper-Cutout Headline Clipping + Breaking Broadcast Lower-Third Glass Bar
+        frame = Image.new("RGBA", (W, H), (11, 14, 21, 255))
+        ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        d = ImageDraw.Draw(ov)
+        # Subtle dark studio spotlight
+        cw = int(W * 0.86); ch = int(H * 0.34)
+        cx0 = (W - cw) // 2; cy0 = int(H * 0.28 + (1 - ent) * 70 - t * 12)
+        # Lifted crisp paper headline clipping with soft drop shadow
+        d.rounded_rectangle([cx0 + 12, cy0 + 18, cx0 + cw + 12, cy0 + ch + 18], radius=10, fill=(0, 0, 0, 165))
+        d.rounded_rectangle([cx0, cy0, cx0 + cw, cy0 + ch], radius=10, fill=(242, 237, 226, 255), outline=(210, 200, 182, 255), width=2)
+        d.rectangle([cx0, cy0, cx0 + cw, cy0 + 14], fill=(195, 36, 32, 245))
+        lines = _wrap_text(self.headline, self.f_hi, cw - 72)[:3]
+        for li, ln in enumerate(lines):
+            ly = cy0 + 56 + li * int(self.f_hi.size * 1.48)
+            if hl > 0.01:
+                hw = int((cw - 68) * min(1.0, max(0.0, hl * len(lines) - li)))
+                if hw > 8:
+                    d.rectangle([cx0 + 32, ly - 4, cx0 + 32 + hw, ly + int(self.f_hi.size * 1.15)], fill=(245, 200, 75, 165))
+            d.text((cx0 + 38, ly), ln, fill=(20, 18, 16, 255), font=self.f_hi)
+        # Sleek Breaking Broadcast Lower-Third Glass Ticker below the clipping
+        by0 = cy0 + ch + 46
+        d.rounded_rectangle([cx0, by0, cx0 + cw, by0 + 110], radius=14,
+                            fill=(18, 24, 38, int(235 * ent)), outline=(235, 185, 85, int(195 * ent)), width=2)
+        d.rectangle([cx0 + 20, by0 + 20, cx0 + 165, by0 + 54], fill=(205, 36, 36, int(250 * ent)))
+        d.text((cx0 + 92, by0 + 37), "FACT CHECK", fill=(255, 255, 255, 255), font=self.f_sm, anchor="mm")
+        d.text((cx0 + 184, by0 + 26), self.source[:22], fill=(248, 210, 115, 245), font=self.f_sm)
+        d.text((cx0 + 20, by0 + 68), f"{self.date_str}  •  VERIFIED DOCUMENTARY PROOF", fill=(195, 210, 228, 225), font=self.f_sm)
+        return Image.alpha_composite(frame, ov).convert("RGB")
+
+
+class ComparisonVSCard:
+    """v3.93 3 Cinematic Comparison & Scale Styles: split_vs | towers."""
+    def __init__(self, left_title, left_val, right_title, right_val, W, H, dur, sub="", variant="split_vs"):
+        self.W, self.H, self.dur = W, H, max(1.2, dur)
+        self.lt, self.lv = str(left_title or "A")[:28], str(left_val or "1x")[:18]
+        self.rt, self.rv = str(right_title or "B")[:28], str(right_val or "2x")[:18]
+        self.sub = str(sub or "")[:55]
+        self.variant = variant
+        self.f_big = _dc_font("Anton-Regular.ttf", max(42, int(W * 0.085)))
+        self.f_med = _dc_font("Poppins-ExtraBold.ttf", max(20, int(W * 0.038)))
+        self.f_sm = _dc_font("Poppins-SemiBold.ttf", max(16, int(W * 0.026)))
+        self.f_hi = _dc_font("NotoSansDevanagari-Bold.ttf", max(22, int(W * 0.036)))
+
+    def frame(self, i, fps):
+        W, H = self.W, self.H
+        t = min(1.0, max(0.0, i / max(1.0, self.dur * fps - 1.0)))
+        c1 = _ease_out(min(1.0, t / 0.26))
+        c2 = _ease_out(max(0.0, min(1.0, (t - 0.16) / 0.28)))
+        bp = _ease_out(max(0.0, min(1.0, (t - 0.26) / 0.42)))
+        frame = Image.new("RGBA", (W, H), (10, 14, 22, 255))
+        ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        d = ImageDraw.Draw(ov)
+
+        if self.variant == "towers":
+            base_y = int(H * 0.74)
+            d.line([(int(W * 0.08), base_y), (int(W * 0.92), base_y)], fill=(255, 255, 255, 80), width=3)
+            h1 = int(H * 0.22 * bp); h2 = int(H * 0.44 * bp)
+            if h1 > 10:
+                d.rounded_rectangle([int(W * 0.16), base_y - h1, int(W * 0.42), base_y], radius=14, fill=(65, 155, 235, 240))
+                d.text((int(W * 0.29), base_y - h1 - 46), self.lv, fill=(155, 215, 255, 255), font=self.f_big, anchor="mm")
+            if h2 > 10:
+                d.rounded_rectangle([int(W * 0.58), base_y - h2, int(W * 0.84), base_y], radius=14, fill=(235, 155, 45, 245))
+                d.text((int(W * 0.71), base_y - h2 - 46), self.rv, fill=(255, 215, 110, 255), font=self.f_big, anchor="mm")
+            d.text((int(W * 0.29), base_y + 42), self.lt[:16], fill=(195, 210, 228, 240), font=self.f_med, anchor="mm")
+            d.text((int(W * 0.71), base_y + 42), self.rt[:16], fill=(255, 225, 150, 245), font=self.f_med, anchor="mm")
+            if self.sub:
+                d.text((W // 2, int(H * 0.85)), self.sub, fill=(245, 248, 252, 235), font=self.f_hi, anchor="mm")
+            return Image.alpha_composite(frame, ov).convert("RGB")
+
+        # Default: Split-Screen Glass Clash (VS)
+        pad = int(W * 0.065)
+        y1 = int(H * 0.18 + (1 - c1) * 55); ch = int(H * 0.25)
+        d.rounded_rectangle([pad, y1, W - pad, y1 + ch], radius=22,
+                            fill=(18, 28, 44, int(235 * c1)), outline=(95, 175, 255, int(160 * c1)), width=2)
+        d.text((pad + 34, y1 + 30), self.lt, fill=(125, 195, 255, 240), font=self.f_sm)
+        d.text((pad + 34, y1 + 70), self.lv, fill=(250, 252, 255, 255), font=self.f_big)
+        bw1 = int((W - pad * 2 - 68) * 0.42 * bp)
+        d.rounded_rectangle([pad + 34, y1 + ch - 64, W - pad - 34, y1 + ch - 34], radius=12, fill=(255, 255, 255, 22))
+        if bw1 > 10:
+            d.rounded_rectangle([pad + 34, y1 + ch - 64, pad + 34 + bw1, y1 + ch - 34], radius=12, fill=(70, 170, 255, 245))
+
+        vs_y = int(H * 0.48)
+        d.ellipse([W // 2 - 42, vs_y - 42, W // 2 + 42, vs_y + 42], fill=(16, 20, 30, 250), outline=(235, 185, 95, 240), width=3)
+        d.text((W // 2, vs_y + 2), "VS", fill=(248, 210, 125, 255), font=self.f_med, anchor="mm")
+
+        y2 = int(H * 0.54 + (1 - c2) * 55)
+        d.rounded_rectangle([pad, y2, W - pad, y2 + ch], radius=22,
+                            fill=(36, 20, 24, int(235 * c2)), outline=(245, 115, 90, int(160 * c2)), width=2)
+        d.text((pad + 34, y2 + 30), self.rt, fill=(250, 155, 130, 240), font=self.f_sm)
+        d.text((pad + 34, y2 + 70), self.rv, fill=(255, 245, 240, 255), font=self.f_big)
+        bw2 = int((W - pad * 2 - 68) * 0.86 * bp)
+        d.rounded_rectangle([pad + 34, y2 + ch - 64, W - pad - 34, y2 + ch - 34], radius=12, fill=(255, 255, 255, 22))
+        if bw2 > 10:
+            d.rounded_rectangle([pad + 34, y2 + ch - 64, pad + 34 + bw2, y2 + ch - 34], radius=12, fill=(235, 88, 65, 245))
+        return Image.alpha_composite(frame, ov).convert("RGB")
+
+
 def render_news_highlight(source, headline, highlight_phrase, dur, out, W, H, style, pal, date_str="", fps=30):
+    """v3.93: Auto-rotates across 3 Realistic News Proof Styles (Broadsheet Macro DOF | Dark News Portal | 3D Cutout Broadcast)."""
     import fx
-    c = NewsHighlightCard(source, headline, highlight_phrase, W, H, pal, dur, date_str)
+    cat = str((style or {}).get("category") or "").strip().lower()
+    seed = abs(hash((headline or "") + (source or "") + cat)) % 3
+    if cat in ("news", "business", "technology"):
+        variant = ("portal", "broadcast", "broadsheet")[seed]
+    elif cat in ("history", "general", "geography"):
+        variant = ("broadsheet", "broadcast", "portal")[seed]
+    else:
+        variant = ("broadcast", "broadsheet", "portal")[seed]
+    c = RealisticNewsProofCard(source, headline, highlight_phrase, W, H, pal, dur, date_str, variant=variant)
+    n = max(2, int(round(dur * fps)))
+    return fx._pipe_frames(lambda i: c.frame(i, fps), n, W, H, out, style, fps)
+
+
+def render_vs_card(left_title, left_val, right_title, right_val, dur, out, W, H, style, pal, sub="", variant="split_vs", fps=30):
+    """v3.93: Cinematic VS Comparison / Stat Towers card."""
+    import fx
+    c = ComparisonVSCard(left_title, left_val, right_title, right_val, W, H, dur, sub=sub, variant=variant)
     n = max(2, int(round(dur * fps)))
     return fx._pipe_frames(lambda i: c.frame(i, fps), n, W, H, out, style, fps)
 

@@ -1,3 +1,13 @@
+v3.93 (AUTO-PUBLISH YT/FB/IG + DESIGNER STORIES & COVERS + CINEMATIC 3D MAPS/NEWS/VS/BLUR + /TRENDS FIX — 0% VISUAL SEARCH TOUCH):
+🚀 Post-Approval Auto-Publish (cloudflare_worker.js + cloud_run.py + app/yt_publish.py): Video render hote hi Telegram par 1-tap buttons — ✅ Sab Par Publish (YT Unlisted + FB + IG + Cover + Story), ▶️ Sirf YouTube (Unlisted), 📱 Sirf FB + IG + Story, ❌ Skip! FB/IG/Story = 0 GitHub min; YT Unlisted = ~1 min.
+🖼️ 3 Center-Safe Reel Covers + 4 Magazine-Grade Designer IG Stories (app/meta.py): Har video ke asli hero frame + Gemini curiosity sawaal par 3 IG-grid-safe Cover styles + 4 non-cartoon Story styles + ready-to-copy Viral Caption.
+🔥 /trends Stuck Fix + Outlier Viral Score (cloudflare_worker.js): 12s strict timeout + full try/catch error reporting (kabhi silent hang nahi hoga!) + Outlier Viral Multiplier (views ÷ channel median) + ⏪ /purana confirmation lock.
+🎬 Blurred-Cinema Full-Screen Backdrop (app/render.py): 16:9 clips ke upar-neeche kaali patti khatam — soft darkened cinema blur backdrop!
+🗺️ 3 Distinct-Motion Documentary Maps (app/cine/mapanim.py): Original v3.91 3D Extrude Map safe + Vox Route Glide & Dotted Arc + Defence Tactical Radar Sweep & Target Lock!
+📰 3 Realistic News Proof Cards + 3 Cinematic VS/Timeline Cards (app/cine/doc_cards.py): Broadsheet Macro DOF + Dark Digital News Portal + 3D Paper-Cutout Breaking Broadcast + Split Glass VS / Documentary Timeline / 3D Rising Stat Towers.
+🔑 Comma-Separated GEMINI_KEY Rotation (app/voice.py + cloudflare_worker.js): key1,key2,key3 automatic backup rotation.
+🔒 Visual Search Engine: 0% untouched!
+
 v3.91 (🔥 /trends 404 FIX + TRANSCRIPT FALLBACK + CHARON VOICE LOCK — 0% VISUAL SEARCH TOUCH):
 🤖 Dynamic Gemini Model Auto-Discovery (cloudflare_worker.js): Retired gemini-2.5/2.0-flash 404 error khatam — Worker ab /v1beta/models se active latest Flash models (gemini-3.8-flash -> 3.6-flash -> 3.5-flash-lite) khud chunta hai.
 📝 Video Watch + Auto Transcript Fallback (cloudflare_worker.js): Pehle native YouTube URL se video dekhta hai; unavailable ho to YouTube captions/transcript nikaal kar original Hindi script banata hai (kabhi fail nahi hoga) + 'trend' / '/trend' (bina 's') bhi chalta hai.

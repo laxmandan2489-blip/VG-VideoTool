@@ -222,7 +222,15 @@ def video_frame_vf(src, W, H, style):
         bw = W; bh = int(W * 5 / 4) // 2 * 2
     bh = min(bh, H)
     y = max(0, int((H - bh) / 2 - H * 0.06))
-    # v3.25 FAST DOCUMENTARY CINEMA MATTE: clean dark studio frame (3x faster than boxblur, no muddy blur bars)
+    # v3.93 BLURRED-CINEMA FULL-SCREEN BACKDROP: fills 9:16 with soft darkened cinema blur (zero black bars!)
+    if yes(style.get("blurred_backdrop", "haan")) and W < H and bh < H - 40:
+        return (
+            pre + f"split[vg_bg][vg_fg];"
+            f"[vg_bg]scale={W}:{H}:force_original_aspect_ratio=increase:flags=fast_bilinear,"
+            f"crop={W}:{H},gblur=sigma=24,eq=brightness=-0.12:saturation=1.12[vg_b];"
+            f"[vg_fg]scale={bw}:{bh}:force_original_aspect_ratio=increase:flags=lanczos,crop={bw}:{bh}[vg_f];"
+            f"[vg_b][vg_f]overlay=(W-w)/2:{y}:shortest=1"
+        )
     return (pre + f"scale={bw}:{bh}:force_original_aspect_ratio=increase:flags=lanczos,crop={bw}:{bh},"
             f"pad={W}:{H}:(ow-iw)/2:{y}:color=0x0B0F17")
 

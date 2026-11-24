@@ -112,7 +112,7 @@ const GUIDE_TEXT = `📖 VIRAL GYAAN CLOUD BOT (24×7)
 export default {
   async fetch(request, env, ctx) {
     if (request.method !== "POST") {
-      return new Response("VideoTool Cloud Bridge v3.91 is LIVE!", { status: 200 });
+      return new Response("VideoTool Cloud Bridge v3.93 is LIVE!", { status: 200 });
     }
     let update;
     try {
@@ -125,12 +125,22 @@ export default {
       await popAndStartNext(env, update.chat_id || env.ALLOWED_CHAT_ID);
       return new Response("ok", { status: 200 });
     }
+    // v3.93 AUTO-PUBLISH: cloud_run.py registers finished video metadata & sends 1-tap Publish Approval Card
+    if (update && update._vg_register_publish && env.TG_TOKEN && update.auth === env.TG_TOKEN.slice(0, 16)) {
+      await registerPublishCard(env, update);
+      return new Response("ok", { status: 200 });
+    }
     // v3.83: buttons (Short / Long / meri awaaz) ka jawab
     if (update.callback_query) {
       const cdata = (update.callback_query.data || "");
       if (cdata.startsWith("tr:")) {
         const p = handleTrendCallback(env, update.callback_query);
         if (ctx && ctx.waitUntil) ctx.waitUntil(p); else await p;
+      } else if (cdata.startsWith("pub:")) {
+        const p = handlePublishCallback(env, update.callback_query);
+        if (ctx && ctx.waitUntil) ctx.waitUntil(p); else await p;
+      } else if (cdata.startsWith("rb:")) {
+        await handleRollbackConfirm(env, update.callback_query);
       } else {
         await handleChoice(env, update.callback_query);
       }
@@ -196,7 +206,7 @@ export default {
     // 2) Start / Menu / Guide
     if (tl === "/start" || tl === "/menu") {
       await tgReply(env.TG_TOKEN, chatId,
-        "☁️ VideoTool Cloud v3.91 LIVE hai!\nNeeche ke buttons use karo ya seedha script bhejo:", true);
+        "☁️ VideoTool Cloud v3.93 LIVE hai!\nNeeche ke buttons use karo ya seedha script bhejo:", true);
       return new Response("ok", { status: 200 });
     }
     if (tl === "/guide" || text.includes("/guide")) {
@@ -246,12 +256,17 @@ export default {
       return new Response("ok", { status: 200 });
     }
 
-    // 6) Rollback /purana
+    // 6) v3.93 Rollback /purana with 1-tap safety confirmation (stops accidental pocket-taps!)
     if (tl === "/purana" || text.includes("/purana")) {
-      const ok = await dispatchGH(env, "apply_update.yml", { action: "rollback", file_id: "" });
-      await tgReply(env.TG_TOKEN, chatId, ok
-        ? "⏪ Pichhla version (/purana) cloud par restore kar raha hoon (~30 sec)..."
-        : "❌ Rollback trigger fail ho gaya.", true);
+      await tgApi(env, "sendMessage", {
+        chat_id: chatId,
+        text: "⚠️ Kya sach me pichhle version par rollback (/purana) karna hai?",
+        reply_markup: {
+          inline_keyboard: [
+            [{ text: "✅ Haan, Rollback Karo", callback_data: "rb:go" }, { text: "❌ Cancel", callback_data: "rb:no" }],
+          ],
+        },
+      });
       return new Response("ok", { status: 200 });
     }
 
@@ -689,9 +704,28 @@ async function scanCompetitorTrends(env) {
       views,
       dur,
       ageDays: Math.round(ageH / 24),
-      score: views / Math.pow(ageH, 0.85),
+      velScore: views / Math.pow(ageH, 0.85),
       url: `https://www.youtube.com/watch?v=${v.id}`,
     });
+  }
+  // v3.93 Outlier Viral Score (views / channel median) so breakout topics shine!
+  const byCh = new Map();
+  for (const x of all) {
+    const k = x.handle || x.channel;
+    if (!byCh.has(k)) byCh.set(k, []);
+    byCh.get(k).push(x.views);
+  }
+  const chMed = new Map();
+  for (const [k, arr] of byCh.entries()) {
+    arr.sort((a, b) => a - b);
+    chMed.set(k, Math.max(1000, arr[Math.floor(arr.length / 2)] || 1000));
+  }
+  for (const x of all) {
+    const med = chMed.get(x.handle || x.channel) || 10000;
+    const mult = Math.max(0.2, x.views / med);
+    x.outlierMult = Number(mult.toFixed(1));
+    x.viralRating = Math.min(9.9, Math.max(5.0, Number((5.2 + Math.log2(mult + 0.5) * 1.85).toFixed(1))));
+    x.score = x.velScore * Math.min(4.0, Math.sqrt(mult));
   }
   // Prefer videos from last 35 days; fallback to all if < 5
   const recent = all.filter(x => x.ageDays <= 35);
@@ -735,7 +769,8 @@ async function handleTrendsCommand(env, chatId) {
 
   const lines = ["🔥 Top 5 Viral Competitor Shorts (Real Video Visual Reference ke liye number tap karo):\n"];
   trends.forEach((v, i) => {
-    lines.push(`${i + 1}️⃣ ${v.title.slice(0, 72)}\n   📺 ${v.channel} • 👁 ${fmtViews(v.views)} (${v.ageDays}d) • 🔗 ${v.url}`);
+    const badge = v.outlierMult ? ` • 🔥 ${v.outlierMult}x (${v.viralRating}/10)` : "";
+    lines.push(`${i + 1}️⃣ ${v.title.slice(0, 72)}\n   📺 ${v.channel} • 👁 ${fmtViews(v.views)} (${v.ageDays}d)${badge}\n   🔗 ${v.url}`);
   });
   lines.push("\n👇 Jis topic par tap karoge, Gemini uska asli video dekh kar visual references + 100% original Hindi script dega (aapke approval ke baad hi video banegi):");
 
@@ -752,42 +787,49 @@ async function handleTrendsCommand(env, chatId) {
   }
 }
 
-async function discoverGeminiModels(gKey) {
-  // v3.91: Dynamically fetch active Flash models from /v1beta/models so 404 model retirements NEVER break /trends!
-  const defaults = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-3.1-flash-lite"];
+function getGeminiKeys(env) {
+  return String(env.GEMINI_KEY || "").split(",").map(s => s.trim()).filter(Boolean);
+}
+
+async function fetchWithTimeout(url, opts = {}, ms = 12000) {
+  const ctrl = new AbortController();
+  const id = setTimeout(() => ctrl.abort("timeout"), ms);
   try {
-    const r = await fetch(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(gKey)}`);
+    return await fetch(url, { ...opts, signal: ctrl.signal });
+  } finally {
+    clearTimeout(id);
+  }
+}
+
+async function discoverGeminiModels(gKey) {
+  const defaults = ["gemini-3.8-flash", "gemini-3.6-flash", "gemini-3.5-flash-lite", "gemini-2.5-flash"];
+  try {
+    const r = await fetchWithTimeout(`https://generativelanguage.googleapis.com/v1beta/models?key=${encodeURIComponent(gKey)}`, {}, 4000);
     if (!r.ok) return defaults;
     const j = await r.json();
     const avail = (j.models || [])
       .filter(m => Array.isArray(m.supportedGenerationMethods) && m.supportedGenerationMethods.includes("generateContent"))
       .map(m => String(m.name || "").replace(/^models\//, ""))
       .filter(n => /gemini/i.test(n) && /flash/i.test(n) && !/(tts|audio|image|embedding|live|robotics|computer|customtools)/i.test(n));
-    // Sort newest version first (prefer non-lite Flash first, then Flash-Lite)
     avail.sort((a, b) => {
       const va = parseFloat((a.match(/gemini-(\d+(?:\.\d+)?)/i) || [0, "0"])[1]);
       const vb = parseFloat((b.match(/gemini-(\d+(?:\.\d+)?)/i) || [0, "0"])[1]);
       if (vb !== va) return vb - va;
-      const la = /lite/i.test(a) ? 1 : 0;
-      const lb = /lite/i.test(b) ? 1 : 0;
-      return la - lb;
+      return (/lite/i.test(a) ? 1 : 0) - (/lite/i.test(b) ? 1 : 0);
     });
     const out = [];
-    for (const m of avail.concat(defaults)) {
-      if (m && !out.includes(m)) out.push(m);
-    }
-    return out.slice(0, 5);
+    for (const m of avail.concat(defaults)) if (m && !out.includes(m)) out.push(m);
+    return out.slice(0, 4);
   } catch (e) {
     return defaults;
   }
 }
 
 async function fetchYouTubeTranscriptText(videoId) {
-  // v3.91: Lightweight public YouTube captions/transcript fetcher (0 GitHub minutes, 0 yt-dlp)
   try {
-    const page = await fetch(`https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`, {
+    const page = await fetchWithTimeout(`https://www.youtube.com/watch?v=${encodeURIComponent(videoId)}`, {
       headers: { "Accept-Language": "hi-IN,hi;q=0.9,en;q=0.8", "User-Agent": "Mozilla/5.0" },
-    });
+    }, 5000);
     if (!page.ok) return "";
     const html = await page.text();
     const m = html.match(/"captionTracks":(\[[\s\S]*?\])/);
@@ -796,25 +838,23 @@ async function fetchYouTubeTranscriptText(videoId) {
     if (!Array.isArray(tracks) || !tracks.length) return "";
     const pick = tracks.find(t => /^hi/i.test(t.languageCode || "")) || tracks.find(t => /^en/i.test(t.languageCode || "")) || tracks[0];
     if (!pick || !pick.baseUrl) return "";
-    const tr = await fetch(pick.baseUrl);
+    const tr = await fetchWithTimeout(pick.baseUrl, {}, 4000);
     if (!tr.ok) return "";
     const xml = await tr.text();
-    const text = xml
-      .replace(/<[^>]+>/g, " ")
-      .replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">").replace(/&#39;/g, "'").replace(/&quot;/g, '"')
-      .replace(/\s+/g, " ").trim();
-    return text.slice(0, 2200);
+    return xml.replace(/<[^>]+>/g, " ").replace(/&amp;/g, "&").replace(/&lt;/g, "<").replace(/&gt;/g, ">")
+      .replace(/&#39;/g, "'").replace(/&quot;/g, '"').replace(/\s+/g, " ").trim().slice(0, 2200);
   } catch (e) {
     return "";
   }
 }
 
 async function callGeminiTrendScript(env, video, rewrite = false) {
-  const gKey = (env.GEMINI_KEY || "").trim();
+  const keys = getGeminiKeys(env);
+  if (!keys.length) return { text: "", error: "GEMINI_KEY missing" };
   const basePrompt = `You are India's #1 viral Hindi YouTube Shorts Director for "The Viral Gyaan".
 TASK:
-1) Study this reference viral YouTube Short. Ignore the competitor's editing/transitions — focus ONLY on the factual topic and WHAT REAL FOOTAGES, IMAGES, OBJECTS, PEOPLE, AND SCENES best explain it.
-2) Write a 100% ORIGINAL Hindi YouTube Short script on this same viral topic (NEVER copy/translate the competitor's wording — use a fresh, gripping hook and your own structure${rewrite ? " with a COMPLETELY DIFFERENT opening hook and angle than before" : ""}).
+1) Study this reference viral YouTube Short. Ignore competitor editing — focus ONLY on the factual topic and WHAT REAL FOOTAGES, IMAGES, OBJECTS, PEOPLE, AND SCENES best explain it.
+2) Write a 100% ORIGINAL Hindi YouTube Short script on this same viral topic (NEVER copy/translate — use a fresh, gripping hook${rewrite ? " with a COMPLETELY DIFFERENT opening hook and angle than before" : ""}).
 3) For every script line, put camera-exact English visual references after "||" (3-4 simple lowercase English words — NO "reconstruction", "reenactment", "examination", "interview", "chart", or capitalized non-person phrases; NO "[YT]"/"[X]" tags).
 
 OUTPUT FORMAT (strictly follow these two sections):
@@ -829,66 +869,61 @@ TITLE: <2-4 crisp words> | <2-4 hook words>
 <14-17 short punchy Hindi lines, 5-9 words each, tasteful [map:]/[news:]/[impact] tags max 3 total (NEVER write [riser] or [gola:] or [label:]), EVERY line except last CTA ends with "|| <3-4 simple lowercase English visual words>">
 ऐसे ही चौंकाने वाले फैक्ट्स के लिए अभी सब्सक्राइब करें और अगली वीडियो देखना मत भूलना।`;
 
+  const gKey = keys[0];
   const models = await discoverGeminiModels(gKey);
   const errs = [];
 
-  // Step 1: Try native YouTube URL video watch on discovered active Flash models (0 download, 0 GitHub minutes)
-  for (const model of models.slice(0, 2)) {
+  // Step 1: Fast 12s-bounded native YouTube URL video watch (1 top model only -> never hits CF 30s kill!)
+  for (const model of models.slice(0, 1)) {
     try {
       const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(gKey)}`;
-      const r = await fetch(endpoint, {
+      const r = await fetchWithTimeout(endpoint, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          contents: [{
-            role: "user",
-            parts: [
-              { fileData: { fileUri: video.url, mimeType: "video/*" } },
-              { text: basePrompt },
-            ],
-          }],
+          contents: [{ role: "user", parts: [{ fileData: { fileUri: video.url, mimeType: "video/*" } }, { text: basePrompt }] }],
         }),
-      });
+      }, 12000);
       if (r.ok) {
         const j = await r.json();
         const out = j.candidates && j.candidates[0] && j.candidates[0].content && j.candidates[0].content.parts
           ? j.candidates[0].content.parts.map(p => p.text || "").join("\n").trim() : "";
         if (out && out.includes("MODE:")) return { text: out, mode: "video", model };
       } else {
-        const eb = await r.text();
-        errs.push(`${model}(vid): ${r.status} ${eb.slice(0, 80)}`);
+        errs.push(`${model}(vid): ${r.status}`);
       }
     } catch (e) {
-      errs.push(`${model}(vid): ${String(e).slice(0, 60)}`);
+      errs.push(`${model}(vid): ${String(e).slice(0, 40)}`);
     }
   }
 
-  // Step 2: Automatic Transcript/Captions + Topic fallback across all active Flash models (never fails on 404!)
+  // Step 2: Fast YouTube Transcript/Captions + Topic fallback (10s timeout per call, rotates comma-separated keys!)
   const transcript = await fetchYouTubeTranscriptText(video.id);
   const ctxBlock = transcript
-    ? `Reference viral Short title: "${video.title}" (Channel: ${video.channel}).\nSpoken transcript of reference video (DO NOT copy wording — extract only core facts & visual scenes):\n${transcript}`
+    ? `Reference viral Short title: "${video.title}" (Channel: ${video.channel}).\nSpoken transcript (DO NOT copy wording — extract only facts & visuals):\n${transcript}`
     : `Reference viral Short title: "${video.title}" (Channel: ${video.channel}).`;
   const fbPrompt = basePrompt + "\n\nREFERENCE INFO:\n" + ctxBlock;
 
-  for (const model of models) {
-    try {
-      const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(gKey)}`;
-      const r2 = await fetch(endpoint, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: fbPrompt }] }] }),
-      });
-      if (r2.ok) {
-        const j2 = await r2.json();
-        const out2 = j2.candidates && j2.candidates[0] && j2.candidates[0].content && j2.candidates[0].content.parts
-          ? j2.candidates[0].content.parts.map(p => p.text || "").join("\n").trim() : "";
-        if (out2) return { text: out2, mode: transcript ? "transcript" : "topic", model };
-      } else {
-        const eb = await r2.text();
-        errs.push(`${model}: ${r2.status} ${eb.slice(0, 80)}`);
+  for (const k of keys.slice(0, 2)) {
+    for (const model of models.slice(0, 2)) {
+      try {
+        const endpoint = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(k)}`;
+        const r2 = await fetchWithTimeout(endpoint, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ contents: [{ role: "user", parts: [{ text: fbPrompt }] }] }),
+        }, 10000);
+        if (r2.ok) {
+          const j2 = await r2.json();
+          const out2 = j2.candidates && j2.candidates[0] && j2.candidates[0].content && j2.candidates[0].content.parts
+            ? j2.candidates[0].content.parts.map(p => p.text || "").join("\n").trim() : "";
+          if (out2) return { text: out2, mode: transcript ? "transcript" : "topic", model };
+        } else {
+          errs.push(`${model}: ${r2.status}`);
+        }
+      } catch (e) {
+        errs.push(`${model}: ${String(e).slice(0, 40)}`);
       }
-    } catch (e) {
-      errs.push(`${model}: ${String(e).slice(0, 60)}`);
     }
   }
   return { text: "", error: errs.slice(0, 3).join(" | ") };
@@ -906,83 +941,376 @@ function parseTrendGeminiOutput(raw) {
 async function handleTrendCallback(env, cq) {
   const chatId = String(cq.message && cq.message.chat ? cq.message.chat.id : "");
   const msgId = cq.message ? cq.message.message_id : null;
-  await tgApi(env, "answerCallbackQuery", { callback_query_id: cq.id });
-  if (env.ALLOWED_CHAT_ID && chatId !== String(env.ALLOWED_CHAT_ID).trim()) return;
-  const data = cq.data || "";
+  let statusMsg = null;
+  try {
+    await tgApi(env, "answerCallbackQuery", { callback_query_id: cq.id });
+    if (env.ALLOWED_CHAT_ID && chatId !== String(env.ALLOWED_CHAT_ID).trim()) return;
+    const data = cq.data || "";
 
-  if (data === "tr:ref") {
-    await handleTrendsCommand(env, chatId);
-    return;
-  }
-  if (data === "tr:no") {
-    if (msgId) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: msgId, text: "❌ Cancel — script discard kar di gayi." });
-    return;
-  }
-  if (data === "tr:go") {
-    const dr = await readGhJson(env, TREND_DRAFT_PATH, null);
-    if (!dr.data || !dr.data.script) {
-      if (msgId) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: msgId, text: "⚠️ Draft script nahi mili. Dobara 🔥 /trends chalao." });
+    if (data === "tr:ref") { await handleTrendsCommand(env, chatId); return; }
+    if (data === "tr:no") {
+      if (msgId) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: msgId, text: "❌ Cancel — script discard kar di gayi." });
       return;
     }
-    const res = await enqueueOrStart(env, [{ script: dr.data.script, mode: "SHORT", ts: Date.now() }]);
-    const reply = res.started > 0
-      ? "🚀 Approved! SHORT video cloud par shuru ho gayi hai!\nBante hi haatho-haath video + download link yahin aayegi."
-      : (res.queued > 0
-        ? `📋 Approved! Queue me lag gayi (queue: ${res.queueLen}). Pehli video khatam hote hi apne aap chalegi.`
-        : "❌ GitHub render trigger fail ho gaya.");
-    if (msgId) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: msgId, text: reply });
-    return;
+    if (data === "tr:go") {
+      const dr = await readGhJson(env, TREND_DRAFT_PATH, null);
+      if (!dr.data || !dr.data.script) {
+        if (msgId) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: msgId, text: "⚠️ Draft script nahi mili. Dobara 🔥 /trends chalao." });
+        return;
+      }
+      const res = await enqueueOrStart(env, [{ script: dr.data.script, mode: "SHORT", ts: Date.now() }]);
+      const reply = res.started > 0
+        ? "🚀 Approved! SHORT video cloud par shuru ho gayi hai!\nBante hi video + Cover + Story + Auto-Publish buttons yahin aayenge."
+        : (res.queued > 0
+          ? `📋 Approved! Queue me lag gayi (queue: ${res.queueLen}). Pehli video khatam hote hi apne aap chalegi.`
+          : "❌ GitHub render trigger fail ho gaya.");
+      if (msgId) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: msgId, text: reply });
+      return;
+    }
+
+    let video = null;
+    const rewrite = data === "tr:rw";
+    if (rewrite) {
+      const dr = await readGhJson(env, TREND_DRAFT_PATH, null);
+      video = dr.data && dr.data.video;
+    } else if (data.startsWith("tr:pick:")) {
+      const idx = parseInt(data.split(":")[2] || "0", 10);
+      const cache = await readGhJson(env, TRENDS_CACHE_PATH, { items: [] });
+      video = (cache.data && cache.data.items || [])[idx];
+    }
+    if (!video) {
+      await tgReply(env.TG_TOKEN, chatId, "⚠️ Purana list expire ho gaya — dobara 🔥 /trends dabao.", true);
+      return;
+    }
+
+    const statusRes = await tgApi(env, "sendMessage", {
+      chat_id: chatId,
+      text: `👀 Gemini asli YouTube video dekh kar visual references aur ${rewrite ? "naya angle" : "original"} Hindi script likh raha hai (~10-15 sec)...\n🔗 ${video.url}`,
+      disable_web_page_preview: true,
+    });
+    statusMsg = statusRes.ok ? (await statusRes.json()).result : null;
+
+    const gen = await callGeminiTrendScript(env, video, rewrite);
+    if (!gen || !gen.text) {
+      const failTxt = `❌ Script nahi ban payi.\n🔍 Wajah: ${(gen && gen.error) || "GEMINI_KEY ya quota check karo"}`;
+      if (statusMsg) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: statusMsg.message_id, text: failTxt });
+      else await tgReply(env.TG_TOKEN, chatId, failTxt, true);
+      return;
+    }
+
+    const parsed = parseTrendGeminiOutput(gen.text);
+    const oldDr = await readGhJson(env, TREND_DRAFT_PATH, null);
+    await writeGhJson(env, TREND_DRAFT_PATH, { video, script: parsed.script, refs: parsed.refs, ts: Date.now() }, oldDr.sha, "trend draft script");
+
+    const badge = gen.mode === "video"
+      ? `👀 Asli YouTube video dekh kar visual references nikaale ✓ (${gen.model})`
+      : (gen.mode === "transcript"
+        ? `📝 YouTube transcript se 100% original script + visual hints banaye ✓ (${gen.model})`
+        : `⚡ Viral topic se 100% original script + visual hints banaye ✓ (${gen.model})`);
+    const preview = `${badge}\n\n${parsed.refs ? "🎬 Visual References:\n" + parsed.refs + "\n\n" : ""}📝 ORIGINAL SCRIPT (Padh kar approve karo):\n\n${parsed.script}`.slice(0, 3950);
+    const approveKb = {
+      inline_keyboard: [
+        [{ text: "✅ Haan, Video Banao", callback_data: "tr:go" }],
+        [{ text: "✏️ Dobara Likho", callback_data: "tr:rw" }, { text: "❌ Cancel", callback_data: "tr:no" }],
+      ],
+    };
+    if (statusMsg) {
+      await tgApi(env, "editMessageText", { chat_id: chatId, message_id: statusMsg.message_id, text: preview, reply_markup: approveKb });
+    } else {
+      await tgApi(env, "sendMessage", { chat_id: chatId, text: preview, reply_markup: approveKb });
+    }
+  } catch (err) {
+    const errMsg = `❌ /trends error: ${String(err).slice(0, 220)}\n(Dobara 🔥 /trends try karo)`;
+    if (statusMsg) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: statusMsg.message_id, text: errMsg });
+    else if (chatId) await tgReply(env.TG_TOKEN, chatId, errMsg, true);
   }
+}
 
-  let video = null;
-  const rewrite = data === "tr:rw";
-  if (rewrite) {
-    const dr = await readGhJson(env, TREND_DRAFT_PATH, null);
-    video = dr.data && dr.data.video;
-  } else if (data.startsWith("tr:pick:")) {
-    const idx = parseInt(data.split(":")[2] || "0", 10);
-    const cache = await readGhJson(env, TRENDS_CACHE_PATH, { items: [] });
-    video = (cache.data && cache.data.items || [])[idx];
+// ---------------- v3.93: Rollback Confirmation Guard ----------------
+async function handleRollbackConfirm(env, cq) {
+  const chatId = String(cq.message && cq.message.chat ? cq.message.chat.id : "");
+  const msgId = cq.message ? cq.message.message_id : null;
+  await tgApi(env, "answerCallbackQuery", { callback_query_id: cq.id });
+  if (env.ALLOWED_CHAT_ID && chatId !== String(env.ALLOWED_CHAT_ID).trim()) return;
+  if (cq.data === "rb:go") {
+    const ok = await dispatchGH(env, "apply_update.yml", { action: "rollback", file_id: "" });
+    const txt = ok ? "⏪ Pichhla version (/purana) cloud par restore kar raha hoon (~30 sec)..." : "❌ Rollback trigger fail ho gaya.";
+    if (msgId) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: msgId, text: txt });
+  } else {
+    if (msgId) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: msgId, text: "✅ Rollback cancel — current version safe hai." });
   }
-  if (!video) {
-    await tgReply(env.TG_TOKEN, chatId, "⚠️ Purana list expire ho gaya — dobara 🔥 /trends dabao.", true);
-    return;
+}
+
+// ---------------- v3.93: Post-Approval Auto-Publish (YouTube Unlisted + FB Page + IG Reels + Cover + Story) ----------------
+const PUB_PATH = "/contents/seekha/pending_publish.json";
+const GRAPH_VER = "v27.0";
+
+async function registerPublishCard(env, payload) {
+  const chatId = String(payload.chat_id || env.ALLOWED_CHAT_ID || "");
+  if (!chatId) return;
+  const id = Date.now().toString(36).slice(-6);
+  const cur = await readGhJson(env, PUB_PATH, {});
+  const store = (cur.data && typeof cur.data === "object") ? { ...cur.data } : {};
+  const keys = Object.keys(store);
+  if (keys.length >= 5) {
+    keys.sort((a, b) => (store[a].ts || 0) - (store[b].ts || 0));
+    for (const oldK of keys.slice(0, keys.length - 4)) delete store[oldK];
   }
+  const mode = String(payload.mode || "SHORT").toUpperCase();
+  store[id] = {
+    id, ts: Date.now(), mode,
+    category: payload.category || "general",
+    video_url: payload.video_url || "",
+    cover_url: payload.cover_url || "",
+    story_url: payload.story_url || "",
+    title: payload.title || "The Viral Gyaan",
+    description: payload.description || "",
+    ig_caption: payload.ig_caption || payload.description || "",
+    tags: payload.tags || "",
+  };
+  await writeGhJson(env, PUB_PATH, store, cur.sha, `register publish ${id}`);
 
-  const statusRes = await tgApi(env, "sendMessage", {
-    chat_id: chatId,
-    text: `👀 Gemini asli YouTube video dekh kar visual references aur ${rewrite ? "naya angle" : "original"} Hindi script likh raha hoon (~15 sec)...\n🔗 ${video.url}`,
-    disable_web_page_preview: true,
-  });
-  const statusMsg = statusRes.ok ? (await statusRes.json()).result : null;
-
-  const gen = await callGeminiTrendScript(env, video, rewrite);
-  if (!gen || !gen.text) {
-    const failTxt = `❌ Script nahi ban payi.\n🔍 Wajah: ${(gen && gen.error) || "GEMINI_KEY ya quota check karo"}`;
-    if (statusMsg) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: statusMsg.message_id, text: failTxt });
-    else await tgReply(env.TG_TOKEN, chatId, failTxt, true);
-    return;
-  }
-
-  const parsed = parseTrendGeminiOutput(gen.text);
-  const oldDr = await readGhJson(env, TREND_DRAFT_PATH, null);
-  await writeGhJson(env, TREND_DRAFT_PATH, { video, script: parsed.script, refs: parsed.refs, ts: Date.now() }, oldDr.sha, "trend draft script");
-
-  const badge = gen.mode === "video"
-    ? `👀 Asli YouTube video dekh kar visual references nikaale ✓ (${gen.model})`
-    : (gen.mode === "transcript"
-      ? `📝 YouTube transcript se 100% original script + visual hints banaye ✓ (${gen.model})`
-      : `⚡ Viral topic se 100% original script + visual hints banaye ✓ (${gen.model})`);
-  const preview = `${badge}\n\n${parsed.refs ? "🎬 Visual References:\n" + parsed.refs + "\n\n" : ""}📝 ORIGINAL SCRIPT (Padh kar approve karo):\n\n${parsed.script}`.slice(0, 3950);
-  const approveKb = {
+  const isLong = mode === "LONG";
+  const kb = isLong ? {
     inline_keyboard: [
-      [{ text: "✅ Haan, Video Banao", callback_data: "tr:go" }],
-      [{ text: "✏️ Dobara Likho", callback_data: "tr:rw" }, { text: "❌ Cancel", callback_data: "tr:no" }],
+      [{ text: "✅ YT (Unlisted) + FB Page", callback_data: `pub:${id}:all` }],
+      [{ text: "▶️ Sirf YouTube (Unlisted)", callback_data: `pub:${id}:yt` }, { text: "📱 Sirf Facebook Page", callback_data: `pub:${id}:meta` }],
+      [{ text: "❌ Skip", callback_data: `pub:${id}:skip` }],
+    ],
+  } : {
+    inline_keyboard: [
+      [{ text: "✅ Sab Par Publish (YT + FB + IG + Story)", callback_data: `pub:${id}:all` }],
+      [{ text: "▶️ Sirf YouTube (Unlisted)", callback_data: `pub:${id}:yt` }, { text: "📱 Sirf FB + IG + Story", callback_data: `pub:${id}:meta` }],
+      [{ text: "❌ Skip", callback_data: `pub:${id}:skip` }],
     ],
   };
-  if (statusMsg) {
-    await tgApi(env, "editMessageText", { chat_id: chatId, message_id: statusMsg.message_id, text: preview, reply_markup: approveKb });
-  } else {
-    await tgApi(env, "sendMessage", { chat_id: chatId, text: preview, reply_markup: approveKb });
+
+  const cardText =
+    `🚀 PUBLISH APPROVAL READY (${mode})\n\n` +
+    `🎬 Title: ${store[id].title.slice(0, 95)}\n` +
+    `📝 Desc: ${store[id].description.slice(0, 260)}\n\n` +
+    `👇 Kahan publish karun? (YouTube hamesha UNLISTED jayega — 100% safe!)`;
+  await tgApi(env, "sendMessage", { chat_id: chatId, text: cardText.slice(0, 3900), reply_markup: kb });
+}
+
+async function publishFacebookPage(env, item) {
+  const token = (env.META_ACCESS_TOKEN || "").trim();
+  const pageId = (env.FB_PAGE_ID || "").trim();
+  if (!token || !pageId) return { ok: false, msg: "⚠️ FB skip: Cloudflare me META_ACCESS_TOKEN aur FB_PAGE_ID add karo." };
+  try {
+    if (item.mode === "LONG") {
+      const r = await fetchWithTimeout(`https://graph.facebook.com/${GRAPH_VER}/${pageId}/videos`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ file_url: item.video_url, title: item.title, description: item.ig_caption, access_token: token }),
+      }, 22000);
+      const j = await r.json();
+      if (r.ok && j.id) return { ok: true, msg: `✅ Facebook Video Published (ID: ${j.id})` };
+      return { ok: false, msg: `❌ FB Video error: ${(j.error && j.error.message) || r.status}` };
+    }
+    // SHORT -> Official Facebook Page Reels 3-step URL flow (0 GitHub minutes!)
+    const s1 = await fetchWithTimeout(`https://graph.facebook.com/${GRAPH_VER}/${pageId}/video_reels`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ upload_phase: "start", access_token: token }),
+    }, 12000);
+    const j1 = await s1.json();
+    if (!s1.ok || !j1.video_id) return { ok: false, msg: `❌ FB Reel start fail: ${(j1.error && j1.error.message) || s1.status}` };
+
+    const s2 = await fetchWithTimeout(`https://rupload.facebook.com/video-upload/${GRAPH_VER}/${j1.video_id}`, {
+      method: "POST",
+      headers: { Authorization: `OAuth ${token}`, file_url: item.video_url },
+    }, 18000);
+    if (!s2.ok) {
+      const t2 = await s2.text();
+      return { ok: false, msg: `❌ FB Reel upload fail: ${t2.slice(0, 120)}` };
+    }
+
+    const s3 = await fetchWithTimeout(`https://graph.facebook.com/${GRAPH_VER}/${pageId}/video_reels`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        upload_phase: "finish",
+        video_id: j1.video_id,
+        video_state: "PUBLISHED",
+        description: item.ig_caption || item.title,
+        access_token: token,
+      }),
+    }, 12000);
+    const j3 = await s3.json();
+    if (s3.ok && (j3.success || j3.post_id)) return { ok: true, msg: `✅ Facebook Page Reel Published!` };
+    return { ok: false, msg: `❌ FB Reel finish fail: ${(j3.error && j3.error.message) || s3.status}` };
+  } catch (e) {
+    return { ok: false, msg: `❌ FB error: ${String(e).slice(0, 120)}` };
+  }
+}
+
+async function publishInstagramReelAndStory(env, item) {
+  const token = (env.META_ACCESS_TOKEN || "").trim();
+  const igId = (env.IG_USER_ID || "").trim();
+  if (!token || !igId) return { ok: false, msg: "⚠️ IG skip: Cloudflare me META_ACCESS_TOKEN aur IG_USER_ID add karo." };
+  const notes = [];
+  let pendingContainer = null;
+
+  // 1) Create & Publish Designer Instagram Story (fast image container!)
+  if (item.story_url) {
+    try {
+      const st1 = await fetchWithTimeout(`https://graph.facebook.com/${GRAPH_VER}/${igId}/media`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ media_type: "STORIES", image_url: item.story_url, access_token: token }),
+      }, 10000);
+      const sj1 = await st1.json();
+      if (st1.ok && sj1.id) {
+        await new Promise(r => setTimeout(r, 2500));
+        const st2 = await fetchWithTimeout(`https://graph.facebook.com/${GRAPH_VER}/${igId}/media_publish`, {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ creation_id: sj1.id, access_token: token }),
+        }, 10000);
+        const sj2 = await st2.json();
+        notes.push(st2.ok && sj2.id ? "✅ IG Designer Story Published!" : `⚠️ IG Story pending/err: ${(sj2.error && sj2.error.message) || st2.status}`);
+      } else {
+        notes.push(`⚠️ IG Story fail: ${(sj1.error && sj1.error.message) || st1.status}`);
+      }
+    } catch (e) {
+      notes.push(`⚠️ IG Story error: ${String(e).slice(0, 80)}`);
+    }
+  }
+
+  // 2) Create & Poll Instagram Reel (with Center-Safe Cover URL!)
+  try {
+    const reelBody = {
+      media_type: "REELS",
+      video_url: item.video_url,
+      caption: (item.ig_caption || item.title).slice(0, 2100),
+      share_to_feed: true,
+      access_token: token,
+    };
+    if (item.cover_url) reelBody.cover_url = item.cover_url;
+    const r1 = await fetchWithTimeout(`https://graph.facebook.com/${GRAPH_VER}/${igId}/media`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(reelBody),
+    }, 12000);
+    const j1 = await r1.json();
+    if (!r1.ok || !j1.id) {
+      notes.push(`❌ IG Reel create fail: ${(j1.error && j1.error.message) || r1.status}`);
+      return { ok: false, msg: notes.join("\n") };
+    }
+    const cid = j1.id;
+    let ready = false;
+    for (let attempt = 0; attempt < 4; attempt++) {
+      await new Promise(r => setTimeout(r, 3500));
+      const st = await fetchWithTimeout(`https://graph.facebook.com/${GRAPH_VER}/${cid}?fields=status_code&access_token=${encodeURIComponent(token)}`, {}, 8000);
+      if (st.ok) {
+        const sj = await st.json();
+        if (sj.status_code === "FINISHED") { ready = true; break; }
+        if (sj.status_code === "ERROR") { notes.push("❌ IG Reel processing error on Meta"); return { ok: false, msg: notes.join("\n") }; }
+      }
+    }
+    if (ready) {
+      const pub = await fetchWithTimeout(`https://graph.facebook.com/${GRAPH_VER}/${igId}/media_publish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ creation_id: cid, access_token: token }),
+      }, 10000);
+      const pj = await pub.json();
+      notes.push(pub.ok && pj.id ? "✅ Instagram Reel (+ Cover) Published!" : `❌ IG Publish fail: ${(pj.error && pj.error.message) || pub.status}`);
+    } else {
+      pendingContainer = cid;
+      notes.push("⏳ Instagram video abhi Meta par process ho raha hai — 15 sec baad neeche '🔄 Complete IG Reel Publish' dabao!");
+    }
+  } catch (e) {
+    notes.push(`❌ IG Reel error: ${String(e).slice(0, 100)}`);
+  }
+  return { ok: !pendingContainer, msg: notes.join("\n"), pendingContainer };
+}
+
+async function handlePublishCallback(env, cq) {
+  const chatId = String(cq.message && cq.message.chat ? cq.message.chat.id : "");
+  const msgId = cq.message ? cq.message.message_id : null;
+  try {
+    await tgApi(env, "answerCallbackQuery", { callback_query_id: cq.id });
+    if (env.ALLOWED_CHAT_ID && chatId !== String(env.ALLOWED_CHAT_ID).trim()) return;
+    const parts = (cq.data || "").split(":");
+    const id = parts[1] || "";
+    const action = parts[2] || "";
+
+    if (action === "skip") {
+      if (msgId) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: msgId, text: "⏭️ Auto-Publish skip kar diya (video + Cover + Story Telegram par saved hain)." });
+      return;
+    }
+
+    // Complete delayed IG Reel container publish
+    if (action === "igfin") {
+      const cid = parts[3] || "";
+      const token = (env.META_ACCESS_TOKEN || "").trim();
+      const igId = (env.IG_USER_ID || "").trim();
+      const pub = await fetchWithTimeout(`https://graph.facebook.com/${GRAPH_VER}/${igId}/media_publish`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ creation_id: cid, access_token: token }),
+      }, 12000);
+      const pj = await pub.json();
+      const txt = pub.ok && pj.id
+        ? "✅ Instagram Reel (+ Cover) Published!"
+        : `⏳ Abhi bhi process ho raha hai ya error: ${(pj.error && pj.error.message) || pub.status}`;
+      await tgReply(env.TG_TOKEN, chatId, txt, false);
+      return;
+    }
+
+    const store = await readGhJson(env, PUB_PATH, {});
+    const item = store.data && store.data[id];
+    if (!item || !item.video_url) {
+      if (msgId) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: msgId, text: "⚠️ Ye publish card purana ho gaya (sirf aakhri 5 videos saved rehte hain)." });
+      return;
+    }
+
+    if (msgId) {
+      await tgApi(env, "editMessageText", { chat_id: chatId, message_id: msgId, text: `⏳ Publishing shuru (${action.toUpperCase()})...\n🎬 ${item.title.slice(0, 70)}` });
+    }
+
+    const report = [`📣 Publish Report — ${item.title.slice(0, 65)}`];
+    let pendingIgCid = null;
+
+    if (action === "yt" || action === "all") {
+      const ok = await dispatchGH(env, "publish_video.yml", {
+        video_url: item.video_url,
+        title: item.title,
+        description: item.description,
+        tags: item.tags,
+        mode: item.mode,
+        category: item.category,
+      });
+      report.push(ok
+        ? "▶️ YouTube (Unlisted): Upload shuru ho gaya (~1 min me preview link yahin aayega!)"
+        : "❌ YouTube trigger fail: Check karo .github/workflows/publish_video.yml GitHub par add hai ya nahi.");
+    }
+
+    if (action === "meta" || action === "all") {
+      const fbRes = await publishFacebookPage(env, item);
+      report.push(fbRes.msg);
+      if (item.mode !== "LONG") {
+        const igRes = await publishInstagramReelAndStory(env, item);
+        report.push(igRes.msg);
+        if (igRes.pendingContainer) pendingIgCid = igRes.pendingContainer;
+      } else {
+        report.push("ℹ️ Long (16:9) video ke liye Instagram Reels auto-skip kiya gaya.");
+      }
+    }
+
+    const replyMarkup = pendingIgCid ? {
+      inline_keyboard: [[{ text: "🔄 Complete IG Reel Publish", callback_data: `pub:${id}:igfin:${pendingIgCid}` }]],
+    } : undefined;
+    if (msgId) {
+      await tgApi(env, "editMessageText", { chat_id: chatId, message_id: msgId, text: report.join("\n\n").slice(0, 3950), reply_markup: replyMarkup });
+    } else {
+      await tgApi(env, "sendMessage", { chat_id: chatId, text: report.join("\n\n").slice(0, 3950), reply_markup: replyMarkup });
+    }
+  } catch (err) {
+    const em = `❌ Auto-Publish error: ${String(err).slice(0, 220)}`;
+    if (msgId) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: msgId, text: em });
+    else if (chatId) await tgReply(env.TG_TOKEN, chatId, em, false);
   }
 }

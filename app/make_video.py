@@ -2025,11 +2025,11 @@ def main():
             log("   " + STYLE_NOTE)
         except Exception:
             pass
-    # v2.6: title, description, hashtags, thumbnail, upload kit
-    kit = None; drive_day = None
+    # v2.6 + v3.93: title, description, hashtags, thumbnail, Reel Cover, Designer IG Story, upload kit
+    kit = None; drive_day = None; md = None; reel_cover_p = None; ig_story_p = None
     try:
         import meta
-        log("7) Thumbnail, title, description bana raha hoon...")
+        log("7) Thumbnail, Reel Cover, Designer Story, title & description bana raha hoon...")
         md = meta.make_meta(keys.get("GEMINI"), lines, script_data, style, credits)
         chapters = []
         if LONG and SECTIONS:
@@ -2043,6 +2043,11 @@ def main():
         kit = meta.upload_kit(out, md, credits, style, work, ai_voice=style.get("voice") != "meri", frame_src=joined,
                               chapters=chapters, srcs=tsrc, key=keys.get("GEMINI"),
                               topic=", ".join([e for e in eng[:2] if e] + list(topic_kw)[:2]))
+        try:
+            _cat_nm = style.get("category") or (script_data.get("category") if isinstance(script_data, dict) else "") or "general"
+            reel_cover_p, ig_story_p = meta.make_reel_cover_and_story(out, md, out.with_suffix(""), work, srcs=tsrc, category=_cat_nm)
+        except Exception as _se:
+            log(f"   (reel cover/story skip: {_se})", show=False)
         drive_day = meta.to_drive(out, style)
     except Exception as e:
         log(f"   (upload kit nahi bana: {e})")
@@ -2109,6 +2114,9 @@ def main():
             "minutes": round(mins, 1), "script": str(sp), "items": items, "style_over": over,
             "visual_report": VREPORT.get("md"), "visual_summary": VREPORT.get("summary"),
             "format": style.get("format", "short"), "gate": GATE, "qc": QC_REPORT,
+            "meta": md or {}, "reel_cover": str(reel_cover_p) if reel_cover_p else None,
+            "ig_story": str(ig_story_p) if ig_story_p else None,
+            "category": style.get("category") or "general",
             "review": {k: REVIEW.get(k) for k in ("score", "verdict", "issues", "not_done")} if REVIEW else {},
             "timing": (lambda tp: f"⏱ {tp[0]/60:.1f} min: " + ", ".join(f"{n_} {t_/60:.1f}" for n_, t_ in tp[1][:4] if t_ >= 5))(stage_report()),
             "voice_cache": {"wav": str(jd / "voice.wav"), "sents": str(jd / "sents.json")},

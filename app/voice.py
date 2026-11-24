@@ -203,14 +203,15 @@ def _tts_models(key):
 
 
 def _gemini_key_pool(primary_key):
-    """v3.91: Automatic multi-key rotation (GEMINI_KEY, GEMINI_KEY_2, GEMINI_KEY_3) so Charon voice never hits quota."""
+    """v3.93: Multi-key rotation supporting comma-separated GEMINI_KEY (key1,key2,key3) + GEMINI_KEY_2/3/4."""
     import os
     keys = []
-    for k in (primary_key, os.environ.get("GEMINI_KEY_2"), os.environ.get("GEMINI_KEY_3"),
-              os.environ.get("GEMINI_KEY_4")):
-        k = (k or "").strip()
-        if k and k not in keys:
-            keys.append(k)
+    for raw in (primary_key, os.environ.get("GEMINI_KEY_2"), os.environ.get("GEMINI_KEY_3"),
+                os.environ.get("GEMINI_KEY_4")):
+        for k in str(raw or "").split(","):
+            k = k.strip()
+            if k and k not in keys:
+                keys.append(k)
     return keys
 
 
