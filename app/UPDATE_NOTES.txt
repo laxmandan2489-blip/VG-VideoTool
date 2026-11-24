@@ -1,3 +1,8 @@
+v4.0 (🚀 1-TAP YOUTUBE PUBLIC + UNLISTED BUTTONS + CUMULATIVE v3.99 — 0% VISUAL SEARCH TOUCH):
+🚀 Public + Unlisted Choice (cloudflare_worker.js): Telegram Auto-Publish card par ab dono options hain — '🚀 Sab Par PUBLIC' / '▶️ YT PUBLIC' aur '✅ Sab Par (YT Unlisted)' / '🔒 YT Unlisted'!
+📦 Cumulative v3.99 included: 72h–30d reliable video hosting (litterbox 90s+2x, qu.ax, uguu.se) + clean v3.93 video pipeline + single-take Charon voice + Option A clean Cover/Story + /trends 5-category zero-repeat Refresh.
+🔒 Visual Search Engine: 0% untouched!
+
 v3.99 (▶️ 72H–30D RELIABLE VIDEO HOSTING FIX FOR YOUTUBE / FB / IG AUTO-PUBLISH — 0% VISUAL SEARCH TOUCH):
 ☁️ Long-Lived Direct MP4 Links (cloud_run.py): litterbox.catbox.moe timeout 45s -> 90s + 2x retry (72 ghante) + 2 naye reliable direct-MP4 backups (qu.ax 30 din / 256 MB, uguu.se 24 ghante / 128 MB) BEFORE tmpfiles.org — ab YouTube, FB Reels aur IG Reels ke links 1 ghante me expire nahi honge!
 📋 Clear Diagnostic Logging (app/yt_publish.py): Telegram >20MB getFile limit par saaf message dikhega.

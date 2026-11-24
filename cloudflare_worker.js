@@ -1302,23 +1302,25 @@ async function registerPublishCard(env, payload) {
   const isLong = mode === "LONG";
   const kb = isLong ? {
     inline_keyboard: [
-      [{ text: "✅ YT (Unlisted) + FB Page", callback_data: `pub:${id}:all` }],
-      [{ text: "▶️ Sirf YouTube (Unlisted)", callback_data: `pub:${id}:yt` }, { text: "📱 Sirf Facebook Page", callback_data: `pub:${id}:meta` }],
-      [{ text: "❌ Skip", callback_data: `pub:${id}:skip` }],
+      [{ text: "🚀 YT PUBLIC + FB Page", callback_data: `pub:${id}:all_pub` }],
+      [{ text: "✅ YT Unlisted + FB Page", callback_data: `pub:${id}:all` }],
+      [{ text: "▶️ YT PUBLIC", callback_data: `pub:${id}:yt_pub` }, { text: "🔒 YT Unlisted", callback_data: `pub:${id}:yt` }],
+      [{ text: "📱 Sirf Facebook Page", callback_data: `pub:${id}:meta` }, { text: "❌ Skip", callback_data: `pub:${id}:skip` }],
     ],
   } : {
     inline_keyboard: [
-      [{ text: "✅ Sab Par Publish (YT + FB + IG + Story)", callback_data: `pub:${id}:all` }],
-      [{ text: "▶️ Sirf YouTube (Unlisted)", callback_data: `pub:${id}:yt` }, { text: "📱 Sirf FB + IG + Story", callback_data: `pub:${id}:meta` }],
-      [{ text: "❌ Skip", callback_data: `pub:${id}:skip` }],
+      [{ text: "🚀 Sab Par PUBLIC (YT + FB + IG + Story)", callback_data: `pub:${id}:all_pub` }],
+      [{ text: "✅ Sab Par (YT Unlisted + FB + IG + Story)", callback_data: `pub:${id}:all` }],
+      [{ text: "▶️ YT PUBLIC", callback_data: `pub:${id}:yt_pub` }, { text: "🔒 YT Unlisted", callback_data: `pub:${id}:yt` }],
+      [{ text: "📱 Sirf FB + IG + Story", callback_data: `pub:${id}:meta` }, { text: "❌ Skip", callback_data: `pub:${id}:skip` }],
     ],
   };
 
   const cardText =
-    `🚀 PUBLISH APPROVAL READY (${mode})\n\n` +
-    `🎬 Title: ${store[id].title.slice(0, 95)}\n` +
-    `📝 Desc: ${store[id].description.slice(0, 260)}\n\n` +
-    `👇 Kahan publish karun? (YouTube hamesha UNLISTED jayega — 100% safe!)`;
+    `🚀 Auto-Publish Ready! (${isLong ? "LONG 16:9" : "SHORT 9:16"})\\n\\n` +
+    `🎬 Title: ${store[id].title.slice(0, 95)}\\n` +
+    `📝 Desc: ${store[id].description.slice(0, 260)}\\n\\n` +
+    `👇 Kahan aur kaise publish karun? (YouTube PUBLIC ya UNLISTED dono chalu hain!)`;
   await tgApi(env, "sendMessage", { chat_id: chatId, text: cardText.slice(0, 3900), reply_markup: kb });
 }
 
@@ -1503,7 +1505,11 @@ async function handlePublishCallback(env, cq) {
     const report = [`📣 Publish Report — ${item.title.slice(0, 65)}`];
     let pendingIgCid = null;
 
-    if (action === "yt" || action === "all") {
+    const doYt = (action === "yt" || action === "all" || action === "yt_pub" || action === "all_pub");
+    const doMeta = (action === "meta" || action === "all" || action === "all_pub");
+    const ytPrivacy = (action === "yt_pub" || action === "all_pub") ? "public" : "unlisted";
+
+    if (doYt) {
       const ytVideoUrl = item.video_url
         ? (item.tg_file_id ? `${item.video_url}#vg_tg=${item.tg_file_id}` : item.video_url)
         : (item.tg_file_id ? `tgfile://${item.tg_file_id}` : "");
@@ -1514,13 +1520,15 @@ async function handlePublishCallback(env, cq) {
         tags: item.tags,
         mode: item.mode,
         category: item.category,
+        privacy: ytPrivacy,
       });
+      const privLbl = ytPrivacy === "public" ? "PUBLIC 🚀" : "Unlisted 🔒";
       report.push(ok
-        ? "▶️ YouTube (Unlisted): Upload shuru ho gaya (~1 min me preview link yahin aayega!)"
-        : "❌ YouTube trigger fail: Check karo .github/workflows/publish_video.yml GitHub par add hai ya nahi.");
+        ? `▶️ YouTube (${privLbl}): Upload shuru ho gaya (~1 min me link yahin aayega!)`
+        : "❌ YouTube trigger fail: Check karo .github/workflows/publish_video.yml GitHub par updated hai ya nahi.");
     }
 
-    if (action === "meta" || action === "all") {
+    if (doMeta) {
       const fbRes = await publishFacebookPage(env, item);
       report.push(fbRes.msg);
       if (item.mode !== "LONG") {
