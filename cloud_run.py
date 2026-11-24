@@ -160,45 +160,61 @@ def tg_send_video(token, chat_id, video_path, caption=""):
 
 
 def public_link(video_path):
-    """v3.75: phone ke liye SEEDHA download link (login nahi, Drive setup nahi).
-    Litterbox (catbox.moe) – link 72 ghante chalta hai; fail ho to 0x0.st. Link jiske paas ho wahi khol sakta hai.
-    Band karna ho: GitHub Secret / env VG_PUBLIC_LINK = nahi."""
+    """v3.99: Reliable 72h-30d direct MP4/JPG upload links for YouTube, FB Reels, IG Reels & Phone download.
+    Order: litterbox (72h, 90s + 2x retry) -> qu.ax (30 days, 256MB) -> uguu.se (128MB) -> tmpfiles (1h last resort)."""
     if (os.environ.get("VG_PUBLIC_LINK") or "haan").strip().lower() in ("nahi", "no", "0", "off"):
         return None, "band hai"
     vp = Path(video_path)
     if not vp.exists():
         return None, "file nahi"
     errs = []
-    # v3.86 INSTANT LINK: 45s fast timeout (no 10-min litterbox hang!) + tmpfiles.org fallback
+    size_mb = vp.stat().st_size / (1024 * 1024)
+    _ext = (vp.suffix or ".mp4").lower()
+    _mime = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}.get(_ext, "video/mp4")
+    _up_name = f"VG_media_{time.strftime('%Y%m%d_%H%M%S')}{_ext}"
+    _ua = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/128.0.0.0 Safari/537.36"}
+
     hosts = [
         ("litterbox", "https://litterbox.catbox.moe/resources/internals/api.php",
-         {"reqtype": "fileupload", "time": "72h"}, "fileToUpload", 1000),
-        ("0x0", "https://0x0.st", {}, "file", 512),
-        ("tmpfiles", "https://tmpfiles.org/api/v1/upload", {}, "file", 512),
+         {"reqtype": "fileupload", "time": "72h"}, "fileToUpload", 1000, 90, 2, "72 ghante"),
+        ("quax", "https://qu.ax/upload.php",
+         {}, "files[]", 256, 75, 1, "30 din"),
+        ("uguu", "https://uguu.se/upload",
+         {}, "files[]", 128, 60, 1, "24 ghante"),
+        ("tmpfiles", "https://tmpfiles.org/api/v1/upload",
+         {}, "file", 512, 60, 1, "1 ghanta (⚠️ turant publish karein)"),
     ]
-    size_mb = vp.stat().st_size / (1024 * 1024)
-    for name, url, data, field, max_mb in hosts:
+
+    for name, url, data, field, max_mb, tout, retries, ttl_lbl in hosts:
         if size_mb > max_mb:
-            errs.append(f"{name}: file badi"); continue
-        try:
-            _ext = (vp.suffix or ".mp4").lower()
-            _mime = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}.get(_ext, "video/mp4")
-            _up_name = f"VG_media_{time.strftime('%Y%m%d_%H%M%S')}{_ext}"
-            with open(vp, "rb") as f:
-                r = requests.post(url, data=data, files={field: (_up_name, f, _mime)},
-                                  headers={"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/128.0.0.0 Safari/537.36"}, timeout=45)
-            if name == "tmpfiles" and r.ok:
-                j = r.json()
-                link = str(((j.get("data") or {}).get("url")) or "").strip()
-                if link.startswith("http"):
-                    return link.replace("http://tmpfiles.org/", "https://tmpfiles.org/").replace("tmpfiles.org/", "tmpfiles.org/dl/"), "1 ghanta"
-            link = (r.text or "").strip()
-            if r.ok and link.startswith("http") and " " not in link and len(link) < 200:
-                return link, ("72 ghante" if name == "litterbox" else "kam se kam 30 din")
-            errs.append(f"{name}: HTTP {r.status_code}")
-        except Exception as e:
-            errs.append(f"{name}: {str(e)[:60]}")
-    return None, "; ".join(errs)[:160]
+            errs.append(f"{name}: file badi ({size_mb:.0f}MB)")
+            continue
+        for attempt in range(retries):
+            try:
+                with open(vp, "rb") as f:
+                    r = requests.post(url, data=data, files={field: (_up_name, f, _mime)}, headers=_ua, timeout=tout)
+                if r.ok:
+                    if name in ("quax", "uguu"):
+                        j = r.json() or {}
+                        arr = j.get("files") or []
+                        link = str((arr[0].get("url") if arr and isinstance(arr[0], dict) else "") or "").strip()
+                        if link.startswith("http"):
+                            return link, ttl_lbl
+                    elif name == "tmpfiles":
+                        j = r.json() or {}
+                        link = str(((j.get("data") or {}).get("url")) or "").strip()
+                        if link.startswith("http"):
+                            return link.replace("http://tmpfiles.org/", "https://tmpfiles.org/").replace("tmpfiles.org/", "tmpfiles.org/dl/"), ttl_lbl
+                    else:
+                        link = (r.text or "").strip()
+                        if link.startswith("http") and " " not in link and len(link) < 220:
+                            return link, ttl_lbl
+                errs.append(f"{name}: HTTP {r.status_code}")
+            except Exception as e:
+                errs.append(f"{name}: {str(e)[:55]}")
+            if attempt + 1 < retries:
+                time.sleep(3)
+    return None, "; ".join(errs)[:180]
 
 
 def _prepare_rclone():

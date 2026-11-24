@@ -120,7 +120,14 @@ def _download_from_telegram(tg_token, file_id, dst_path, retries=3):
                 timeout=30,
             )
             if not r.ok:
-                last_err = f"TG getFile HTTP {r.status_code}"
+                _desc = ""
+                try:
+                    _desc = str((r.json() or {}).get("description") or "").strip()
+                except Exception:
+                    pass
+                if "too big" in _desc.lower():
+                    return False, "TG backup >20MB limit (nayi video par 72h direct link chalega)"
+                last_err = f"TG getFile HTTP {r.status_code}" + (f" ({_desc[:60]})" if _desc else "")
             else:
                 j = r.json() or {}
                 fpath = ((j.get("result") or {}).get("file_path") or "").strip()

@@ -1,3 +1,8 @@
+v3.99 (▶️ 72H–30D RELIABLE VIDEO HOSTING FIX FOR YOUTUBE / FB / IG AUTO-PUBLISH — 0% VISUAL SEARCH TOUCH):
+☁️ Long-Lived Direct MP4 Links (cloud_run.py): litterbox.catbox.moe timeout 45s -> 90s + 2x retry (72 ghante) + 2 naye reliable direct-MP4 backups (qu.ax 30 din / 256 MB, uguu.se 24 ghante / 128 MB) BEFORE tmpfiles.org — ab YouTube, FB Reels aur IG Reels ke links 1 ghante me expire nahi honge!
+📋 Clear Diagnostic Logging (app/yt_publish.py): Telegram >20MB getFile limit par saaf message dikhega.
+🔒 Visual Search Engine & v3.98 clean pipeline: 0% untouched!
+
 v3.98 (🧹 CLEAN v3.93 RESTORE + 🎙️ MID-VIDEO WRONG-VOICE PERMANENT FIX + 🖼️ CLEAN PURANA THUMBNAIL COVER/STORY — 0% VISUAL SEARCH TOUCH):
 🧹 Clean v3.93 Video Pipeline Restored (app/make_video.py + app/cine/doc_cards.py): v3.95 ka ai_director / extra cards 100% hata kar exact v3.93 clean state restore kar diya; Script-to-Visual Search Engine 0% untouched!
 🎙️ Mid-Video Wrong-Script Voice Permanent Fix (app/voice.py + cloudflare_worker.js): Mid-video partial splice (fix_gi) band kar diya + broken '\n।||' newlines auto-clean — ab poori video ek hi clean Charon voice take me banegi (beech me kabhi kisi aur script ki awaaz nahi aayegi!).
