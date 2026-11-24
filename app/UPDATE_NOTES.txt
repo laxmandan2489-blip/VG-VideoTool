@@ -1,3 +1,9 @@
+v3.97 (🔄 ZERO-REPEAT /TRENDS REFRESH + 📱🎬🚀 MULTI-CATEGORY RADAR + CUMULATIVE v3.94–v3.96 — 0% VISUAL SEARCH TOUCH):
+🔄 Smart Zero-Repeat Refresh (cloudflare_worker.js): Har channel se 12 uploads scan + seenIds memory (last 50) — ab '🔄 Naye 5 (Refresh)' dabane par purane dikh chuke videos kabhi repeat nahi honge, hamesha 5 naye viral topics milenge!
+📂 1-Tap Multi-Category /trends Menu (cloudflare_worker.js): 🧠 Facts & Science | 📱 Tech & Gadgets | 🎬 Movies & Reviews | 🚀 YT/IG/AI Updates | 🌍 Mix All + category-specific exact visual hint rules (Tech me exact phone/app model, Movies me exact movie/scene name) taaki aapka untouched Visual Search Engine bilkul exact visuals laye!
+📦 Cumulative v3.94 + v3.95 + v3.96 included: Gemini TTS wrong-topic hallucination fix (Charon locked), YouTube Auto-Publish permanent Telegram file_id backup, Realistic Nitish/Dhruv Editorial Explainers, and /trends 503 Groq backup.
+🔒 Visual Search Engine: 0% untouched!
+
 v3.96 (🎙️ GEMINI TTS WRONG-TOPIC / SCIENCE HALLUCINATION FIX + CUMULATIVE v3.94–v3.95 — 0% VISUAL SEARCH TOUCH):
 🎙️ Topic-Neutral Clean TTS Prompt (app/voice.py): DEFAULT_NOTE se 'mystery / science fact channel' aur markdown headings hata di gayi hain taaki Gemini 3.8 Flash TTS kabhi aapki script chhod kar khud ka Science speech invent na kare (Charon voice 100% locked!).
 🛡️ Smart Voice Hallucination Auto-Retry Guard (app/voice.py): Agar Whisper ko saaf awaaz sunai de (ratio >= 0.30) par 55%+ script lines match na karein, to bot galat awaaz ko reject karke clean verbatim prompt se Charon voice me dobara regenerate karega aur best matching audio chunega!

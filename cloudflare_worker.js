@@ -646,16 +646,54 @@ async function handleCompetitorsCommand(env, chatId, text) {
     `\n\nBadalne ke liye:\n• /competitors add @ChannelName\n• /competitors del @ChannelName\n• /competitors reset`, true);
 }
 
-async function scanCompetitorTrends(env) {
+const TREND_CATEGORIES = {
+  facts: {
+    label: "🧠 Facts & Science",
+    modeHint: "science | history | mystery | general",
+    visualRule: "Use exact real-world objects, places, historical photos, or science scenes.",
+    handles: null, // uses saved /competitors list (DEFAULT_COMPETITORS)
+  },
+  tech: {
+    label: "📱 Tech & Gadgets",
+    modeHint: "technology",
+    visualRule: "CRITICAL FOR TECH: Every '||' visual hint MUST include the EXACT smartphone/gadget/software model name (e.g., 'iphone 17 pro camera closeup', 'samsung s26 ultra screen', 'android 16 feature demo') so exact product visuals load — NEVER generic words like 'smartphone' or 'technology'.",
+    handles: ["@TechBurner", "@TechnicalGuruji", "@TrakinTech", "@TechBar", "@GyanTherapy", "@Beebom"],
+  },
+  movies: {
+    label: "🎬 Movies & Reviews",
+    modeHint: "influencer",
+    visualRule: "CRITICAL FOR MOVIES: Every '||' visual hint MUST include the EXACT movie/web-series title or lead actor/scene name (e.g., 'pushpa 2 trailer action', 'kalki movie scene closeup') and keep narration 100% original review/breakdown style (copyright-safe).",
+    handles: ["@PJExplained", "@FilmiIndian", "@YogiBoltaHai", "@ComicVerse", "@BnfTV", "@MenOfCulture"],
+  },
+  updates: {
+    label: "🚀 YT / IG / AI Updates",
+    modeHint: "technology | news",
+    visualRule: "CRITICAL FOR APP/PLATFORM UPDATES: Every '||' visual hint MUST name the EXACT platform/app screen or AI tool (e.g., 'instagram reels interface screen', 'youtube studio analytics mobile', 'whatsapp new update feature', 'chatgpt app screen').",
+    handles: ["@ManojDey", "@CreatorSearch2", "@TechnicalYogi", "@DecodingYT", "@TechBurnerShorts", "@aiuncovered"],
+  },
+  mix: {
+    label: "🌍 Mix All (Top Viral)",
+    modeHint: "technology | science | news | influencer | history | mystery",
+    visualRule: "Include the exact product/movie/app/person/place name in every '||' visual hint so exact visuals load.",
+    handles: ["@FactsMine", "@FactTechz", "@TechBurner", "@TrakinTech", "@PJExplained", "@FilmiIndian", "@ManojDey", "@NitishRajput"],
+  },
+};
+
+async function scanCompetitorTrends(env, catKey = "facts", excludeIds = []) {
   const ytKey = (env.YOUTUBE_KEY || "").trim();
-  const cur = await readGhJson(env, COMP_PATH, DEFAULT_COMPETITORS);
-  const handles = (Array.isArray(cur.data) && cur.data.length ? cur.data : DEFAULT_COMPETITORS).slice(0, 10);
+  const cat = TREND_CATEGORIES[catKey] || TREND_CATEGORIES.facts;
+  let handles = cat.handles;
+  if (!handles) {
+    const cur = await readGhJson(env, COMP_PATH, DEFAULT_COMPETITORS);
+    handles = (Array.isArray(cur.data) && cur.data.length ? cur.data : DEFAULT_COMPETITORS).slice(0, 10);
+  }
+  const seenSet = new Set((excludeIds || []).map(String));
 
   // 1) Resolve uploads playlist for each handle (~1 quota unit each)
   const chanTasks = handles.map(async (h) => {
     try {
       const clean = h.replace(/^@/, "");
-      const r = await fetch(`https://www.googleapis.com/youtube/v3/channels?part=contentDetails,snippet&forHandle=${encodeURIComponent(clean)}&key=${encodeURIComponent(ytKey)}`);
+      const r = await fetchWithTimeout(`https://www.googleapis.com/youtube/v3/channels?part=contentDetails,snippet&forHandle=${encodeURIComponent(clean)}&key=${encodeURIComponent(ytKey)}`, {}, 6000);
       if (!r.ok) return null;
       const j = await r.json();
       const it = (j.items || [])[0];
@@ -665,12 +703,12 @@ async function scanCompetitorTrends(env) {
     } catch (e) { return null; }
   });
   const chans = (await Promise.all(chanTasks)).filter(Boolean);
-  if (!chans.length) return [];
+  if (!chans.length) return { items: [], recycled: false };
 
-  // 2) Fetch last 6 uploads per channel (~1 quota unit each)
+  // 2) Fetch last 12 uploads per channel (same 1 quota unit -> deep fresh pool for Refresh!)
   const vidTasks = chans.map(async (c) => {
     try {
-      const r = await fetch(`https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId=${encodeURIComponent(c.uploads)}&maxResults=6&key=${encodeURIComponent(ytKey)}`);
+      const r = await fetchWithTimeout(`https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId=${encodeURIComponent(c.uploads)}&maxResults=12&key=${encodeURIComponent(ytKey)}`, {}, 6000);
       if (!r.ok) return [];
       const j = await r.json();
       return (j.items || []).map(x => ({ id: x.contentDetails && x.contentDetails.videoId, channel: c.name, handle: c.handle })).filter(x => x.id);
@@ -679,18 +717,29 @@ async function scanCompetitorTrends(env) {
   const rawList = (await Promise.all(vidTasks)).flat();
   const idMap = new Map();
   for (const x of rawList) if (!idMap.has(x.id)) idMap.set(x.id, x);
-  const ids = Array.from(idMap.keys()).slice(0, 48);
-  if (!ids.length) return [];
+  const allIds = Array.from(idMap.keys());
+  if (!allIds.length) return { items: [], recycled: false };
 
-  // 3) Batch video stats + duration (1 quota unit total!)
-  const vr = await fetch(`https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=${ids.join(",")}&key=${encodeURIComponent(ytKey)}`);
-  if (!vr.ok) return [];
-  const vj = await vr.json();
+  // 3) Batch video stats + duration (up to 2 batches of 50 = 2 quota units max!)
+  const vItems = [];
+  for (let off = 0; off < Math.min(allIds.length, 100); off += 50) {
+    const chunk = allIds.slice(off, off + 50);
+    try {
+      const vr = await fetchWithTimeout(`https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=${chunk.join(",")}&key=${encodeURIComponent(ytKey)}`, {}, 7000);
+      if (vr.ok) {
+        const vj = await vr.json();
+        vItems.push(...(vj.items || []));
+      }
+    } catch (e) {}
+  }
+
   const now = Date.now();
   const all = [];
-  for (const v of (vj.items || [])) {
+  for (const v of vItems) {
     const dur = parseIsoDurationSec(v.contentDetails && v.contentDetails.duration);
-    if (dur < 12 || dur > 210) continue; // Focus on Shorts / short-form (<= 3.5 min)
+    // Tech/Movie/Updates channels also make 1-12 min explainers we can turn into crisp Shorts!
+    const maxDur = (catKey === "facts") ? 210 : 720;
+    if (dur < 12 || dur > maxDur) continue;
     const pubMs = Date.parse((v.snippet && v.snippet.publishedAt) || "");
     const ageH = Math.max(6, (now - (pubMs || now)) / 3600000);
     const views = Number((v.statistics && v.statistics.viewCount) || 0);
@@ -701,6 +750,7 @@ async function scanCompetitorTrends(env) {
       title: (v.snippet && v.snippet.title) || "Untitled",
       channel: meta.channel || (v.snippet && v.snippet.channelTitle) || "",
       handle: meta.handle || "",
+      catKey,
       views,
       dur,
       ageDays: Math.round(ageH / 24),
@@ -708,7 +758,8 @@ async function scanCompetitorTrends(env) {
       url: `https://www.youtube.com/watch?v=${v.id}`,
     });
   }
-  // v3.93 Outlier Viral Score (views / channel median) so breakout topics shine!
+
+  // Outlier Viral Score (views / channel median)
   const byCh = new Map();
   for (const x of all) {
     const k = x.handle || x.channel;
@@ -727,9 +778,13 @@ async function scanCompetitorTrends(env) {
     x.viralRating = Math.min(9.9, Math.max(5.0, Number((5.2 + Math.log2(mult + 0.5) * 1.85).toFixed(1))));
     x.score = x.velScore * Math.min(4.0, Math.sqrt(mult));
   }
-  // Prefer videos from last 35 days; fallback to all if < 5
-  const recent = all.filter(x => x.ageDays <= 35);
-  const pool = recent.length >= 5 ? recent : all;
+
+  // Prefer last 45 days; filter out already seen/used videos on Refresh!
+  const recent = all.filter(x => x.ageDays <= 45);
+  const basePool = recent.length >= 5 ? recent : all;
+  const freshPool = basePool.filter(x => !seenSet.has(x.id));
+  const recycled = freshPool.length < 3 && basePool.length > 0;
+  const pool = recycled ? [...basePool] : [...freshPool];
   pool.sort((a, b) => b.score - a.score);
 
   // Pick Top 5 diverse (max 1 per channel first, then fill)
@@ -743,48 +798,91 @@ async function scanCompetitorTrends(env) {
     if (picked.length >= 5) break;
     if (!picked.some(p => p.id === v.id)) picked.push(v);
   }
-  return picked;
+  return { items: picked, recycled };
+}
+
+async function showTrendCategoryMenu(env, chatId, editMsgId = null) {
+  const txt =
+    "🔥 /trends — Kis Category Ke Viral Topics Scan Karun?\n\n" +
+    "Har category me top Indian channels scan honge aur 🔄 Refresh dabane par hamesha 5 NAYE topics milenge (purane repeat nahi honge!):";
+  const kb = {
+    inline_keyboard: [
+      [{ text: "🧠 Facts & Science", callback_data: "tr:cat:facts" }, { text: "📱 Tech & Gadgets", callback_data: "tr:cat:tech" }],
+      [{ text: "🎬 Movies & Reviews", callback_data: "tr:cat:movies" }, { text: "🚀 YT / IG / AI Updates", callback_data: "tr:cat:updates" }],
+      [{ text: "🌍 Mix All (Top Viral)", callback_data: "tr:cat:mix" }],
+    ],
+  };
+  if (editMsgId) {
+    await tgApi(env, "editMessageText", { chat_id: chatId, message_id: editMsgId, text: txt, reply_markup: kb });
+  } else {
+    await tgApi(env, "sendMessage", { chat_id: chatId, text: txt, reply_markup: kb });
+  }
+}
+
+async function runTrendsForCategory(env, chatId, catKey = "facts", isRefresh = false, editMsgId = null) {
+  const cat = TREND_CATEGORIES[catKey] || TREND_CATEGORIES.facts;
+  const waitTxt = `🔥 ${cat.label} ke ${isRefresh ? "NAYE viral topics" : "top viral videos"} scan kar raha hoon (~5 sec)...`;
+  let waitMsgId = editMsgId;
+  if (waitMsgId) {
+    await tgApi(env, "editMessageText", { chat_id: chatId, message_id: waitMsgId, text: waitTxt });
+  } else {
+    const waitRes = await tgApi(env, "sendMessage", { chat_id: chatId, text: waitTxt });
+    waitMsgId = waitRes.ok ? ((await waitRes.json()).result || {}).message_id : null;
+  }
+
+  const prev = await readGhJson(env, TRENDS_CACHE_PATH, { items: [], seenByCat: {} });
+  const seenByCat = (prev.data && prev.data.seenByCat && typeof prev.data.seenByCat === "object") ? { ...prev.data.seenByCat } : {};
+  const prevSeen = Array.isArray(seenByCat[catKey]) ? seenByCat[catKey] : [];
+  const prevIds = (prev.data && Array.isArray(prev.data.items) && prev.data.catKey === catKey)
+    ? prev.data.items.map(x => x.id).filter(Boolean) : [];
+  const excludeIds = isRefresh ? Array.from(new Set([...prevSeen, ...prevIds])) : prevSeen;
+
+  const scan = await scanCompetitorTrends(env, catKey, excludeIds);
+  const trends = scan.items || [];
+  if (!trends.length) {
+    const errTxt = `❌ ${cat.label} me abhi koi trending video nahi mili (YOUTUBE_KEY quota check karein).`;
+    if (waitMsgId) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: waitMsgId, text: errTxt });
+    else await tgReply(env.TG_TOKEN, chatId, errTxt, true);
+    return;
+  }
+
+  const newIds = trends.map(v => v.id);
+  seenByCat[catKey] = scan.recycled
+    ? newIds
+    : Array.from(new Set([...excludeIds, ...newIds])).slice(-50);
+
+  await writeGhJson(env, TRENDS_CACHE_PATH, { items: trends, catKey, seenByCat, ts: Date.now() }, prev.sha, `trends ${catKey}`);
+
+  const lines = [
+    `🔥 ${cat.label} — Top 5 ${isRefresh ? "NAYE " : ""}Viral Topics${scan.recycled ? " (Pool reset ✓)" : ""}:\n`,
+  ];
+  trends.forEach((v, i) => {
+    const badge = v.outlierMult ? ` • 🔥 ${v.outlierMult}x (${v.viralRating}/10)` : "";
+    lines.push(`${i + 1}️⃣ ${v.title.slice(0, 72)}\n   📺 ${v.channel} • 👁 ${fmtViews(v.views)} (${v.ageDays}d)${badge}\n   🔗 ${v.url}`);
+  });
+  lines.push("\n👇 Number tap karo (100% original Hindi script + exact visuals hints banenge — approval ke baad hi video banegi):");
+
+  const kb = {
+    inline_keyboard: [
+      trends.slice(0, 3).map((_, i) => ({ text: `${i + 1}️⃣ Script Banao`, callback_data: `tr:pick:${i}` })),
+      trends.slice(3, 5).map((_, i) => ({ text: `${i + 4}️⃣ Script Banao`, callback_data: `tr:pick:${i + 3}` })).concat([{ text: "🔄 Naye 5 (Refresh)", callback_data: `tr:ref:${catKey}` }]),
+      [{ text: "📂 Category Badlo", callback_data: "tr:menu" }],
+    ],
+  };
+  if (waitMsgId) {
+    await tgApi(env, "editMessageText", { chat_id: chatId, message_id: waitMsgId, text: lines.join("\n"), disable_web_page_preview: true, reply_markup: kb });
+  } else {
+    await tgApi(env, "sendMessage", { chat_id: chatId, text: lines.join("\n"), disable_web_page_preview: true, reply_markup: kb });
+  }
 }
 
 async function handleTrendsCommand(env, chatId) {
   if (!env.YOUTUBE_KEY || (!env.GEMINI_KEY && !env.GROQ_KEY)) {
     await tgReply(env.TG_TOKEN, chatId,
-      "🔑 /trends chalane ke liye bas 1 baar Cloudflare Worker (vg-bots) me 2 secrets add karne hain (0 GitHub minutes lagte hain!):\n\n" +
-      "1️⃣ dash.cloudflare.com -> Workers & Pages -> vg-bots -> Settings -> Variables and Secrets\n" +
-      "2️⃣ Add: YOUTUBE_KEY (aapki YouTube API key)\n" +
-      "3️⃣ Add: GEMINI_KEY (aapki Gemini API key)\n\nAdd karte hi 🔥 /trends turant kaam karega!", true);
+      "🔑 /trends chalane ke liye Cloudflare Worker (vg-bots) me YOUTUBE_KEY aur GEMINI_KEY/GROQ_KEY honi chahiye.", true);
     return;
   }
-  const waitRes = await tgApi(env, "sendMessage", { chat_id: chatId, text: "🔥 Competitor channels ki viral Shorts scan kar raha hoon (~5 sec)..." });
-  const waitMsg = waitRes.ok ? (await waitRes.json()).result : null;
-  const trends = await scanCompetitorTrends(env);
-  if (!trends.length) {
-    const errTxt = "❌ Abhi koi trending Short nahi mili (YOUTUBE_KEY quota ya handles check karein).";
-    if (waitMsg) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: waitMsg.message_id, text: errTxt });
-    else await tgReply(env.TG_TOKEN, chatId, errTxt, true);
-    return;
-  }
-  const prev = await readGhJson(env, TRENDS_CACHE_PATH, {});
-  await writeGhJson(env, TRENDS_CACHE_PATH, { items: trends, ts: Date.now() }, prev.sha, "trends cache update");
-
-  const lines = ["🔥 Top 5 Viral Competitor Shorts (Real Video Visual Reference ke liye number tap karo):\n"];
-  trends.forEach((v, i) => {
-    const badge = v.outlierMult ? ` • 🔥 ${v.outlierMult}x (${v.viralRating}/10)` : "";
-    lines.push(`${i + 1}️⃣ ${v.title.slice(0, 72)}\n   📺 ${v.channel} • 👁 ${fmtViews(v.views)} (${v.ageDays}d)${badge}\n   🔗 ${v.url}`);
-  });
-  lines.push("\n👇 Jis topic par tap karoge, Gemini uska asli video dekh kar visual references + 100% original Hindi script dega (aapke approval ke baad hi video banegi):");
-
-  const kb = {
-    inline_keyboard: [
-      trends.slice(0, 3).map((_, i) => ({ text: `${i + 1}️⃣ Script Banao`, callback_data: `tr:pick:${i}` })),
-      trends.slice(3, 5).map((_, i) => ({ text: `${i + 4}️⃣ Script Banao`, callback_data: `tr:pick:${i + 3}` })).concat([{ text: "🔄 Refresh", callback_data: "tr:ref" }]),
-    ],
-  };
-  if (waitMsg) {
-    await tgApi(env, "editMessageText", { chat_id: chatId, message_id: waitMsg.message_id, text: lines.join("\n"), disable_web_page_preview: true, reply_markup: kb });
-  } else {
-    await tgApi(env, "sendMessage", { chat_id: chatId, text: lines.join("\n"), disable_web_page_preview: true, reply_markup: kb });
-  }
+  await showTrendCategoryMenu(env, chatId);
 }
 
 function getGeminiKeys(env) {
@@ -933,7 +1031,8 @@ async function callGeminiTrendScript(env, video, rewrite = false) {
 TASK:
 1) Study this reference viral YouTube Short. Ignore competitor editing — focus ONLY on the factual topic and WHAT REAL FOOTAGES, IMAGES, OBJECTS, PEOPLE, AND SCENES best explain it.
 2) Write a 100% ORIGINAL Hindi YouTube Short script on this same viral topic (NEVER copy/translate — use a fresh, gripping hook${rewrite ? " with a COMPLETELY DIFFERENT opening hook and angle than before" : ""}).
-3) For every script line, put camera-exact English visual references after "||" (3-4 simple lowercase English words — NO "reconstruction", "reenactment", "examination", "interview", "chart", or capitalized non-person phrases; NO "[YT]"/"[X]" tags).
+3) For every script line, put camera-exact English visual references after "||" (3-5 simple English words — NO "reconstruction", "reenactment", "examination", "interview", "chart"; NO "[YT]"/"[X]" tags).
+${(TREND_CATEGORIES[(video && video.catKey) || "facts"] || TREND_CATEGORIES.facts).visualRule}
 
 OUTPUT FORMAT (strictly follow these two sections):
 VISUAL_REFS:
@@ -1060,7 +1159,17 @@ async function handleTrendCallback(env, cq) {
     if (env.ALLOWED_CHAT_ID && chatId !== String(env.ALLOWED_CHAT_ID).trim()) return;
     const data = cq.data || "";
 
-    if (data === "tr:ref") { await handleTrendsCommand(env, chatId); return; }
+    if (data === "tr:menu") { await showTrendCategoryMenu(env, chatId, msgId); return; }
+    if (data.startsWith("tr:cat:")) {
+      const ck = data.split(":")[2] || "facts";
+      await runTrendsForCategory(env, chatId, ck, false, msgId);
+      return;
+    }
+    if (data === "tr:ref" || data.startsWith("tr:ref:")) {
+      const ck = data.includes(":ref:") ? (data.split(":")[2] || "facts") : "facts";
+      await runTrendsForCategory(env, chatId, ck, true, msgId);
+      return;
+    }
     if (data === "tr:no") {
       if (msgId) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: msgId, text: "❌ Cancel — script discard kar di gayi." });
       return;
