@@ -1,3 +1,11 @@
+v4.10 (🚀 AUTO-PILOT VIRAL PLANNER + ⏱️ SMART 25m AUTO-PUBLIC + 📝 SHORT/LONG CATEGORY BLUEPRINTS + 🖼️ CINEMATIC SEO THUMBNAILS — 0% VISUAL SEARCH TOUCH):
+⏱️ Smart 25-Min YouTube Auto-Public (app/yt_publish.py + cloudflare_worker.js): Naya top button '⏱️ Sab Par (YT 25m Auto-Public + FB + IG ⭐)' — YouTube par Private + publishAt (+25 min) schedule hota hai, custom thumbnail set hota hai, aur 25 min baad YouTube KHUD Public kar deta hai (fresh Shorts push, 0 phone taps!).
+⏰ Auto-Pilot Daily & Weekly Topics Cron (cloudflare_worker.js): Daily 9 AM IST (5 Shorts topics) + Tue/Thu/Sun 5 PM IST (5 Long 5-6 min 16:9 topics) via Cloudflare Cron Triggers.
+🎬 Separate SHORT (9:16) vs LONG (5-6m 16:9) /trends + 5 Categories: Proven 4-block Shorts hook formula & 6-block 750-880 word Hindi Documentary blueprint (ab Business & History category bhi shamil!).
+📈 /planner Winner-Lock & Auto-Pivot Brain: YT Short, YT Long, FB, IG views track karke 2x+ Winner Category lock (70-80% daily focus) aur views 40%+ girne par Auto-Pivot Alert!
+🖼️ Cinematic Title-Matched Thumbnails & 2026 SEO Titles (app/meta.py): 45-62 char Hindi SEO titles, complementary 2-4 word punch text, strict anti-silhouette hero frame picker, aur richer cinematic contrast grade.
+📦 Cumulative v4.01–v4.08 included: Auto YouTube Custom Thumbnail, Parallel 3-Platform Publish, Gallery/Forward Publish, /republish vault, Full-HD Verified Hosting, Samjha AI fix, Gemini 3.8 Charon voice fix, Copyright Screenshot Shield, /log files, /vfilter.
+
 v4.08 (🖼️ AUTO YOUTUBE SHORTS & LONG CUSTOM THUMBNAIL + CUMULATIVE v4.01–v4.07):
 🖼️ YouTube Custom Thumbnail Auto-Set (app/yt_publish.py + cloudflare_worker.js): Bot jo crisp 1080x1920 Cover / Thumbnail har nayi video ke liye banata hai, wahi YouTube video processing (`processingStatus == succeeded`) poori hote hi official `thumbnails.set` API se YouTube Shorts aur Long Videos dono par automatically set ho jayega!
 📦 Cumulative v4.01–v4.07 included: Parallel 3-platform publish (YT + FB + IG ek saath), Gallery/Forwarded video instant Publish Card, `/republish` 10-video vault, Auto-Retry buttons, Full-HD First verified hosting (`litterbox`/`catbox`/`uguu`/`tmpfiles`), FB `/me/accounts` token fix, Samjha AI fix, Gemini 3.8 Charon pure-Hindi voice fix, Copyright Screenshot Shield, `/log` files, aur `/vfilter`.

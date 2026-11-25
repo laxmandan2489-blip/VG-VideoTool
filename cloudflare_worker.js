@@ -122,7 +122,7 @@ export default {
       if (u.pathname === "/media/proxy") {
         return handleProxyMediaBridge(u.searchParams.get("u") || "", u.searchParams.get("t") || "mp4", request.method === "HEAD");
       }
-      return new Response("VideoTool Cloud Bridge v4.08 is LIVE!", { status: 200 });
+      return new Response("VideoTool Cloud Bridge v4.10 Auto-Pilot is LIVE!", { status: 200 });
     }
     if (request.method !== "POST") {
       return new Response("Method Not Allowed", { status: 405 });
@@ -159,6 +159,9 @@ export default {
         if (ctx && ctx.waitUntil) ctx.waitUntil(p); else await p;
       } else if (cdata.startsWith("vf:")) {
         await handleVfilterCallback(env, update.callback_query);
+      } else if (cdata.startsWith("pl:")) {
+        const p = handlePlannerCallback(env, update.callback_query);
+        if (ctx && ctx.waitUntil) ctx.waitUntil(p); else await p;
       } else if (cdata.startsWith("rb:")) {
         await handleRollbackConfirm(env, update.callback_query);
       } else {
@@ -233,7 +236,7 @@ export default {
     // 2) Start / Menu / Guide
     if (tl === "/start" || tl === "/menu") {
       await tgReply(env.TG_TOKEN, chatId,
-        "☁️ VideoTool Cloud v4.08 LIVE hai!\nNeeche ke buttons use karo, script bhejo, ya purani video (<20MB) forward karo:", true);
+        "☁️ VideoTool Cloud v4.10 Auto-Pilot LIVE hai!\nNeeche ke buttons use karo, script bhejo, ya purani video (<20MB) forward karo:", true);
       return new Response("ok", { status: 200 });
     }
     if (tl === "/guide" || text.includes("/guide")) {
@@ -241,9 +244,15 @@ export default {
       return new Response("ok", { status: 200 });
     }
 
-    // 2b) v3.89: 🔥 /trends (Competitor Trend Radar + Real-Video Visual Reference + Approval Script)
+    // 2b) v4.10: 🔥 /trends (Separate SHORT 9:16 vs LONG 5-6m 16:9 + Category Viral Scripts)
     if (tl === "/trends" || tl === "/trend" || tl === "trends" || tl === "trend" || text.includes("/trends")) {
       const p = handleTrendsCommand(env, chatId);
+      if (ctx && ctx.waitUntil) ctx.waitUntil(p); else await p;
+      return new Response("ok", { status: 200 });
+    }
+    // 2c) v4.10: 📈 /planner (Winner-Lock & Auto-Pivot Stats Brain + Manual Daily/Long Trigger)
+    if (tl === "/planner" || tl.startsWith("/planner ")) {
+      const p = handlePlannerCommand(env, chatId, text);
       if (ctx && ctx.waitUntil) ctx.waitUntil(p); else await p;
       return new Response("ok", { status: 200 });
     }
@@ -354,6 +363,14 @@ export default {
       ? `🚀 ${launched} video cloud par shuru ho gayi hai!\nBante hi pehle Telegram aur 5 TB Google Drive par aayegi.\nStatus dekhne ke liye 📊 /status aur rokne ke liye 🛑 /rok dabao.`
       : "❌ GitHub render trigger fail ho gaya. GH_TOKEN aur GH_REPO check karo.", true);
     return new Response("ok", { status: 200 });
+  },
+
+  // v4.10 AUTO-PILOT CRON:
+  //   30 3 * * *       -> Daily 9:00 AM IST  (5 Viral Shorts topics — 70-80% Winner Category!)
+  //   30 11 * * 0,2,4  -> Tue/Thu/Sun 5:00 PM IST (5 Viral Long 5-6 min 16:9 topics!)
+  async scheduled(event, env, ctx) {
+    const p = runAutoPilotCron(env, event && event.cron ? event.cron : "");
+    if (ctx && ctx.waitUntil) ctx.waitUntil(p); else await p;
   },
 };
 
@@ -729,6 +746,12 @@ const TREND_CATEGORIES = {
     visualRule: "CRITICAL FOR APP/PLATFORM UPDATES: Every '||' visual hint MUST name the EXACT platform/app screen or AI tool (e.g., 'instagram reels interface screen', 'youtube studio analytics mobile', 'whatsapp new update feature', 'chatgpt app screen').",
     handles: ["@ManojDey", "@CreatorSearch2", "@TechnicalYogi", "@DecodingYT", "@TechBurnerShorts", "@aiuncovered"],
   },
+  business: {
+    label: "💼 Business & History",
+    modeHint: "business | history | mystery",
+    visualRule: "CRITICAL FOR BUSINESS/HISTORY: Every '||' visual hint MUST name the exact company, founder, currency, historical monument, map, or news event (e.g., 'mukesh ambani reliance office', 'india stock market chart screen', 'ancient mughal fort delhi').",
+    handles: ["@NitishRajput", "@ThinkSchool", "@dhruvrathee", "@GauravThakur-GSF", "@A2Motivation"],
+  },
   mix: {
     label: "🌍 Mix All (Top Viral)",
     modeHint: "technology | science | news | influencer | history | mystery",
@@ -859,15 +882,21 @@ async function scanCompetitorTrends(env, catKey = "facts", excludeIds = []) {
   return { items: picked, recycled };
 }
 
-async function showTrendCategoryMenu(env, chatId, editMsgId = null) {
-  const txt =
-    "🔥 /trends — Kis Category Ke Viral Topics Scan Karun?\n\n" +
-    "Har category me top Indian channels scan honge aur 🔄 Refresh dabane par hamesha 5 NAYE topics milenge (purane repeat nahi honge!):";
+async function showTrendCategoryMenu(env, chatId, editMsgId = null, fmt = "SHORT") {
+  const isLong = String(fmt || "SHORT").toUpperCase() === "LONG";
+  const modeTag = isLong ? "L" : "S";
+  const txt = isLong
+    ? "🎬 /trends [LONG 5–6 min, 16:9] — Kis Category Ke Viral Documentary Topics Scan Karun?\n\nProven 6-block Hindi documentary script (750–900 words) + exact '||' visual hints banenge:"
+    : "⚡ /trends [SHORT 9:16, 45–55s] — Kis Category Ke Viral Topics Scan Karun?\n\nProven 4-block viral hook script + exact '||' visual hints banenge (🔄 Refresh par hamesha 5 NAYE topics!):";
   const kb = {
     inline_keyboard: [
-      [{ text: "🧠 Facts & Science", callback_data: "tr:cat:facts" }, { text: "📱 Tech & Gadgets", callback_data: "tr:cat:tech" }],
-      [{ text: "🎬 Movies & Reviews", callback_data: "tr:cat:movies" }, { text: "🚀 YT / IG / AI Updates", callback_data: "tr:cat:updates" }],
-      [{ text: "🌍 Mix All (Top Viral)", callback_data: "tr:cat:mix" }],
+      [
+        { text: isLong ? "⚡ Switch to SHORT (9:16)" : "✅ SHORT (9:16)", callback_data: "tr:fmt:SHORT" },
+        { text: isLong ? "✅ LONG (5-6m 16:9)" : "🎬 Switch to LONG (5-6m)", callback_data: "tr:fmt:LONG" },
+      ],
+      [{ text: "🧠 Facts & Science", callback_data: `tr:cat:facts:${modeTag}` }, { text: "📱 Tech & Gadgets", callback_data: `tr:cat:tech:${modeTag}` }],
+      [{ text: "🎬 Movies & Reviews", callback_data: `tr:cat:movies:${modeTag}` }, { text: "🚀 YT / IG / AI Updates", callback_data: `tr:cat:updates:${modeTag}` }],
+      [{ text: "💼 Business & History", callback_data: `tr:cat:business:${modeTag}` }, { text: "🌍 Mix All", callback_data: `tr:cat:mix:${modeTag}` }],
     ],
   };
   if (editMsgId) {
@@ -877,7 +906,7 @@ async function showTrendCategoryMenu(env, chatId, editMsgId = null) {
   }
 }
 
-async function runTrendsForCategory(env, chatId, catKey = "facts", isRefresh = false, editMsgId = null) {
+async function runTrendsForCategory(env, chatId, catKey = "facts", isRefresh = false, editMsgId = null, fmt = "SHORT") {
   const cat = TREND_CATEGORIES[catKey] || TREND_CATEGORIES.facts;
   const waitTxt = `🔥 ${cat.label} ke ${isRefresh ? "NAYE viral topics" : "top viral videos"} scan kar raha hoon (~5 sec)...`;
   let waitMsgId = editMsgId;
@@ -909,7 +938,9 @@ async function runTrendsForCategory(env, chatId, catKey = "facts", isRefresh = f
     ? newIds
     : Array.from(new Set([...excludeIds, ...newIds])).slice(-50);
 
-  await writeGhJson(env, TRENDS_CACHE_PATH, { items: trends, catKey, seenByCat, ts: Date.now() }, prev.sha, `trends ${catKey}`);
+  const isLongFmt = String(fmt || "SHORT").toUpperCase() === "LONG";
+  const taggedTrends = trends.map(v => ({ ...v, fmt: isLongFmt ? "LONG" : "SHORT" }));
+  await writeGhJson(env, TRENDS_CACHE_PATH, { items: taggedTrends, catKey, fmt: isLongFmt ? "LONG" : "SHORT", seenByCat, ts: Date.now() }, prev.sha, `trends ${catKey}`);
 
   const lines = [
     `🔥 ${cat.label} — Top 5 ${isRefresh ? "NAYE " : ""}Viral Topics${scan.recycled ? " (Pool reset ✓)" : ""}:\n`,
@@ -1136,14 +1167,44 @@ async function callGeminiTrendScript(env, video, rewrite = false) {
   const groqKeys = getGroqKeys(env);
   if (!keys.length && !groqKeys.length) return { text: "", error: "GEMINI_KEY aur GROQ_KEY dono missing hain" };
 
-  const basePrompt = `You are India's #1 viral Hindi YouTube Shorts Director for "The Viral Gyaan".
+  const isLongVideo = String((video && video.fmt) || "SHORT").toUpperCase() === "LONG";
+  const catRule = (TREND_CATEGORIES[(video && video.catKey) || "facts"] || TREND_CATEGORIES.facts).visualRule;
+  const basePrompt = isLongVideo ? `You are India's #1 viral Hindi Documentary Scriptwriter (Dhruv Rathee / Nitish Rajput pacing) for "The Viral Gyaan".
 TASK:
-1) Study this reference viral YouTube Short. Ignore competitor editing — focus ONLY on the factual topic and WHAT REAL FOOTAGES, IMAGES, OBJECTS, PEOPLE, AND SCENES best explain it.
-2) Write a 100% ORIGINAL, 100% FACTUAL Hindi YouTube Short script on this same viral topic (NEVER copy/translate, and NEVER invent fake app features, fake updates, or fake statistics not in the reference info — use a fresh, gripping hook${rewrite ? " with a COMPLETELY DIFFERENT opening hook and angle than before" : ""}).
-3) For every script line, put camera-exact English visual references after "||" (3-5 simple English words — NO "reconstruction", "reenactment", "examination", "interview", "chart"; NO "[YT]"/"[X]" tags).
-${(TREND_CATEGORIES[(video && video.catKey) || "facts"] || TREND_CATEGORIES.facts).visualRule}
+1) Study this viral topic and write a 100% ORIGINAL, 100% FACTUAL 5-to-6 minute Hindi YouTube Documentary script (~750-880 Hindi words, NEVER copy/translate, NEVER invent fake features or fake stats${rewrite ? " — use a COMPLETELY DIFFERENT opening hook and angle than before" : ""}).
+2) Follow the proven 6-Block Documentary Retention Structure:
+   - Cold Open Hook (0-25s) with high stakes & curiosity gap
+   - 3 Short Chapters (use open loops like "Par asli khel toh ab shuru hota hai...")
+   - Real numbers, dates, proof & climax reveal
+   - Short engaging comment-question CTA at the end
+3) Put camera-exact English visual references after "||" on EVERY line (3-5 simple lowercase English words — NO "reconstruction", "reenactment", "examination", "interview", "chart").
+${catRule}
 
-OUTPUT FORMAT (strictly follow these two sections):
+OUTPUT FORMAT (strictly follow):
+VISUAL_REFS:
+- <visual reference 1>
+- <visual reference 2>
+- <visual reference 3>
+
+SCRIPT:
+LONG
+MODE: <science | army | news | business | history | mystery | sports | influencer | technology | general>
+TITLE: <45-60 char high-CTR Hindi SEO title> | <2-4 bold Hindi thumbnail words>
+<42-55 crisp Hindi documentary lines totaling 750-880 words, tasteful [map:]/[news:]/[impact] tags max 5 total (NEVER write [riser] or [gola:] or [label:]), EVERY line except last CTA ends with "|| <3-5 simple lowercase English visual words>">
+इस पूरे मामले पर आपकी क्या राय है? कमेंट में ज़रूर बताएं और ऐसे ही रिसर्च वीडियो के लिए सब्सक्राइब करें।`
+  : `You are India's #1 viral Hindi YouTube Shorts Director for "The Viral Gyaan".
+TASK:
+1) Study this reference viral YouTube Short. Focus ONLY on the factual topic and WHAT REAL FOOTAGES, IMAGES, OBJECTS, PEOPLE, AND SCENES best explain it.
+2) Write a 100% ORIGINAL, 100% FACTUAL Hindi YouTube Short script (40-55 sec) using the proven 4-Block Viral Retention Formula:
+   - Line 1 (0-3s): Shock/Curiosity Hook (ZERO slow intro!)
+   - Lines 2-8: Fast Escalation with 2-3 concrete numbers/facts
+   - Lines 9-14: Unexpected Twist / Big Reveal
+   - Final Line: Ultra-short 2-sec CTA
+   (NEVER copy/translate, and NEVER invent fake app features or fake stats${rewrite ? " — use a COMPLETELY DIFFERENT opening hook and angle than before" : ""}).
+3) Put camera-exact English visual references after "||" on EVERY line (3-5 simple lowercase English words — NO "reconstruction", "reenactment", "examination", "interview", "chart"; NO "[YT]"/"[X]" tags).
+${catRule}
+
+OUTPUT FORMAT (strictly follow):
 VISUAL_REFS:
 - <visual reference 1>
 - <visual reference 2>
@@ -1151,7 +1212,7 @@ VISUAL_REFS:
 
 SCRIPT:
 MODE: <science | army | news | business | history | mystery | sports | influencer | technology | general>
-TITLE: <2-4 crisp words> | <2-4 hook words>
+TITLE: <45-60 char high-CTR Hindi SEO title> | <2-4 bold Hindi thumbnail words>
 <14-17 short punchy Hindi lines, 5-9 words each, tasteful [map:]/[news:]/[impact] tags max 3 total (NEVER write [riser] or [gola:] or [label:]), EVERY line except last CTA ends with "|| <3-4 simple lowercase English visual words>">
 ऐसे ही चौंकाने वाले फैक्ट्स के लिए अभी सब्सक्राइब करें और अगली वीडियो देखना मत भूलना।`;
 
@@ -1273,15 +1334,25 @@ async function handleTrendCallback(env, cq) {
     if (env.ALLOWED_CHAT_ID && chatId !== String(env.ALLOWED_CHAT_ID).trim()) return;
     const data = cq.data || "";
 
-    if (data === "tr:menu") { await showTrendCategoryMenu(env, chatId, msgId); return; }
+    if (data === "tr:menu") { await showTrendCategoryMenu(env, chatId, msgId, "SHORT"); return; }
+    if (data.startsWith("tr:fmt:")) {
+      const fmt = data.split(":")[2] === "LONG" ? "LONG" : "SHORT";
+      await showTrendCategoryMenu(env, chatId, msgId, fmt);
+      return;
+    }
     if (data.startsWith("tr:cat:")) {
-      const ck = data.split(":")[2] || "facts";
-      await runTrendsForCategory(env, chatId, ck, false, msgId);
+      const sp = data.split(":");
+      const ck = sp[2] || "facts";
+      const fmt = sp[3] === "L" ? "LONG" : "SHORT";
+      await runTrendsForCategory(env, chatId, ck, false, msgId, fmt);
       return;
     }
     if (data === "tr:ref" || data.startsWith("tr:ref:")) {
-      const ck = data.includes(":ref:") ? (data.split(":")[2] || "facts") : "facts";
-      await runTrendsForCategory(env, chatId, ck, true, msgId);
+      const sp = data.split(":");
+      const ck = data.includes(":ref:") ? (sp[2] || "facts") : "facts";
+      const prevC = await readGhJson(env, TRENDS_CACHE_PATH, {});
+      const fmt = (prevC.data && prevC.data.fmt) || "SHORT";
+      await runTrendsForCategory(env, chatId, ck, true, msgId, fmt);
       return;
     }
     if (data === "tr:no") {
@@ -1414,21 +1485,7 @@ async function registerPublishCard(env, payload) {
   await writeGhJson(env, PUB_PATH, store, cur.sha, `register publish ${id}`);
 
   const isLong = mode === "LONG";
-  const kb = isLong ? {
-    inline_keyboard: [
-      [{ text: "🚀 YT PUBLIC + FB Page", callback_data: `pub:${id}:all_pub` }],
-      [{ text: "✅ YT Unlisted + FB Page", callback_data: `pub:${id}:all` }],
-      [{ text: "▶️ YT PUBLIC", callback_data: `pub:${id}:yt_pub` }, { text: "🔒 YT Unlisted", callback_data: `pub:${id}:yt` }],
-      [{ text: "📱 Sirf Facebook Page", callback_data: `pub:${id}:meta` }, { text: "❌ Skip", callback_data: `pub:${id}:skip` }],
-    ],
-  } : {
-    inline_keyboard: [
-      [{ text: "🚀 Sab Par PUBLIC (YT + FB + IG + Story)", callback_data: `pub:${id}:all_pub` }],
-      [{ text: "✅ Sab Par (YT Unlisted + FB + IG + Story)", callback_data: `pub:${id}:all` }],
-      [{ text: "▶️ YT PUBLIC", callback_data: `pub:${id}:yt_pub` }, { text: "🔒 YT Unlisted", callback_data: `pub:${id}:yt` }],
-      [{ text: "📱 Sirf FB + IG + Story", callback_data: `pub:${id}:meta` }, { text: "❌ Skip", callback_data: `pub:${id}:skip` }],
-    ],
-  };
+  const kb = buildPublishKeyboard(id, isLong);
 
   const cardText =
     `🚀 Auto-Publish Ready! (${isLong ? "LONG 16:9" : "SHORT 9:16"})\n\n` +
@@ -1759,10 +1816,12 @@ async function handlePublishCallback(env, cq) {
     const report = [`📣 Publish Report — ${item.title.slice(0, 65)}`];
     let pendingIgCid = null;
 
-    const doYt = (action === "yt" || action === "all" || action === "yt_pub" || action === "all_pub");
-    const doFb = (action === "meta" || action === "all" || action === "all_pub" || action === "fb_only");
-    const doIg = (action === "meta" || action === "all" || action === "all_pub" || action === "ig_only");
-    const ytPrivacy = (action === "yt_pub" || action === "all_pub") ? "public" : "unlisted";
+    const doYt = (action === "yt" || action === "all" || action === "yt_pub" || action === "all_pub" || action === "yt_sched" || action === "all_sched");
+    const doFb = (action === "meta" || action === "all" || action === "all_pub" || action === "all_sched" || action === "fb_only");
+    const doIg = (action === "meta" || action === "all" || action === "all_pub" || action === "all_sched" || action === "ig_only");
+    const ytPrivacy = (action === "yt_sched" || action === "all_sched")
+      ? "scheduled"
+      : ((action === "yt_pub" || action === "all_pub") ? "public" : "unlisted");
 
     // v4.07 PARALLEL EXECUTION: Run YouTube + Facebook + Instagram simultaneously (~15s total, never hits 30s CF timeout!)
     const ytTask = doYt ? (async () => {
@@ -1780,7 +1839,7 @@ async function handlePublishCallback(env, cq) {
         category: item.category,
         privacy: ytPrivacy,
       });
-      const privLbl = ytPrivacy === "public" ? "PUBLIC 🚀" : "Unlisted 🔒";
+      const privLbl = ytPrivacy === "scheduled" ? "25m Auto-PUBLIC ⏱️" : (ytPrivacy === "public" ? "PUBLIC 🚀" : "Unlisted 🔒");
       return ok
         ? `▶️ YouTube (${privLbl}): Upload shuru ho gaya (~1 min me link yahin aayega!)`
         : "❌ YouTube trigger fail: Check karo .github/workflows/publish_video.yml GitHub par updated hai ya nahi.";
@@ -1941,17 +2000,18 @@ async function handleVfilterCallback(env, cq) {
 function buildPublishKeyboard(id, isLong) {
   return isLong ? {
     inline_keyboard: [
-      [{ text: "🚀 YT PUBLIC + FB Page", callback_data: `pub:${id}:all_pub` }],
-      [{ text: "✅ YT Unlisted + FB Page", callback_data: `pub:${id}:all` }],
-      [{ text: "▶️ YT PUBLIC", callback_data: `pub:${id}:yt_pub` }, { text: "🔒 YT Unlisted", callback_data: `pub:${id}:yt` }],
+      [{ text: "⏱️ YT 25m Auto-Public + FB Page (BEST ⭐)", callback_data: `pub:${id}:all_sched` }],
+      [{ text: "🚀 YT Instant PUBLIC + FB Page", callback_data: `pub:${id}:all_pub` }],
+      [{ text: "⏱️ YT 25m Auto-Public", callback_data: `pub:${id}:yt_sched` }, { text: "🔒 YT Unlisted", callback_data: `pub:${id}:yt` }],
       [{ text: "📱 Sirf Facebook Page", callback_data: `pub:${id}:meta` }, { text: "❌ Skip", callback_data: `pub:${id}:skip` }],
     ],
   } : {
     inline_keyboard: [
-      [{ text: "🚀 Sab Par PUBLIC (YT + FB + IG + Story)", callback_data: `pub:${id}:all_pub` }],
-      [{ text: "✅ Sab Par (YT Unlisted + FB + IG + Story)", callback_data: `pub:${id}:all` }],
-      [{ text: "▶️ YT PUBLIC", callback_data: `pub:${id}:yt_pub` }, { text: "🔒 YT Unlisted", callback_data: `pub:${id}:yt` }],
-      [{ text: "📱 Sirf FB + IG + Story", callback_data: `pub:${id}:meta` }, { text: "❌ Skip", callback_data: `pub:${id}:skip` }],
+      [{ text: "⏱️ Sab Par (YT 25m Auto-Public + FB + IG ⭐)", callback_data: `pub:${id}:all_sched` }],
+      [{ text: "🚀 Sab Par Instant PUBLIC (YT + FB + IG)", callback_data: `pub:${id}:all_pub` }],
+      [{ text: "⏱️ YT 25m Auto-Public", callback_data: `pub:${id}:yt_sched` }, { text: "🔒 YT Unlisted", callback_data: `pub:${id}:yt` }],
+      [{ text: "📱 Sirf FB + IG", callback_data: `pub:${id}:meta` }, { text: "📸 Sirf IG", callback_data: `pub:${id}:ig_only` }],
+      [{ text: "❌ Skip", callback_data: `pub:${id}:skip` }],
     ],
   };
 }
@@ -2050,4 +2110,165 @@ async function handleForwardedVideoPublish(env, chatId, videoObj, caption) {
     ig_caption: `${title}\n\n#TheViralGyaan #reels #facts`,
     tags: "TheViralGyaan, facts, hindi, viral",
   });
+}
+
+
+// =========================================================================
+// v4.10: AUTO-PILOT VIRAL PLANNER (/planner) + WINNER-LOCK + AUTO-PIVOT + CRON
+// =========================================================================
+const PLANNER_PATH = "seekha/planner_stats.json";
+
+function computePlannerInsights(data) {
+  const entries = Array.isArray(data && data.entries) ? data.entries : [];
+  const byCat = {};
+  for (const e of entries) {
+    const c = e.cat || "facts";
+    if (!byCat[c]) byCat[c] = [];
+    byCat[c].push(Number(e.views || 0));
+  }
+  const catStats = {};
+  let allViews = [];
+  for (const [c, arr] of Object.entries(byCat)) {
+    const avg = arr.reduce((a, b) => a + b, 0) / Math.max(1, arr.length);
+    const recent3 = arr.slice(-3);
+    const recAvg = recent3.reduce((a, b) => a + b, 0) / Math.max(1, recent3.length);
+    const peak = Math.max(...arr);
+    catStats[c] = { count: arr.length, avg: Math.round(avg), recAvg: Math.round(recAvg), peak };
+    allViews = allViews.concat(arr);
+  }
+  const overallAvg = allViews.length ? Math.round(allViews.reduce((a, b) => a + b, 0) / allViews.length) : 0;
+
+  let winner = (data && data.manualLock) || "";
+  if (!winner && overallAvg > 0) {
+    const ranked = Object.entries(catStats).sort((a, b) => b[1].avg - a[1].avg);
+    if (ranked.length && ranked[0][1].avg >= overallAvg * 1.8 && ranked[0][1].count >= 2) {
+      winner = ranked[0][0];
+    }
+  }
+
+  let pivotAlert = "";
+  if (winner && catStats[winner] && catStats[winner].count >= 3) {
+    const st = catStats[winner];
+    if (st.avg > 0 && st.recAvg <= st.avg * 0.60) {
+      const nextBest = Object.entries(catStats)
+        .filter(([c]) => c !== winner)
+        .sort((a, b) => b[1].recAvg - a[1].recAvg)[0];
+      const nextLbl = nextBest ? (TREND_CATEGORIES[nextBest[0]]?.label || nextBest[0]) : "📱 Tech & Gadgets / 💼 Business";
+      pivotAlert = `🚨 AUTO-PIVOT ALERT: "${TREND_CATEGORIES[winner]?.label || winner}" ke aakhri 3 videos ke views 40%+ gir gaye (avg ${st.avg} -> recent ${st.recAvg})!\n👉 Agli best category try karo: ${nextLbl}`;
+    }
+  }
+
+  return { winner, overallAvg, catStats, pivotAlert, total: entries.length };
+}
+
+async function handlePlannerCommand(env, chatId, rawText) {
+  const parts = rawText.trim().split(/\s+/);
+  const sub = (parts[1] || "").toLowerCase();
+  const cur = await readGhJson(env, PLANNER_PATH, { entries: [], manualLock: "" });
+  const data = (cur.data && typeof cur.data === "object") ? { entries: cur.data.entries || [], manualLock: cur.data.manualLock || "" } : { entries: [], manualLock: "" };
+
+  if (sub === "log" && parts.length >= 5) {
+    const cat = parts[2].toLowerCase();
+    const plat = parts[3].toLowerCase();
+    const views = Math.max(0, parseInt(parts[4], 10) || 0);
+    if (!TREND_CATEGORIES[cat]) {
+      await tgReply(env.TG_TOKEN, chatId, "⚠️ Valid categories: facts, tech, movies, updates, business", false);
+      return;
+    }
+    data.entries.push({ ts: Date.now(), cat, plat, views });
+    data.entries = data.entries.slice(-120);
+    await writeGhJson(env, PLANNER_PATH, data, cur.sha, `planner log ${cat} ${plat} ${views}`);
+    const ins = computePlannerInsights(data);
+    let msg = `✅ Logged: ${TREND_CATEGORIES[cat].label} (${plat}) = ${views} views!\n`;
+    if (ins.winner) msg += `🏆 Active Winner Category: ${TREND_CATEGORIES[ins.winner]?.label || ins.winner} (70-80% daily focus)\n`;
+    if (ins.pivotAlert) msg += `\n${ins.pivotAlert}`;
+    await tgReply(env.TG_TOKEN, chatId, msg, true);
+    return;
+  }
+
+  if (sub === "lock" && parts[2]) {
+    const cat = parts[2].toLowerCase();
+    if (!TREND_CATEGORIES[cat]) {
+      await tgReply(env.TG_TOKEN, chatId, "⚠️ Valid categories: facts, tech, movies, updates, business", false);
+      return;
+    }
+    data.manualLock = cat;
+    await writeGhJson(env, PLANNER_PATH, data, cur.sha, `planner lock ${cat}`);
+    await tgReply(env.TG_TOKEN, chatId, `🏆 Winner Category manually locked: ${TREND_CATEGORIES[cat].label}\nAb daily 9 AM Shorts me 70-80% topics isi category par aayenge!`, true);
+    return;
+  }
+
+  if (sub === "unlock") {
+    data.manualLock = "";
+    await writeGhJson(env, PLANNER_PATH, data, cur.sha, "planner unlock");
+    await tgReply(env.TG_TOKEN, chatId, "🔓 Manual Winner Lock hata diya — ab auto 2x+ Winner detection chalu hai!", true);
+    return;
+  }
+
+  const ins = computePlannerInsights(data);
+  const lines = [
+    "📈 VIRAL GYAAN AUTO-PILOT PLANNER (v4.10)",
+    `🏆 Active Winner: ${ins.winner ? (TREND_CATEGORIES[ins.winner]?.label || ins.winner) : "Auto-detecting (abhi 🧠 Facts & Science default)"}`,
+    `📊 Tracked Videos: ${ins.total} | Overall Avg: ${ins.overallAvg} views`,
+    "",
+  ];
+  for (const [c, st] of Object.entries(ins.catStats)) {
+    lines.push(`• ${TREND_CATEGORIES[c]?.label || c}: avg ${st.avg} (last 3: ${st.recAvg}, peak: ${st.peak}, n=${st.count})`);
+  }
+  if (!ins.total) {
+    lines.push("ℹ️ Views log karne ka 1-line format:\n/planner log facts yt_short 1200\n/planner log tech ig 450");
+  }
+  if (ins.pivotAlert) {
+    lines.push("", ins.pivotAlert);
+  }
+  lines.push("", "⏰ Auto Schedule (Cloudflare Cron): Daily 9 AM IST (5 Shorts) • Tue/Thu/Sun 5 PM IST (5 Long 5-6m)");
+
+  const kb = {
+    inline_keyboard: [
+      [{ text: "⚡ Aaj ke 5 Shorts Topics", callback_data: "pl:shorts" }, { text: "🎬 5 Long (5-6m) Topics", callback_data: "pl:long" }],
+      [{ text: "🏆 Lock Facts/Science", callback_data: "pl:lock:facts" }, { text: "🔓 Auto Mode", callback_data: "pl:unlock" }],
+    ],
+  };
+  await tgApi(env, "sendMessage", { chat_id: chatId, text: lines.join("\n").slice(0, 3900), reply_markup: kb });
+}
+
+async function handlePlannerCallback(env, cq) {
+  const chatId = String(cq.message && cq.message.chat ? cq.message.chat.id : "");
+  await tgApi(env, "answerCallbackQuery", { callback_query_id: cq.id });
+  if (env.ALLOWED_CHAT_ID && chatId !== String(env.ALLOWED_CHAT_ID).trim()) return;
+  const parts = (cq.data || "").split(":");
+  const act = parts[1] || "";
+  if (act === "shorts") {
+    await runAutoPilotCron(env, "30 3 * * *", chatId);
+    return;
+  }
+  if (act === "long") {
+    await runAutoPilotCron(env, "30 11 * * 0,2,4", chatId);
+    return;
+  }
+  if (act === "lock" && parts[2]) {
+    await handlePlannerCommand(env, chatId, `/planner lock ${parts[2]}`);
+    return;
+  }
+  if (act === "unlock") {
+    await handlePlannerCommand(env, chatId, "/planner unlock");
+  }
+}
+
+async function runAutoPilotCron(env, cronExpr, overrideChatId = "") {
+  const chatId = String(overrideChatId || env.ALLOWED_CHAT_ID || "").trim();
+  if (!chatId || !env.TG_TOKEN) return;
+  const cur = await readGhJson(env, PLANNER_PATH, { entries: [], manualLock: "" });
+  const ins = computePlannerInsights(cur.data || {});
+  const isLongCron = String(cronExpr || "").includes("11") || String(cronExpr || "").toLowerCase().includes("long");
+  const targetCat = isLongCron ? "mix" : (ins.winner || "facts");
+
+  if (ins.pivotAlert) {
+    await tgReply(env.TG_TOKEN, chatId, ins.pivotAlert, false);
+  }
+  const intro = isLongCron
+    ? "🎬 AUTO-PILOT LONG VIDEO RADAR (5–6 min, 16:9 — Tue/Thu/Sun 5 PM IST)\nAaj ke Top 5 Viral Documentary Topics nikaal raha hoon..."
+    : `🌅 GOOD MORNING! DAILY AUTO-PILOT SHORTS RADAR (9:00 AM IST)\n🏆 Focus Category: ${TREND_CATEGORIES[targetCat]?.label || targetCat}`;
+  await tgReply(env.TG_TOKEN, chatId, intro, false);
+  await runTrendsForCategory(env, chatId, targetCat, true, null, isLongCron ? "LONG" : "SHORT");
 }

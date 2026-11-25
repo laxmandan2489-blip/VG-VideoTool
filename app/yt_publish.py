@@ -233,9 +233,23 @@ def build_snippet(title, description, tags_raw, mode="SHORT", category="general"
     tags = [t for t in dict.fromkeys(tags) if len(t) <= 30][:25]
 
     cat_id = CATEGORY_MAP.get((category or "general").strip().lower(), "27")
-    priv = (privacy or "unlisted").strip().lower()
-    if priv not in ("unlisted", "private", "public"):
-        priv = "unlisted"
+    from datetime import datetime, timedelta, timezone
+    priv_raw = (privacy or "unlisted").strip().lower()
+    is_sched = priv_raw in ("scheduled", "auto25", "schedule")
+    if is_sched:
+        priv = "private"
+        pub_dt = datetime.now(timezone.utc) + timedelta(minutes=25)
+        publish_at_iso = pub_dt.strftime("%Y-%m-%dT%H:%M:%SZ")
+    else:
+        priv = priv_raw if priv_raw in ("unlisted", "private", "public") else "unlisted"
+        publish_at_iso = None
+
+    status_obj = {
+        "privacyStatus": priv,
+        "selfDeclaredMadeForKids": False,
+    }
+    if publish_at_iso:
+        status_obj["publishAt"] = publish_at_iso
 
     return {
         "snippet": {
@@ -246,10 +260,7 @@ def build_snippet(title, description, tags_raw, mode="SHORT", category="general"
             "defaultLanguage": "hi",
             "defaultAudioLanguage": "hi",
         },
-        "status": {
-            "privacyStatus": priv,
-            "selfDeclaredMadeForKids": False,
-        },
+        "status": status_obj,
     }
 
 
@@ -423,15 +434,22 @@ def main():
                 else:
                     thumb_note = "⚠️ Thumbnail download skip (video live hai)"
 
-            footer = (
-                "🚀 Video ab LIVE (PUBLIC) hai!"
-                if privacy == "public"
-                else "👉 Phone me YouTube Studio khol kar 5 sec me copyright check + 'Altered/Synthetic Content' tick karke Public kar do!"
-            )
+            from datetime import datetime, timedelta, timezone
+            _pub_iso = (meta.get("status") or {}).get("publishAt")
+            if _pub_iso:
+                _ist = (datetime.now(timezone.utc) + timedelta(hours=5, minutes=55)).strftime("%I:%M %p IST")
+                _hdr = f"⏱️ YouTube Scheduled (Auto-PUBLIC at ~{_ist})!"
+                footer = "🚀 25 minute me HD processing + thumbnail ke saath YouTube KHUD Public kar dega (0 phone effort)!"
+            elif privacy == "public":
+                _hdr = "✅ YouTube Upload Done (PUBLIC)!"
+                footer = "🚀 Video ab LIVE (PUBLIC) hai!"
+            else:
+                _hdr = f"✅ YouTube Upload Done ({privacy.upper()})!"
+                footer = "👉 Phone me YouTube Studio khol kar 5 sec me copyright check + 'Altered/Synthetic Content' tick karke Public kar do!"
             tg_send(
                 tg_token,
                 tg_chat,
-                f"✅ YouTube Upload Done ({privacy.upper()})!\n\n"
+                f"{_hdr}\n\n"
                 f"🎬 {meta['snippet']['title']}\n"
                 + (f"{thumb_note}\n" if thumb_note else "")
                 + f"🔗 Link: {yt_link}\n"

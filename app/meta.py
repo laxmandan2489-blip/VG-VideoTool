@@ -15,13 +15,16 @@ def make_meta(key, lines, data=None, style=None, credits=()):
         m = {k: data.get(k) for k in ("yt_title", "yt_description", "hashtags", "thumb_text")}
     if key and not all(m.get(k) for k in ("yt_title", "yt_description", "thumb_text")):
         res = ask_json(key, [
-            "You are a viral Hindi YouTube Shorts, Instagram Reels & Facebook Reels expert for 'The Viral Gyaan'. "
-            "From this Hindi script make human-sounding, curiosity-driven upload text (no fake claims).\n"
-            "Return ONLY JSON: {\"yt_title\": \"Hindi title under 70 chars\", "
-            "\"yt_description\": \"3-4 natural Hindi lines\", "
+            "You are India's #1 YouTube SEO & High-CTR packaging expert for 'The Viral Gyaan'. "
+            "From this Hindi script craft 2026 YouTube SEO-optimized, curiosity-driven upload metadata (100% factual, no fake claims):\n"
+            "- yt_title: 45-62 chars in crisp Devanagari Hindi with the main searchable keyword + a shock number or curiosity gap (so it never cuts off on mobile).\n"
+            "- thumb_text: ONLY 2-4 bold Hindi punch words that COMPLEMENT (never repeat) yt_title.\n"
+            "- yt_description: 4 lines; first 2 lines naturally include primary Hindi + Hinglish search keywords.\n"
+            "Return ONLY JSON: {\"yt_title\": \"45-62 char SEO Hindi title\", "
+            "\"yt_description\": \"4 SEO-rich Hindi/Hinglish lines\", "
             "\"hashtags\": [\"#...\" x8], "
-            "\"thumb_text\": \"2-4 word crisp Hindi cover text\", "
-            "\"story_hook\": \"Short 6-10 word Hindi curiosity question for Instagram Story ending with ?\", "
+            "\"thumb_text\": \"2-4 bold Hindi punch words\", "
+            "\"story_hook\": \"Short 6-10 word Hindi curiosity question ending with ?\", "
             "\"ig_caption\": \"2 punchy Hindi lines for IG/FB Reels with curiosity CTA\"}\n\n"
             + "\n".join(lines)], temperature=0.7, timeout=60)
         if isinstance(res, dict):
@@ -140,7 +143,7 @@ def _gemini_pick(key, ims, text, topic=""):
         parts = [f"You are a top YouTube thumbnail designer. Video topic: {topic or text}. Thumbnail text: {text}.\n"
                  "Pick the ONE frame that best shows WHAT THE VIDEO IS ABOUT, so a viewer instantly understands the "
                  "topic: the actual subject clearly visible, big, sharp, dramatic, emotional or curious. "
-                 "Reject frames that are blurry, dark, generic (random sky/landscape/people) or show text/logos.\n"
+                 "STRICTLY REJECT frames that are blurry, pitch-dark silhouettes/hoodies, generic filler (random sky/landscape/crowds), or text/logos. The chosen frame MUST visibly show the exact concrete subject/object/person named in the Video topic so the thumbnail background matches the title 100%.\n"
                  "Prefer a frame where the main person's FACE is clearly visible (not cut off).\n"
                  "Also give the bounding box of the main subject in that frame (0-1000). If the subject is a person, "
                  "the box must tightly cover the person's FACE / HEAD only (not the body or clothes).\n"
@@ -175,9 +178,10 @@ def _compose(im, tw, th, side, focus=None):
         l = (x.width - tw) // 2; t = int((x.height - th) * 0.28)
         if side == "left": l = int((x.width - tw) * 0.65); t = int((x.height - th) * 0.12)   # v3.4: sir na kate
     x = x.crop((l, t, l + tw, t + th))
-    x = ImageEnhance.Contrast(x).enhance(1.25)
-    x = ImageEnhance.Color(x).enhance(1.35)
-    x = ImageEnhance.Sharpness(x).enhance(1.8)
+    # v4.10 Cinematic Grade: punchy film contrast, rich color pop & crisp hero detail
+    x = ImageEnhance.Contrast(x).enhance(1.32)
+    x = ImageEnhance.Color(x).enhance(1.42)
+    x = ImageEnhance.Sharpness(x).enhance(1.95)
     yy, xx = np.mgrid[0:th, 0:tw].astype(np.float32)
     v = 1 - 0.55 * (((xx / tw - 0.5) ** 2 + (yy / th - 0.5) ** 2) * 2.2)      # vignette
     if side == "left":
