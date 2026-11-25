@@ -9,13 +9,28 @@
 
 const KEYBOARD = {
   keyboard: [
-    [{ text: "🔥 /trends" }, { text: "▶️ Aaj shuru karo (5 Prompt)" }],
-    [{ text: "🎬 Long Prompt" }, { text: "📊 /status" }, { text: "🛑 /rok" }],
-    [{ text: "📜 /log" }, { text: "⏪ /purana" }, { text: "📖 /guide" }],
+    [{ text: "🔥 /trends" }, { text: "📈 /planner" }],
+    [{ text: "📂 /republish" }, { text: "📜 /log" }, { text: "📊 /status" }],
+    [{ text: "🎨 /vfilter" }, { text: "🛑 /rok" }, { text: "📖 /guide" }],
+    [{ text: "▶️ Aaj shuru karo (5 Prompt)" }, { text: "🎬 Long Prompt" }],
   ],
   resize_keyboard: true,
   is_persistent: true,
 };
+
+const BOT_COMMANDS = [
+  { command: "trends", description: "🔥 Viral Shorts (9:16) & Long (5-6m) topics + script" },
+  { command: "planner", description: "📈 Auto-Pilot Winner Category & Views Tracker" },
+  { command: "republish", description: "📂 Last 10 videos (Cover+Story) 1-tap Re-Upload" },
+  { command: "publish", description: "📤 Purani 20-200MB video catbox link se publish" },
+  { command: "log", description: "📜 Last video ki downloadable log + Visual Report" },
+  { command: "vfilter", description: "🎨 Visual Quality Filter ON / OFF" },
+  { command: "status", description: "📊 Live cloud render progress" },
+  { command: "rok", description: "🛑 Chal rahi video turant rokein" },
+  { command: "competitors", description: "👥 Tracked competitor channels badlein" },
+  { command: "purana", description: "⏪ Pichhle version par rollback" },
+  { command: "start", description: "🔄 Menu & Commands refresh karein" },
+];
 
 const SHORTS_PROMPT = `MERA TOPIC (1 se 5 topic likho, ya "AUTO" rehne do to 5 alag-alag viral trending topics khud chuno):
 <<< AUTO >>>
@@ -122,7 +137,7 @@ export default {
       if (u.pathname === "/media/proxy") {
         return handleProxyMediaBridge(u.searchParams.get("u") || "", u.searchParams.get("t") || "mp4", request.method === "HEAD");
       }
-      return new Response("VideoTool Cloud Bridge v4.10 Auto-Pilot is LIVE!", { status: 200 });
+      return new Response("VideoTool Cloud Bridge v4.11 Auto-Pilot is LIVE!", { status: 200 });
     }
     if (request.method !== "POST") {
       return new Response("Method Not Allowed", { status: 405 });
@@ -233,10 +248,11 @@ export default {
     const tl = text.toLowerCase();
     if (!text) return new Response("ok", { status: 200 });
 
-    // 2) Start / Menu / Guide
+    // 2) Start / Menu / Guide (+ auto-sync Telegram "/" command autocomplete menu!)
     if (tl === "/start" || tl === "/menu") {
+      await tgApi(env, "setMyCommands", { commands: BOT_COMMANDS });
       await tgReply(env.TG_TOKEN, chatId,
-        "☁️ VideoTool Cloud v4.10 Auto-Pilot LIVE hai!\nNeeche ke buttons use karo, script bhejo, ya purani video (<20MB) forward karo:", true);
+        "☁️ VideoTool Cloud v4.11 Auto-Pilot LIVE hai!\n✅ Telegram '/' command menu aur neeche ke buttons dono update ho gaye hain:", true);
       return new Response("ok", { status: 200 });
     }
     if (tl === "/guide" || text.includes("/guide")) {
@@ -251,7 +267,7 @@ export default {
       return new Response("ok", { status: 200 });
     }
     // 2c) v4.10: 📈 /planner (Winner-Lock & Auto-Pivot Stats Brain + Manual Daily/Long Trigger)
-    if (tl === "/planner" || tl.startsWith("/planner ")) {
+    if (tl === "/planner" || tl.startsWith("/planner ") || text.includes("/planner")) {
       const p = handlePlannerCommand(env, chatId, text);
       if (ctx && ctx.waitUntil) ctx.waitUntil(p); else await p;
       return new Response("ok", { status: 200 });
@@ -299,7 +315,7 @@ export default {
     }
 
     // 5c) v4.02 Reversible Visual Quality Filter Toggle (/vfilter on | /vfilter off | /vfilter)
-    if (tl === "/vfilter" || tl.startsWith("/vfilter ")) {
+    if (tl === "/vfilter" || tl.startsWith("/vfilter ") || text.includes("/vfilter")) {
       const arg = tl.replace("/vfilter", "").trim();
       if (arg === "off" || arg === "band" || arg === "0") {
         await setVfilterState(env, chatId, false);
@@ -312,7 +328,7 @@ export default {
     }
 
     // 5d) v4.05 /republish -> Show last 10 rendered videos (with saved Cover + Story + Caption) for 1-tap Re-Upload!
-    if (tl === "/republish" || tl === "/reupload" || tl.startsWith("/republish ")) {
+    if (tl === "/republish" || tl === "/reupload" || tl.startsWith("/republish ") || text.includes("/republish")) {
       await showRepublishVault(env, chatId);
       return new Response("ok", { status: 200 });
     }

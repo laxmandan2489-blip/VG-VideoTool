@@ -1,3 +1,8 @@
+v4.11 (⌨️ TELEGRAM '/' COMMAND MENU AUTO-SYNC + UPDATED BOTTOM KEYBOARD + CUMULATIVE v4.01–v4.10):
+⌨️ Telegram '/' Autocomplete Menu (cloudflare_worker.js): `/start` dabate hi Telegram `setMyCommands` API se saare 11 commands (`/trends`, `/planner`, `/republish`, `/publish`, `/log`, `/vfilter`, `/status`, `/rok`, `/competitors`, `/purana`, `/start`) auto-register honge!
+📱 Updated Bottom Keyboard (cloudflare_worker.js): Permanent bottom menu me `📈 /planner`, `📂 /republish`, `📜 /log`, `🎨 /vfilter` 1-tap buttons add kiye.
+📦 Cumulative v4.01–v4.10 included: Auto-Pilot Planner + Cloudflare Cron, Smart 25m YouTube Auto-Public, SHORT/LONG category blueprints, Cinematic Title-Matched Thumbnails + 2026 SEO titles, Parallel 3-Platform Publish, Auto YouTube Thumbnail, Full-HD Verified Hosting, Samjha AI fix, Gemini 3.8 Charon voice fix, aur Copyright Screenshot Shield.
+
 v4.10 (🚀 AUTO-PILOT VIRAL PLANNER + ⏱️ SMART 25m AUTO-PUBLIC + 📝 SHORT/LONG CATEGORY BLUEPRINTS + 🖼️ CINEMATIC SEO THUMBNAILS — 0% VISUAL SEARCH TOUCH):
 ⏱️ Smart 25-Min YouTube Auto-Public (app/yt_publish.py + cloudflare_worker.js): Naya top button '⏱️ Sab Par (YT 25m Auto-Public + FB + IG ⭐)' — YouTube par Private + publishAt (+25 min) schedule hota hai, custom thumbnail set hota hai, aur 25 min baad YouTube KHUD Public kar deta hai (fresh Shorts push, 0 phone taps!).
 ⏰ Auto-Pilot Daily & Weekly Topics Cron (cloudflare_worker.js): Daily 9 AM IST (5 Shorts topics) + Tue/Thu/Sun 5 PM IST (5 Long 5-6 min 16:9 topics) via Cloudflare Cron Triggers.
