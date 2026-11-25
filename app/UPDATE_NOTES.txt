@@ -1,3 +1,9 @@
+v4.05 (🔄 1-TAP RE-UPLOAD / RETRY + 📂 /republish VAULT + 📤 VIDEO FORWARD & /publish + CUMULATIVE v4.01–v4.04):
+🔄 Auto-Retry Buttons on Any Failed Publish (cloudflare_worker.js): Agar YT, FB ya IG kabhi fail ho, to report ke neeche hi 1-tap '🔄 Sab Retry (PUBLIC)', '▶️ YT PUBLIC Retry', '📱 FB + IG Retry', aur '📋 Full Publish Menu' buttons milenge — video save/dobara upload kiye bina exact Cover + Story + Caption ke saath retry!
+📂 /republish Vault (cloudflare_worker.js): Aakhri 10 rendered videos (Cover Photo, IG Story, Title, Caption, Tags sahit) saved rahengi — `/republish` likhte hi kisi bhi video ko 1 tap me dobara YT/FB/IG par daal sakte ho!
+📤 Forward Video (<20MB) & `/publish <url> | <Title>` (20MB–200MB): Purani koi bhi video Telegram par forward karo ya `catbox.moe` link `/publish` me bhejo -> turant 1-Tap Auto-Publish Card!
+📦 Cumulative v4.01–v4.04 included: Full-HD First verified hosting (litterbox/catbox/uguu/tmpfiles), FB /me/accounts token fix, IG Media Bridge, Samjha AI fix, Gemini 3.8 Charon voice fix, Copyright Screenshot Shield, `/log` files, aur `/vfilter`.
+
 v4.04 (🎬 FULL-HD 200MB–1GB VERIFIED HOSTING + 📣 FB /me/accounts TOKEN FIX + CUMULATIVE v4.01–v4.03):
 🎬 0% Quality Loss Full-HD First (cloud_run.py + cloudflare_worker.js): Broken qu.ax permanently removed! Naya direct-MP4 order: litterbox (1GB/72h) -> catbox.moe (200MB permanent CDN) -> uguu.se (128MB/24h) -> tmpfiles (512MB/1h) + live 64-byte MP4/JPEG binary header verification (HTML block pages auto-reject!). 50–200MB Long Videos aur Shorts dono 100% Full HD me upload honge!
 🛡️ Shorts Emergency Backup (cloud_run.py): Telegram preview copy <19MB (sirf emergency backup jab sab hosts down hon; Full HD Master 100% uncompressed rehta hai!).

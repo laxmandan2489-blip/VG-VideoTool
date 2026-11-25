@@ -292,6 +292,24 @@ export default {
       return new Response("ok", { status: 200 });
     }
 
+    // 5d) v4.05 /republish -> Show last 10 rendered videos (with saved Cover + Story + Caption) for 1-tap Re-Upload!
+    if (tl === "/republish" || tl === "/reupload" || tl.startsWith("/republish ")) {
+      await showRepublishVault(env, chatId);
+      return new Response("ok", { status: 200 });
+    }
+
+    // 5e) v4.05 /publish <direct_mp4_url> | <Title> -> Publish any 20MB-200MB old video via link!
+    if (tl.startsWith("/publish ")) {
+      await handleManualPublishUrl(env, chatId, text.slice(9).trim());
+      return new Response("ok", { status: 200 });
+    }
+
+    // 5f) v4.05 Forwarded / Uploaded Video in Telegram -> Instant 1-Tap Auto-Publish Card!
+    if (msg.video && msg.video.file_id) {
+      await handleForwardedVideoPublish(env, chatId, msg.video, msg.caption || "");
+      return new Response("ok", { status: 200 });
+    }
+
     // 6) v3.93 Rollback /purana with 1-tap safety confirmation (stops accidental pocket-taps!)
     if (tl === "/purana" || text.includes("/purana")) {
       await tgApi(env, "sendMessage", {
@@ -1370,9 +1388,9 @@ async function registerPublishCard(env, payload) {
   const cur = await readGhJson(env, PUB_PATH, {});
   const store = (cur.data && typeof cur.data === "object") ? { ...cur.data } : {};
   const keys = Object.keys(store);
-  if (keys.length >= 5) {
+  if (keys.length >= 10) {
     keys.sort((a, b) => (store[a].ts || 0) - (store[b].ts || 0));
-    for (const oldK of keys.slice(0, keys.length - 4)) delete store[oldK];
+    for (const oldK of keys.slice(0, keys.length - 9)) delete store[oldK];
   }
   const mode = String(payload.mode || "SHORT").toUpperCase();
   store[id] = {
@@ -1691,7 +1709,17 @@ async function handlePublishCallback(env, cq) {
     const action = parts[2] || "";
 
     if (action === "skip") {
-      if (msgId) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: msgId, text: "⏭️ Auto-Publish skip kar diya (video + Cover + Story Telegram par saved hain)." });
+      if (msgId) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: msgId, text: "⏭️ Auto-Publish skip kar diya (video + Cover + Story saved hain — baad me /republish se kabhi bhi daal sakte ho)." });
+      return;
+    }
+    if (action === "card") {
+      const storeC = await readGhJson(env, PUB_PATH, {});
+      const itC = storeC.data && storeC.data[id];
+      if (!itC) {
+        await tgReply(env.TG_TOKEN, chatId, "⚠️ Ye video vault me nahi mila (aakhri 10 videos saved rehte hain).", false);
+        return;
+      }
+      await sendPublishCardForItem(env, chatId, itC);
       return;
     }
 
@@ -1762,9 +1790,22 @@ async function handlePublishCallback(env, cq) {
       }
     }
 
-    const replyMarkup = pendingIgCid ? {
-      inline_keyboard: [[{ text: "🔄 Complete IG Reel Publish", callback_data: `pub:${id}:igfin:${pendingIgCid}` }]],
-    } : undefined;
+    const retryRows = [];
+    if (pendingIgCid) {
+      retryRows.push([{ text: "🔄 Complete IG Reel Publish", callback_data: `pub:${id}:igfin:${pendingIgCid}` }]);
+    }
+    const anyFailed = report.some(line => line.includes("❌") || line.includes("⚠️"));
+    if (anyFailed) {
+      retryRows.push([
+        { text: "🔄 Sab Retry (PUBLIC)", callback_data: `pub:${id}:all_pub` },
+        { text: "▶️ YT PUBLIC Retry", callback_data: `pub:${id}:yt_pub` },
+      ]);
+      retryRows.push([
+        { text: "📱 FB + IG Retry", callback_data: `pub:${id}:meta` },
+        { text: "📋 Full Publish Menu", callback_data: `pub:${id}:card` },
+      ]);
+    }
+    const replyMarkup = retryRows.length ? { inline_keyboard: retryRows } : undefined;
     if (msgId) {
       await tgApi(env, "editMessageText", { chat_id: chatId, message_id: msgId, text: report.join("\n\n").slice(0, 3950), reply_markup: replyMarkup });
     } else {
@@ -1876,4 +1917,122 @@ async function handleVfilterCallback(env, cq) {
   if (env.ALLOWED_CHAT_ID && chatId !== String(env.ALLOWED_CHAT_ID).trim()) return;
   const enable = cq.data === "vf:on";
   await setVfilterState(env, chatId, enable);
+}
+
+
+// =========================================================================
+// v4.05: 1-TAP RE-UPLOAD / RE-PUBLISH VAULT (/republish, /publish, Video Forward)
+// =========================================================================
+function buildPublishKeyboard(id, isLong) {
+  return isLong ? {
+    inline_keyboard: [
+      [{ text: "🚀 YT PUBLIC + FB Page", callback_data: `pub:${id}:all_pub` }],
+      [{ text: "✅ YT Unlisted + FB Page", callback_data: `pub:${id}:all` }],
+      [{ text: "▶️ YT PUBLIC", callback_data: `pub:${id}:yt_pub` }, { text: "🔒 YT Unlisted", callback_data: `pub:${id}:yt` }],
+      [{ text: "📱 Sirf Facebook Page", callback_data: `pub:${id}:meta` }, { text: "❌ Skip", callback_data: `pub:${id}:skip` }],
+    ],
+  } : {
+    inline_keyboard: [
+      [{ text: "🚀 Sab Par PUBLIC (YT + FB + IG + Story)", callback_data: `pub:${id}:all_pub` }],
+      [{ text: "✅ Sab Par (YT Unlisted + FB + IG + Story)", callback_data: `pub:${id}:all` }],
+      [{ text: "▶️ YT PUBLIC", callback_data: `pub:${id}:yt_pub` }, { text: "🔒 YT Unlisted", callback_data: `pub:${id}:yt` }],
+      [{ text: "📱 Sirf FB + IG + Story", callback_data: `pub:${id}:meta` }, { text: "❌ Skip", callback_data: `pub:${id}:skip` }],
+    ],
+  };
+}
+
+async function sendPublishCardForItem(env, chatId, item) {
+  const isLong = String(item.mode || "SHORT").toUpperCase() === "LONG";
+  const hasAssets = (item.cover_tg_file_id || item.cover_url ? "🖼️ Cover ✓ " : "") +
+    (item.story_tg_file_id || item.story_url ? "✨ Story ✓" : "");
+  const cardText =
+    `🚀 Auto-Publish Ready! (${isLong ? "LONG 16:9" : "SHORT 9:16"})\n\n` +
+    `🎬 Title: ${String(item.title || "The Viral Gyaan").slice(0, 95)}\n` +
+    (hasAssets ? `🎨 Assets: ${hasAssets.trim()}\n` : "") +
+    `📝 Desc: ${String(item.description || "").slice(0, 240)}\n\n` +
+    `👇 Kahan aur kaise publish karun?`;
+  await tgApi(env, "sendMessage", {
+    chat_id: chatId,
+    text: cardText.slice(0, 3900),
+    reply_markup: buildPublishKeyboard(item.id, isLong),
+  });
+}
+
+async function showRepublishVault(env, chatId) {
+  const cur = await readGhJson(env, PUB_PATH, {});
+  const store = (cur.data && typeof cur.data === "object") ? cur.data : {};
+  const list = Object.values(store).sort((a, b) => (b.ts || 0) - (a.ts || 0)).slice(0, 10);
+  if (!list.length) {
+    await tgReply(env.TG_TOKEN, chatId, "ℹ️ Abhi vault me koi saved video nahi hai. Nayi video banne ke baad ya koi purani video forward karke publish kar sakte ho!", true);
+    return;
+  }
+  const kb = {
+    inline_keyboard: list.map((it, idx) => [{
+      text: `${idx + 1}. [${it.mode === "LONG" ? "LONG" : "SHORT"}] ${String(it.title || "Video").slice(0, 42)}`,
+      callback_data: `pub:${it.id}:card`,
+    }]),
+  };
+  await tgApi(env, "sendMessage", {
+    chat_id: chatId,
+    text: `📂 Saved Videos Vault (Aakhri ${list.length} videos — Cover, Story aur Caption ke saath!)\n\n👇 Jis video ko dobara YouTube / FB / IG par upload karna hai uspe tap karo:`,
+    reply_markup: kb,
+  });
+}
+
+async function handleManualPublishUrl(env, chatId, rawArgs) {
+  const parts = rawArgs.split("|").map(s => s.trim()).filter(Boolean);
+  let mode = "SHORT";
+  if (parts[0] && /^(LONG|SHORT)$/i.test(parts[0])) {
+    mode = parts.shift().toUpperCase();
+  }
+  const url = parts[0] || "";
+  const title = parts[1] || "The Viral Gyaan";
+  if (!/^https?:\/\/\S+/i.test(url)) {
+    await tgReply(
+      env.TG_TOKEN,
+      chatId,
+      "⚠️ Sahi format:\n/publish https://files.catbox.moe/xxxxx.mp4 | Aapka Video Title\n\n(Long 16:9 video ke liye: /publish LONG | https://... | Title)",
+      false
+    );
+    return;
+  }
+  await registerPublishCard(env, {
+    chat_id: chatId,
+    mode,
+    category: "general",
+    video_url: url,
+    title,
+    description: `${title}\n\n#TheViralGyaan ${mode === "SHORT" ? "#shorts #facts #viral" : "#hindifacts"}`,
+    ig_caption: `${title}\n\n#TheViralGyaan #reels #facts`,
+    tags: "TheViralGyaan, facts, hindi, viral",
+  });
+}
+
+async function handleForwardedVideoPublish(env, chatId, videoObj, caption) {
+  const sizeMb = (Number(videoObj.file_size || 0) / (1024 * 1024));
+  const title = (caption || "").split("\n")[0].replace(/^✅\s*\[(SHORT|LONG)\]\s*/i, "").trim().slice(0, 95) || "The Viral Gyaan";
+  const isLong = Number(videoObj.width || 0) > Number(videoObj.height || 0);
+  const mode = isLong ? "LONG" : "SHORT";
+
+  if (sizeMb > 19.8) {
+    await tgReply(
+      env.TG_TOKEN,
+      chatId,
+      `⚠️ Ye purani video ${sizeMb.toFixed(1)} MB ki hai (Telegram Bot 20 MB se badi forwarded file download nahi kar sakta).\n\n✅ 10-Second Tarika:\n1) Phone browser me catbox.moe khol kar ye video upload karo\n2) Mila hua link yahan bhejo:\n/publish <link> | ${title}\n\n(Note: Ab se banne wali har nayi video me /republish par 1-tap direct retry chalega — chahe 100 MB ki ho!)`,
+      false
+    );
+    return;
+  }
+
+  await registerPublishCard(env, {
+    chat_id: chatId,
+    mode,
+    category: "general",
+    tg_file_id: videoObj.file_id,
+    video_url: "",
+    title,
+    description: `${title}\n\n#TheViralGyaan ${mode === "SHORT" ? "#shorts #facts #viral" : "#hindifacts"}`,
+    ig_caption: `${title}\n\n#TheViralGyaan #reels #facts`,
+    tags: "TheViralGyaan, facts, hindi, viral",
+  });
 }
