@@ -1,15 +1,23 @@
-"""v4.02 Toggleable Visual Quality Gate (1-tap ON/OFF via Telegram /vfilter on | /vfilter off).
+"""v4.13 Toggleable Visual Quality Gate (1-tap ON/OFF via Telegram /vfilter on | /vfilter off).
 
 Reads `seekha/aapki_settings.json`. If `"vfilter_off"` is present, this gate is 100% bypassed
 and the exact original v4.0 Visual Search Engine behavior runs untouched.
 """
 import json
+import re
 import subprocess
 from pathlib import Path
 
 from common import TOOL, log
 
 SETTINGS_FILE = TOOL / "seekha" / "aapki_settings.json"
+
+_JUNK_META_RE = re.compile(
+    r"\b(thank\s*you\s*for\s*watching|thanks\s*for\s*watching|end\s*screen|outro\s*template|"
+    r"subscribe\s*(button|now|screen|for\s*more)|like\s*and\s*subscribe|hit\s*the\s*bell|"
+    r"my\s*suggestion|watch\s*more|channel\s*outro|youtube\s*end)\b",
+    re.I,
+)
 
 
 def is_enabled():
@@ -24,6 +32,15 @@ def is_enabled():
     except Exception:
         pass
     return True
+
+
+def is_junk_stock_meta(text):
+    """Returns True if stock clip title/tags/url clearly indicate a YouTube end-screen/subscribe template."""
+    if not is_enabled():
+        return False
+    if not text:
+        return False
+    return bool(_JUNK_META_RE.search(str(text)))
 
 
 def _check_image(path):
@@ -57,7 +74,7 @@ def _check_image(path):
 
 
 def _check_video(path):
-    """Reject ultra-low-res or extreme aspect video clips via ffprobe."""
+    """Reject ultra-low-res, extreme aspect, or flat solid end-screen video clips."""
     try:
         r = subprocess.run(
             ["ffprobe", "-v", "error", "-select_streams", "v:0",
@@ -67,11 +84,25 @@ def _check_video(path):
         txt = (r.stdout or "").strip().splitlines()
         if txt and "x" in txt[0]:
             w, h = [int(x) for x in txt[0].split("x")[:2]]
-            if w < 480 or h < 340:
+            if w < 540 or h < 340:
                 return False, f"low-res video ({w}x{h})"
             aspect = max(w / max(1, h), h / max(1, w))
             if aspect > 3.6:
                 return False, f"extreme video aspect ({w}x{h})"
+        # Sample 1 mid-frame to reject flat solid/black template screens
+        try:
+            import numpy as np
+            fr = subprocess.run(
+                ["ffmpeg", "-nostdin", "-v", "error", "-ss", "0.8", "-i", str(path),
+                 "-frames:v", "1", "-vf", "scale=128:128,format=gray", "-f", "rawvideo", "-"],
+                capture_output=True, timeout=8, stdin=subprocess.DEVNULL,
+            )
+            if fr.stdout and len(fr.stdout) >= 128 * 128:
+                arr = np.frombuffer(fr.stdout[:128 * 128], np.uint8).astype(np.float32)
+                if float(arr.std()) < 7.5:
+                    return False, f"flat/blank video frame (std={float(arr.std()):.1f})"
+        except Exception:
+            pass
     except Exception:
         pass
     return True, "ok"

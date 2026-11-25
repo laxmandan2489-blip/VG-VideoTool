@@ -196,18 +196,37 @@ COPYRIGHT_RISK_RE = re.compile(
 _NEWS_CHANNEL_RE = re.compile(r"\b(news|samachar|breaking\s*news|live\s*tv|bulletins?)\b", re.I)
 
 
-def is_copyright_risk(channel="", title="", is_film=False):
-    """v4.02: Returns True for News channels, OTT/Movie Studios, Music Labels, Films/Trailers & Sports Broadcasters.
-    For these sources, NEVER cut a video clip — extract a crisp HD still screenshot instead (Content-ID safe)."""
+_YT_SAFE_VIDEO_RE = re.compile(
+    r"\b(nasa|isro|esa|european\s*space\s*agency|noaa|usgs|wikimedia|public\s*domain|"
+    r"creative\s*commons|cc\s*-?\s*by|cc0|royalty\s*free|no\s*copyright|copyright\s*free|"
+    r"free\s*stock\s*(footage|video)|pixabay|pexels|storyblocks\s*free)\b",
+    re.I,
+)
+
+
+def is_copyright_risk(channel="", title="", is_film=False, license_str=""):
+    """v4.13 UNIVERSAL YOUTUBE COPYRIGHT SHIELD:
+    Allow raw YouTube video clips ONLY for explicitly Creative Commons / Public Domain / Space Agency
+    (NASA/ISRO/ESA/NOAA/Wikimedia/NoCopyright) sources.
+    For ALL other YouTube channels (Netflix, Prime Video, Hotstar, News channels, Studios, Big Creators,
+    Sports, Movies, Podcasts) -> ALWAYS return True so crisp HD .jpg screenshots are extracted instead
+    (zero Content-ID claim / copyright strike risk)."""
     if is_film:
         return True
     ch = str(channel or "").strip()
     ti = str(title or "").strip()
+    lic = str(license_str or "").strip()
+    # Explicit high-risk network/OTT/news/studio always screenshot-only even if mislabelled
     if COPYRIGHT_RISK_RE.search(ch) or COPYRIGHT_RISK_RE.search(ti):
         return True
     if ch and _NEWS_CHANNEL_RE.search(ch):
         return True
-    return False
+    # Allow moving YouTube video ONLY when explicitly Creative Commons or verified public-domain/safe channel
+    if lic and re.search(r"creative\s*common|cc-?by|cc0|public\s*domain", lic, re.I):
+        return False
+    if _YT_SAFE_VIDEO_RE.search(ch) or re.search(r"\b(creative\s*commons|no\s*copyright|copyright\s*free|public\s*domain)\b", ti, re.I):
+        return False
+    return True
 
 
 def _extract_screenshot(vid, start, out):

@@ -205,8 +205,11 @@ def video_frame_vf(src, W, H, style):
     # v3.21 SMART FRAME FIT: Stop brutal 3.16x center-crop on 16:9 videos (chops off rockets/trains/hands).
     # When smart_frame_fit = haan (default), wide landscape clips use clean 1.18x documentary framing over
     # a dark blurred backdrop so the full subject stays visible. Set smart_frame_fit = nahi for old hard crop.
-    # v3.86 FIX: smart_frame_fit default "haan" (stops brutal 3.16x center-crop on 16:9 clips/photos!)
-    if yes(style.get("smart_frame_fit", "haan")) and W < H and ar >= 1.35 and fit != "bhar":
+    # v4.13 CINEMATIC FULL-SCREEN SHORTS: fill vertical 9:16 screen with smart_x subject tracking
+    # (eliminates tiny 38% horizontal strip + 62% blur bars). Reversible via style.txt: shorts_full_frame = nahi
+    if yes(style.get("shorts_full_frame", "haan")) and W < H and fit != "poora":
+        fit = "bhar"
+    elif yes(style.get("smart_frame_fit", "haan")) and W < H and ar >= 1.35 and fit != "bhar":
         fit = "auto"
     elif fit != "poora":
         fit = "bhar"

@@ -588,6 +588,14 @@ def materialize(c, i, verify_text, avoid=()):
         except Exception as e:
             log(f"   (YouTube clip skip: {str(e)[:100]})", show=False)
         return None
+    try:
+        import visual_quality_gate as _vqg
+        _meta_blob = f"{c.get('title','')} {c.get('tags','')} {c.get('credit','')} {c.get('url','')}"
+        if _vqg.is_junk_stock_meta(_meta_blob):
+            log(f"   🧹 vfilter skip end-screen/spam stock: {str(c.get('tags') or c.get('title') or '')[:45]}", show=False)
+            return None
+    except Exception:
+        pass
     with sources._lock:
         if c.get("url") in sources._used and not (c.get("_reused") and c.get("kind") == "video"): return None
         sources._used.add(c.get("url"))
@@ -721,7 +729,16 @@ def improve(i, found, eng, line, keys, need, lock=None, film=None, shot=None):
         pc = [dict(c) for c in cands]
         score(pc, tx)
         per_part.append(pc)
-    chosen, used = list(keep), {str(x.get("path") or x.get("url")) for x in keep}
+    # v4.13: deduplicate keep by both url and path so same Wikimedia photo never repeats back-to-back
+    chosen, used = [], set()
+    for _kx in keep:
+        _ku = str(_kx.get("url") or "")
+        _kp = str(_kx.get("path") or "")
+        if (_ku and _ku in used) or (_kp and _kp in used):
+            continue
+        chosen.append(_kx)
+        if _ku: used.add(_ku)
+        if _kp: used.add(_kp)
     n_need = max(1, need - len(keep))
     slots = [min(len(parts) - 1, (s * len(parts)) // n_need) for s in range(n_need)]
     trace_rows = []

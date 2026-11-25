@@ -1,3 +1,12 @@
+=== v4.13 (25 Nov 2026) — Viral Shorts/Long Separation, Cinematic Full-Screen & Realistic Newspaper ===
+- Separate SHORT (15-95s) vs LONG (4-40m source explainers -> strict 5-6 min 750-900w script) /trends pools + fresh recency filter (Nitish Rajput, Dhruv Rathee, Think School, FactTechz, PJ Explained)
+- NEW Influencer & Creator News category in /trends (both SHORT & LONG) + fixed LONG draft approval mode
+- Viral 0-3s Hook + current year (2026) auto-lock + markdown '**' auto-cleanup (fixes '2 अपडेट**')
+- Full-screen 9:16 smart subject-tracked Shorts framing in app/render.py (removes tiny 38% box + 62% blur bars; reversible via shorts_full_frame=nahi)
+- Realistic 2-column broadsheet Newspaper Card in app/cine/doc_cards.py (masthead, paper grain, contextual dimmed columns, animated yellow highlighter)
+- Universal YouTube Copyright Screenshot-Only Shield (yt_clips.py + subject_pool.py): Netflix, Prime Video, News, Studios & all standard-license YouTube creators extract crisp HD .jpg screenshots ONLY (zero raw .mp4 clips); raw YouTube video allowed ONLY for Creative Commons / Public Domain (NASA/ISRO/ESA/NoCopyright)
+- Smarter Visual Quality Shield (/vfilter ON/OFF reversible): blocks 'Thank You for Watching' end-screens, stops back-to-back Wikimedia photo repeats, locks majority video category instead of 'general'
+
 v4.12 (🔢 UNIVERSAL ENGLISH DIGITS 1999 + 🎯 CONCRETE '||' VISUAL HINTS + 🎬 CATEGORY EDITING DNA + 📰 ZERO ☒☒☒ FONT BOXES — 0% VISUAL SEARCH TOUCH):
 🔢 Universal English Digits (app/cine/kinetic.py + app/cine/cards.py + cloudflare_worker.js): Screen counters, labels aur scripts me kabhi Hindi ganit (`१९९९`) nahi dikhegi — hamesha crisp English digits (`1999`, `2026`, `15 Lakh`) aayenge!
 🎯 Universal Concrete '||' Visual Hints & Category Editing DNA (cloudflare_worker.js): Har category (SHORT + LONG) ke liye strictly 2–4 word physical camera shots, zero abstract/fictional hints, hero closing visual on CTA line, aur category-matched viral editing tags (Visual Search Engine core 0% untouched!).

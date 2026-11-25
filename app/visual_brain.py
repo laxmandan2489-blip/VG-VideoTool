@@ -132,6 +132,7 @@ def _llm_plan(lines, eng, keys, main=""):
             "Read the WHOLE script first, resolve every pronoun to the real person/thing, then for EACH line give the "
             "visual research plan. NEVER invent names, dates or events that the script does not imply. If unsure, "
             "leave the field empty.\n"
+            f"Current year is {__import__('datetime').date.today().year}. Never default to 2024 unless the script explicitly says 2024.\n"
             "Per line fields (short):\n"
             " cat: one of news/influencer/history/science/technology/business/crime/sports/geography/general\n"
             " subject: main subject in English\n"
@@ -177,6 +178,25 @@ def _s(v, n=90):
 
 def _ql(v, n=3):
     return [str(q).strip()[:80] for q in (v or []) if isinstance(q, str) and q.strip()][:n]
+
+_TRAP_STOCK_RE = re.compile(
+    r"\b(shocked\s*face|view\s*counter|subscribe\s*(button|icon|screen|animation)|"
+    r"thank\s*you\s*for\s*watching|question\s*mark|locked\s*door|calendar\s*dates|"
+    r"clock\s*time\s*lapse|analytics\s*graph)\b",
+    re.I,
+)
+
+
+def _clean_stock_q(qs):
+    """v4.13: Filter out generic trap stock queries that pull end-screens or random shocked faces."""
+    try:
+        import visual_quality_gate as _vqg
+        if not _vqg.is_enabled():
+            return qs
+    except Exception:
+        pass
+    return [q for q in (qs or []) if not _TRAP_STOCK_RE.search(q)]
+
 
 
 def build(lines, eng, keys, mode="auto", main="", raw_plan=None, use_ai=True, work=None):
@@ -224,7 +244,7 @@ def build(lines, eng, keys, mode="auto", main="", raw_plan=None, use_ai=True, wo
              "emotion": _emo, "must_show": _must, "beats": _beats,
              "real": bool(x.get("real")) if "real" in x else bool(person or org or (cat in REAL_FIRST and names)
                                                                    or (_event(e) and cat in REAL_FIRST | {"history"})),
-             "exact_q": _ql(x.get("exact_q")), "stock_q": _ql(x.get("stock_q"), 2),
+             "exact_q": _ql(x.get("exact_q")), "stock_q": _clean_stock_q(_ql(x.get("stock_q"), 2)),
              "avoid": _ql(x.get("avoid")), "shot": _s(x.get("shot"), 20), "fallback": _s(x.get("fallback"), 80),
              "how": "AI" if x else "rules"}
         if not p["exact_q"]:
@@ -235,7 +255,14 @@ def build(lines, eng, keys, mode="auto", main="", raw_plan=None, use_ai=True, wo
         from collections import Counter
         c = Counter(cats).most_common()
         top = _s((data or {}).get("category"), 20).lower()
-        SCRIPT["category"] = forced or (top if top in CATS else c[0][0])
+        non_gen = [(k, v) for k, v in c if k != "general"]
+        maj_cat = non_gen[0][0] if (non_gen and non_gen[0][1] >= max(2, int(len(cats) * 0.35))) else c[0][0]
+        if forced:
+            SCRIPT["category"] = forced
+        elif top in CATS and top != "general":
+            SCRIPT["category"] = top
+        else:
+            SCRIPT["category"] = maj_cat
         SCRIPT["mixed"] = len([k for k, v in c if v >= max(2, len(cats) // 5)]) >= 2
     if work:
         try:

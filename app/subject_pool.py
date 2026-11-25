@@ -103,16 +103,30 @@ def next_clip(line_idx, verify_text="", avoid=(), secs=3.5):
                 if key in yt_clips.USED: continue
                 yt_clips.USED.add(key)
             d = CACHE / "ytclips"; d.mkdir(parents=True, exist_ok=True)
-            p = yt_clips._cut(v["video_id"], st, secs + 0.5, d / f"{v['video_id']}_{int(st)}")
+            _sp_risk = yt_clips.is_copyright_risk(v.get("channel", ""), v.get("title", ""), license_str=v.get("license", ""))
+            if _sp_risk:
+                p = yt_clips._extract_screenshot(v["video_id"], st, d / f"{v['video_id']}_{int(st)}_ss")
+                _sp_kind = "image"
+            else:
+                p = yt_clips._cut(v["video_id"], st, secs + 0.5, d / f"{v['video_id']}_{int(st)}")
+                _sp_kind = "video"
             if not p: break
-            if verify_text and sources.verify(p, "video", verify_text, (), avoid, line_idx) is False:
+            try:
+                import visual_quality_gate as _vqg
+                _qok, _qwhy = _vqg.check(p, _sp_kind)
+                if not _qok:
+                    continue
+            except Exception:
+                pass
+            if verify_text and sources.verify(p, _sp_kind, verify_text, (), avoid, line_idx) is False:
                 continue
             with _LOCK: POOL["next"] = (vids.index(v) + 1) % len(vids)
             with yt_clips._LOCK:
                 yt_clips._N["n"] += 1; yt_clips.USED_VIDS[v["video_id"]] = yt_clips.USED_VIDS.get(v["video_id"], 0) + 1
             url = f"{v['url']}&t={int(st)}"
-            log(f"   🎞 line {line_idx+1}: sahi footage nahi mili – '{v['title'][:50]}' ka alag hissa ({int(st)}s)")
-            return {"kind": "video", "path": p, "url": url, "src": "subject pool (youtube)", "pool": True,
+            _src_lbl = "subject pool screenshot (copyright-safe)" if _sp_risk else "subject pool (youtube)"
+            log(f"   {'📸' if _sp_risk else '🎞'} line {line_idx+1}: '{v['title'][:50]}' ({int(st)}s, {_src_lbl})")
+            return {"kind": _sp_kind, "path": p, "url": url, "src": _src_lbl, "pool": True,
                     "entity": POOL.get("main") or "",
                     "credit": f"YouTube: \"{v['title'][:70]}\" – {v.get('channel','')} ({url})"}
     return None

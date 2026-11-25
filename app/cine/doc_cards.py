@@ -107,17 +107,37 @@ def _draw_shadow_box(canvas, box, radius=20, fill=(248, 245, 238, 255), shadow_a
 
 # ------------------------------------------------------------------ 1. News / Fact Highlighter Card
 class NewsHighlightCard:
+    """v4.13 Realistic 2-Column Broadsheet Newspaper Clipping (Nitish Rajput / Dhruv Rathee style)."""
+
     def __init__(self, source, headline, highlight_phrase, W, H, pal, dur, date_str=""):
         self.W, self.H, self.pal, self.dur = W, H, pal, max(0.8, dur)
-        self.source = latin(source or "FACT REPORT").upper()
+        self.source = latin(source or "THE DAILY CHRONICLE").upper()
         self.headline = latin(headline or "").strip()
         self.hl = latin(highlight_phrase or "").strip()
-        self.date_str = latin(date_str or "VERIFIED FACT BRIEF")
+        self.date_str = latin(date_str or "SPECIAL INVESTIGATION EDITION").upper()
         self.bg = _grunge_bg(W, H, pal, seed=len(self.headline) * 13 + 7, grid=True).filter(ImageFilter.GaussianBlur(3))
-        self.f_src = _fit_font("bold", self.source, W * 0.72, int(W * 0.044))
-        self.f_date = _fit_font("serif", self.date_str, W * 0.72, int(W * 0.028))
-        self.f_head = _fit_font("bold", "W" * 18, W * 0.76, int(W * 0.056))
-        self.lines = _wrap_text(self.headline, self.f_head, int(W * 0.74))[:5]
+        self.f_mast = _fit_font("serif", self.source, W * 0.72, int(W * 0.052))
+        self.f_meta = _fit_font("bold", self.date_str + "  |  PAGE A1", W * 0.76, int(W * 0.022))
+        self.f_head = _fit_font("bold", "W" * 18, W * 0.76, int(W * 0.048))
+        self.f_sub = _fit_font("serif", "SPECIAL REPORT & PUBLIC RECORD ARCHIVE", W * 0.76, int(W * 0.023))
+        self.f_body = _fit_font("serif", "W" * 34, W * 0.36, int(W * 0.020))
+        self.lines = _wrap_text(self.headline, self.f_head, int(W * 0.72))[:4]
+        # Build topic-contextual surrounding newsprint columns (no blank space, no repetitive dots)
+        _kw = " ".join(re.findall(r"[A-Za-z0-9]{3,}", self.headline)[:5]) or "the latest development"
+        _src_lbl = self.source.title()
+        self.col_left = _wrap_text(
+            f"NEW DELHI — Official records and independent analysts reviewing {_kw} confirmed new details "
+            f"earlier this week. According to documents cited by {_src_lbl}, timelines and public filings "
+            f"point to major shifts across the sector as observers track the unfolding story closely.",
+            self.f_body, int(W * 0.34),
+        )[:6]
+        self.col_right = _wrap_text(
+            f"Further verification from industry trackers highlights how {_kw} drew widespread attention "
+            f"nationwide. Experts quoted in the briefing noted that verified numbers and archival reports "
+            f"remain central to understanding the full impact on audiences and stakeholders alike.",
+            self.f_body, int(W * 0.34),
+        )[:6]
+        self.top_ticker = f"VOL. XLII  •  {self.date_str[:28]}  •  NATIONAL EDITION  •  P. 01"
         # Pick which line gets the yellow marker sweep
         self.hl_idx = -1
         if self.hl:
@@ -128,54 +148,117 @@ class NewsHighlightCard:
                     break
         if self.hl_idx < 0 and self.lines:
             self.hl_idx = min(1, len(self.lines) - 1)
+        # Pre-generate warm realistic newsprint paper texture once
+        self._paper_tex = self._make_paper_base()
+
+    def _make_paper_base(self):
+        W, H = self.W, self.H
+        card_w = int(W * 0.88)
+        card_h = int(H * (0.58 if H > W else 0.76))
+        rng = np.random.default_rng(abs(hash(self.headline)) % 100000 + 413)
+        # Warm aged newsprint cream with organic subtle paper grain
+        base_rgb = np.zeros((card_h, card_w, 3), dtype=np.float32)
+        base_rgb[:, :, 0] = 242.0
+        base_rgb[:, :, 1] = 236.0
+        base_rgb[:, :, 2] = 223.0
+        grain = rng.normal(0.0, 4.2, (card_h, card_w, 1)).astype(np.float32)
+        # Soft horizontal paper crease near middle
+        yy = np.linspace(-1.0, 1.0, card_h, dtype=np.float32)[:, None]
+        crease = -7.0 * np.exp(-((yy - 0.04) / 0.018) ** 2)
+        # Gentle edge ageing vignette
+        xx = np.linspace(-1.0, 1.0, card_w, dtype=np.float32)[None, :]
+        edge = -10.0 * (xx ** 4 + yy ** 4) * 0.5
+        arr = np.clip(base_rgb + grain + crease[:, :, None] + edge[:, :, None], 190, 252).astype(np.uint8)
+        return Image.fromarray(arr, "RGB").convert("RGBA")
 
     def frame(self, i, fps=30):
         t = i / fps
         W, H = self.W, self.H
         base = self.bg.copy().convert("RGBA")
 
-        # Slow documentary zoom-drift on card
         enter = _ease_back(t / 0.48)
-        y_slide = int((1.0 - _ease_out(t / 0.45)) * (H * 0.08))
-        card_w = int(W * 0.86)
-        line_h = int(self.f_head.size * 1.38)
-        card_h = int(W * 0.24 + max(2, len(self.lines)) * line_h + W * 0.12)
-        cx, cy = W // 2, int(H * 0.46) + y_slide
+        y_slide = int((1.0 - _ease_out(t / 0.45)) * (H * 0.07))
+        paper = self._paper_tex.copy()
+        card_w, card_h = paper.size
+        cx, cy = W // 2, int(H * 0.47) + y_slide
         x0, y0 = cx - card_w // 2, cy - card_h // 2
-        x1, y1 = x0 + card_w, y0 + card_h
 
-        # Render card onto its own layer so we can scale/fade smoothly
-        layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-        _draw_shadow_box(layer, (x0, y0, x1, y1), radius=24, fill=(249, 246, 239, 255))
-        d = ImageDraw.Draw(layer)
+        d = ImageDraw.Draw(paper)
+        pad = int(card_w * 0.055)
+        ink_dark = (22, 22, 26, 255)
+        ink_dim = (88, 84, 78, 220)
+        ink_faint = (120, 115, 106, 195)
+        rule_col = (46, 44, 42, 230)
 
-        # Top crimson/accent masthead bar
-        acc_bar = (196, 38, 38, 255)
-        d.rounded_rectangle((x0, y0, x1, y0 + 14), radius=6, fill=acc_bar)
+        # Top crimson news strip + classic double masthead border
+        d.rectangle((0, 0, card_w, 10), fill=(178, 28, 28, 255))
+        y = 22
+        # Centered newspaper masthead
+        mw = int(self.f_mast.getlength(self.source))
+        d.text(((card_w - mw) // 2, y), self.source, font=self.f_mast, fill=ink_dark)
+        y += self.f_mast.size + 10
+        d.line([(pad, y), (card_w - pad, y)], fill=rule_col, width=3)
+        d.line([(pad, y + 5), (card_w - pad, y + 5)], fill=rule_col, width=1)
+        y += 12
+        # Edition/date ticker line
+        tw_m = int(self.f_meta.getlength(self.top_ticker))
+        d.text((max(pad, (card_w - tw_m) // 2), y), self.top_ticker, font=self.f_meta, fill=ink_dim)
+        y += self.f_meta.size + 8
+        d.line([(pad, y), (card_w - pad, y)], fill=(150, 145, 136, 220), width=1)
+        y += 14
 
-        # Source masthead + date + divider
-        pad = int(W * 0.055)
-        d.text((x0 + pad, y0 + 34), self.source, font=self.f_src, fill=(185, 28, 28, 255))
-        d.text((x0 + pad, y0 + 34 + self.f_src.size + 8), self.date_str, font=self.f_date, fill=(105, 105, 112, 255))
-        div_y = y0 + 34 + self.f_src.size + self.f_date.size + 26
-        d.line([(x0 + pad, div_y), (x1 - pad, div_y)], fill=(210, 206, 196, 255), width=2)
+        # Subtle dimmed lead-in kicker above main headline
+        d.text((pad, y), "SPECIAL REPORT  •  VERIFIED ARCHIVE", font=self.f_sub, fill=(168, 32, 32, 230))
+        y += self.f_sub.size + 12
 
-        # Headline text + animated yellow marker highlighter sweep
-        hl_prog = _ease_out((t - 0.55) / 0.65)
-        ty = div_y + 28
+        # Main Headline + Animated Yellow Highlighter Sweep
+        hl_prog = _ease_out((t - 0.50) / 0.65)
+        line_h = int(self.f_head.size * 1.32)
         for idx, ln in enumerate(self.lines):
             if idx == self.hl_idx and hl_prog > 0.01:
                 tw = int(self.f_head.getlength(ln))
-                hx0 = x0 + pad - 10
-                hx1 = hx0 + int((tw + 20) * hl_prog)
-                hy0 = ty - 4
-                hy1 = ty + self.f_head.size + 10
-                d.rounded_rectangle((hx0, hy0, max(hx0 + 4, hx1), hy1), radius=8, fill=(255, 224, 54, 235))
-            d.text((x0 + pad, ty), ln, font=self.f_head, fill=(22, 24, 30, 255))
-            ty += line_h
+                hx0 = pad - 8
+                hx1 = hx0 + int((tw + 16) * hl_prog)
+                hy0 = y - 3
+                hy1 = y + self.f_head.size + 8
+                d.rounded_rectangle((hx0, hy0, max(hx0 + 4, hx1), hy1), radius=6, fill=(255, 224, 48, 230))
+            d.text((pad, y), ln, font=self.f_head, fill=ink_dark)
+            y += line_h
 
-        # Subtle scale entrance + slow zoom drift
-        sc = (0.90 + 0.10 * min(1.03, enter)) * (1.0 + 0.025 * (t / self.dur))
+        y += 10
+        d.line([(pad, y), (card_w - pad, y)], fill=(165, 158, 148, 220), width=2)
+        y += 14
+
+        # Realistic 2-Column Newsprint Article Body (fills remaining broadsheet cleanly)
+        mid_x = card_w // 2
+        col_gap = int(card_w * 0.03)
+        col1_x = pad
+        col2_x = mid_x + col_gap // 2
+        body_lh = int(self.f_body.size * 1.38)
+        max_body_y = card_h - pad
+        # Vertical column divider rule
+        d.line([(mid_x, y), (mid_x, max(y + 10, max_body_y - 6))], fill=(180, 174, 162, 190), width=1)
+
+        cy1 = y
+        for bl in self.col_left:
+            if cy1 + body_lh > max_body_y:
+                break
+            d.text((col1_x, cy1), bl, font=self.f_body, fill=ink_faint)
+            cy1 += body_lh
+
+        cy2 = y
+        for bl in self.col_right:
+            if cy2 + body_lh > max_body_y:
+                break
+            d.text((col2_x, cy2), bl, font=self.f_body, fill=ink_faint)
+            cy2 += body_lh
+
+        # Composite shadow + realistic newspaper clipping onto dark grunge backdrop
+        layer = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        _draw_shadow_box(layer, (x0, y0, x0 + card_w, y0 + card_h), radius=6, fill=(238, 232, 218, 255), shadow_alpha=145, blur=26)
+        layer.alpha_composite(paper, (x0, y0))
+
+        sc = (0.91 + 0.09 * min(1.03, enter)) * (1.0 + 0.03 * (t / self.dur))
         if abs(sc - 1.0) > 0.002:
             nw, nh = max(2, int(W * sc)), max(2, int(H * sc))
             scaled = layer.resize((nw, nh), Image.Resampling.BILINEAR)
@@ -184,9 +267,8 @@ class NewsHighlightCard:
         else:
             base.alpha_composite(layer)
 
-        # v3.47 VOX/JOHNNY HARRIS SUBTLE FLOATING TILT (2.0 -> 0.6 deg)
         try:
-            _ang = 2.0 - 1.4 * min(1.0, t / max(0.8, self.dur * 0.7))
+            _ang = 1.8 - 1.2 * min(1.0, t / max(0.8, self.dur * 0.7))
             _rot = base.rotate(_ang, resample=Image.BICUBIC, expand=False)
             _z = 1.04
             _zw, _zh = int(W * _z), int(H * _z)

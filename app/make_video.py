@@ -119,6 +119,14 @@ def read_script(path):
         s = ln.strip()
         if not s:
             continue
+        # v4.13: strip stray LLM markdown bold/italic (** / __) so '2 अपडेट**' never leaks on screen
+        s = re.sub(r"\*{2,}|_{2,}", "", s).strip()
+        if s.startswith("*") and not s.startswith("* "):
+            s = s.lstrip("*").strip()
+        if s.endswith("*"):
+            s = s.rstrip("*").strip()
+        if not s:
+            continue
         if s.startswith("##"):
             name = s.lstrip("#").strip()
             if name: SECTIONS.append((len(lines), name))

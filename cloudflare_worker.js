@@ -19,7 +19,7 @@ const KEYBOARD = {
 };
 
 const BOT_COMMANDS = [
-  { command: "trends", description: "🔥 Viral Shorts (9:16) & Long (5-6m) topics + script" },
+  { command: "trends", description: "🔥 Alag SHORT & LONG (5-6m) viral topics + Influencer/Nitish-Dhruv" },
   { command: "planner", description: "📈 Auto-Pilot Winner Category & Views Tracker" },
   { command: "republish", description: "📂 Last 10 videos (Cover+Story) 1-tap Re-Upload" },
   { command: "publish", description: "📤 Purani 20-200MB video catbox link se publish" },
@@ -252,7 +252,7 @@ export default {
     if (tl === "/start" || tl === "/menu") {
       await tgApi(env, "setMyCommands", { commands: BOT_COMMANDS });
       await tgReply(env.TG_TOKEN, chatId,
-        "☁️ VideoTool Cloud v4.12 Auto-Pilot LIVE hai!\n✅ Telegram '/' command menu aur neeche ke buttons dono update ho gaye hain:", true);
+        "☁️ VideoTool Cloud v4.13 Auto-Pilot LIVE hai!\n✅ Short/Long alag Trends, Influencer category, Full-Screen Shorts aur Realistic Newspaper sab active hain:", true);
       return new Response("ok", { status: 200 });
     }
     if (tl === "/guide" || text.includes("/guide")) {
@@ -741,45 +741,59 @@ const TREND_CATEGORIES = {
   facts: {
     label: "🧠 Facts & Science",
     modeHint: "science | history | mystery | general",
-    visualRule: "Use exact real-world objects, places, historical photos, or science scenes.",
-    handles: null, // uses saved /competitors list (DEFAULT_COMPETITORS)
+    visualRule: "Use exact real-world objects, places, NASA/wildlife/science HD scenes — NEVER abstract words like shocked face or question mark.",
+    shortHandles: null, // uses saved /competitors list (DEFAULT_COMPETITORS)
+    longHandles: ["@FactTechz", "@GauravThakur-GSF", "@GetsetflySCIENCE", "@AntarikshTV", "@zemtv", "@VigyanTvIndia"],
+  },
+  business: {
+    label: "💼 Business & History",
+    modeHint: "business | history | mystery",
+    visualRule: "CRITICAL FOR BUSINESS/HISTORY (Nitish Rajput / Dhruv Rathee style): Name the exact company, founder, monument, map, or news event (e.g., 'tata motors factory line', 'indian parliament building delhi').",
+    shortHandles: ["@ThinkSchool", "@A2Motivation", "@NitishRajput", "@dhruvrathee", "@LabourLawAdvisor", "@warikoo"],
+    longHandles: ["@NitishRajput", "@dhruvrathee", "@ThinkSchool", "@GauravThakur-GSF", "@MohakMangal", "@StudyIQEducationLtd"],
+  },
+  influencer: {
+    label: "🔥 Influencer & Creator News",
+    modeHint: "influencer | news",
+    visualRule: "CRITICAL FOR INFLUENCER NEWS: Name the exact creator, event, stage, podcast studio, or platform screen in every '||' hint (e.g., 'bhuvan bam stage event', 'carryminati gaming setup', 'youtube studio analytics mobile') — NEVER generic 'shocked face' or 'subscribe screen'.",
+    shortHandles: ["@NeonMan", "@NeuzBoy", "@TriggeredInsaan", "@FukraInsaan", "@TechBurnerShorts", "@ManojDey"],
+    longHandles: ["@NeonMan", "@NeuzBoy", "@MohakMangal", "@NitishRajput", "@dhruvrathee", "@DecodingYT"],
   },
   tech: {
-    label: "📱 Tech & Gadgets",
-    modeHint: "technology",
-    visualRule: "CRITICAL FOR TECH: Every '||' visual hint MUST include the EXACT smartphone/gadget/software model name (e.g., 'iphone 17 pro camera closeup', 'samsung s26 ultra screen', 'android 16 feature demo') so exact product visuals load — NEVER generic words like 'smartphone' or 'technology'.",
-    handles: ["@TechBurner", "@TechnicalGuruji", "@TrakinTech", "@TechBar", "@GyanTherapy", "@Beebom"],
+    label: "📱 Tech & AI Updates",
+    modeHint: "technology | news",
+    visualRule: "CRITICAL FOR TECH/AI/UPDATES: Every '||' visual hint MUST include the EXACT smartphone, app, or AI tool name (e.g., 'iphone 17 pro camera closeup', 'instagram reels screen', 'chatgpt app interface') — NEVER generic 'technology' or 'view counter'.",
+    shortHandles: ["@TechBurner", "@TrakinTech", "@TechBar", "@ManojDey", "@CreatorSearch2", "@TechnicalYogi"],
+    longHandles: ["@TechBurner", "@TechnicalGuruji", "@GyanTherapy", "@Beebom", "@DecodingYT", "@aiuncovered"],
   },
   movies: {
     label: "🎬 Movies & Reviews",
     modeHint: "influencer",
     visualRule: "CRITICAL FOR MOVIES: Every '||' visual hint MUST include the EXACT movie/web-series title or lead actor/scene name (e.g., 'pushpa 2 trailer action', 'kalki movie scene closeup') and keep narration 100% original review/breakdown style (copyright-safe).",
-    handles: ["@PJExplained", "@FilmiIndian", "@YogiBoltaHai", "@ComicVerse", "@BnfTV", "@MenOfCulture"],
+    shortHandles: ["@PJExplained", "@FilmiIndian", "@YogiBoltaHai", "@ComicVerse", "@BnfTV", "@MenOfCulture"],
+    longHandles: ["@PJExplained", "@FilmiIndian", "@YogiBoltaHai", "@ComicVerse", "@BnfTV", "@TriedRefusedProductions"],
   },
   updates: {
-    label: "🚀 YT / IG / AI Updates",
+    label: "📱 Tech & AI Updates",
     modeHint: "technology | news",
-    visualRule: "CRITICAL FOR APP/PLATFORM UPDATES: Every '||' visual hint MUST name the EXACT platform/app screen or AI tool (e.g., 'instagram reels interface screen', 'youtube studio analytics mobile', 'whatsapp new update feature', 'chatgpt app screen').",
-    handles: ["@ManojDey", "@CreatorSearch2", "@TechnicalYogi", "@DecodingYT", "@TechBurnerShorts", "@aiuncovered"],
-  },
-  business: {
-    label: "💼 Business & History",
-    modeHint: "business | history | mystery",
-    visualRule: "CRITICAL FOR BUSINESS/HISTORY: Every '||' visual hint MUST name the exact company, founder, currency, historical monument, map, or news event (e.g., 'mukesh ambani reliance office', 'india stock market chart screen', 'ancient mughal fort delhi').",
-    handles: ["@NitishRajput", "@ThinkSchool", "@dhruvrathee", "@GauravThakur-GSF", "@A2Motivation"],
+    visualRule: "CRITICAL FOR APP/PLATFORM UPDATES: Every '||' visual hint MUST name the EXACT platform/app screen or AI tool.",
+    shortHandles: ["@ManojDey", "@CreatorSearch2", "@TechnicalYogi", "@DecodingYT", "@TechBurnerShorts", "@aiuncovered"],
+    longHandles: ["@DecodingYT", "@ManojDey", "@TechnicalYogi", "@TechBurner", "@GyanTherapy", "@aiuncovered"],
   },
   mix: {
     label: "🌍 Mix All (Top Viral)",
-    modeHint: "technology | science | news | influencer | history | mystery",
-    visualRule: "Include the exact product/movie/app/person/place name in every '||' visual hint so exact visuals load.",
-    handles: ["@FactsMine", "@FactTechz", "@TechBurner", "@TrakinTech", "@PJExplained", "@FilmiIndian", "@ManojDey", "@NitishRajput"],
+    modeHint: "science | business | history | influencer | technology | mystery",
+    visualRule: "Include the exact concrete person/object/place/app name in every '||' visual hint so sharp HD visuals load.",
+    shortHandles: ["@FactsMine", "@FactTechz", "@TechBurner", "@PJExplained", "@NeonMan", "@ThinkSchool", "@ManojDey"],
+    longHandles: ["@NitishRajput", "@dhruvrathee", "@ThinkSchool", "@GauravThakur-GSF", "@FactTechz", "@PJExplained", "@MohakMangal"],
   },
 };
 
-async function scanCompetitorTrends(env, catKey = "facts", excludeIds = []) {
+async function scanCompetitorTrends(env, catKey = "facts", excludeIds = [], fmt = "SHORT") {
   const ytKey = (env.YOUTUBE_KEY || "").trim();
+  const isLongFmt = String(fmt || "SHORT").toUpperCase() === "LONG";
   const cat = TREND_CATEGORIES[catKey] || TREND_CATEGORIES.facts;
-  let handles = cat.handles;
+  let handles = isLongFmt ? (cat.longHandles || cat.shortHandles) : (cat.shortHandles || cat.longHandles);
   if (!handles) {
     const cur = await readGhJson(env, COMP_PATH, DEFAULT_COMPETITORS);
     handles = (Array.isArray(cur.data) && cur.data.length ? cur.data : DEFAULT_COMPETITORS).slice(0, 10);
@@ -802,10 +816,10 @@ async function scanCompetitorTrends(env, catKey = "facts", excludeIds = []) {
   const chans = (await Promise.all(chanTasks)).filter(Boolean);
   if (!chans.length) return { items: [], recycled: false };
 
-  // 2) Fetch last 12 uploads per channel (same 1 quota unit -> deep fresh pool for Refresh!)
+  // 2) Fetch last 15 uploads per channel (fresh recent videos only!)
   const vidTasks = chans.map(async (c) => {
     try {
-      const r = await fetchWithTimeout(`https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId=${encodeURIComponent(c.uploads)}&maxResults=12&key=${encodeURIComponent(ytKey)}`, {}, 6000);
+      const r = await fetchWithTimeout(`https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId=${encodeURIComponent(c.uploads)}&maxResults=15&key=${encodeURIComponent(ytKey)}`, {}, 6000);
       if (!r.ok) return [];
       const j = await r.json();
       return (j.items || []).map(x => ({ id: x.contentDetails && x.contentDetails.videoId, channel: c.name, handle: c.handle })).filter(x => x.id);
@@ -831,30 +845,42 @@ async function scanCompetitorTrends(env, catKey = "facts", excludeIds = []) {
   }
 
   const now = Date.now();
-  const all = [];
+  const strictAll = [];
+  const relaxedAll = [];
   for (const v of vItems) {
     const dur = parseIsoDurationSec(v.contentDetails && v.contentDetails.duration);
-    // Tech/Movie/Updates channels also make 1-12 min explainers we can turn into crisp Shorts!
-    const maxDur = (catKey === "facts") ? 210 : 720;
-    if (dur < 12 || dur > maxDur) continue;
     const pubMs = Date.parse((v.snippet && v.snippet.publishedAt) || "");
     const ageH = Math.max(6, (now - (pubMs || now)) / 3600000);
+    const ageDays = Math.round(ageH / 24);
+    // Reject outdated > 18 months old videos so trends stay modern (2025-2026 style)
+    if (ageDays > 540) continue;
     const views = Number((v.statistics && v.statistics.viewCount) || 0);
     if (views < 1000) continue;
     const meta = idMap.get(v.id) || {};
-    all.push({
+    const entry = {
       id: v.id,
       title: (v.snippet && v.snippet.title) || "Untitled",
       channel: meta.channel || (v.snippet && v.snippet.channelTitle) || "",
       handle: meta.handle || "",
       catKey,
+      fmt: isLongFmt ? "LONG" : "SHORT",
       views,
       dur,
-      ageDays: Math.round(ageH / 24),
+      ageDays,
       velScore: views / Math.pow(ageH, 0.85),
       url: `https://www.youtube.com/watch?v=${v.id}`,
-    });
+    };
+    if (isLongFmt) {
+      // LONG mode: strictly 4 min to 40 min source explainers/documentaries (Nitish Rajput, Dhruv Rathee, Think School)
+      if (dur >= 240 && dur <= 2400) strictAll.push(entry);
+      else if (dur >= 150 && dur <= 3600) relaxedAll.push(entry);
+    } else {
+      // SHORT mode: strictly Shorts (12s to 95s)
+      if (dur >= 12 && dur <= 95) strictAll.push(entry);
+      else if (dur >= 12 && dur <= 180) relaxedAll.push(entry);
+    }
   }
+  const all = strictAll.length >= 4 ? strictAll : [...strictAll, ...relaxedAll];
 
   // Outlier Viral Score (views / channel median)
   const byCh = new Map();
@@ -876,8 +902,9 @@ async function scanCompetitorTrends(env, catKey = "facts", excludeIds = []) {
     x.score = x.velScore * Math.min(4.0, Math.sqrt(mult));
   }
 
-  // Prefer last 45 days; filter out already seen/used videos on Refresh!
-  const recent = all.filter(x => x.ageDays <= 45);
+  // Prefer fresh recent videos (SHORT: <= 60 days, LONG: <= 180 days)
+  const maxFreshDays = isLongFmt ? 180 : 60;
+  const recent = all.filter(x => x.ageDays <= maxFreshDays);
   const basePool = recent.length >= 5 ? recent : all;
   const freshPool = basePool.filter(x => !seenSet.has(x.id));
   const recycled = freshPool.length < 3 && basePool.length > 0;
@@ -902,17 +929,17 @@ async function showTrendCategoryMenu(env, chatId, editMsgId = null, fmt = "SHORT
   const isLong = String(fmt || "SHORT").toUpperCase() === "LONG";
   const modeTag = isLong ? "L" : "S";
   const txt = isLong
-    ? "🎬 /trends [LONG 5–6 min, 16:9] — Kis Category Ke Viral Documentary Topics Scan Karun?\n\nProven 6-block Hindi documentary script (750–900 words) + exact '||' visual hints banenge:"
-    : "⚡ /trends [SHORT 9:16, 45–55s] — Kis Category Ke Viral Topics Scan Karun?\n\nProven 4-block viral hook script + exact '||' visual hints banenge (🔄 Refresh par hamesha 5 NAYE topics!):";
+    ? "🎬 /trends [LONG 5–6 min, 16:9] — Kis Category Ke Latest Viral Documentary Topics Scan Karun?\n\nNitish Rajput / Dhruv Rathee style strict 5–6 min (750–900 words) Hindi script + realistic newspaper/maps banenge:"
+    : "⚡ /trends [SHORT 9:16, 45–55s] — Kis Category Ke Latest Viral Shorts Scan Karun?\n\n0–3s viral hook + full-screen visuals + exact '||' hints banenge (🔄 Refresh par hamesha 5 NAYE topics!):";
   const kb = {
     inline_keyboard: [
       [
         { text: isLong ? "⚡ Switch to SHORT (9:16)" : "✅ SHORT (9:16)", callback_data: "tr:fmt:SHORT" },
         { text: isLong ? "✅ LONG (5-6m 16:9)" : "🎬 Switch to LONG (5-6m)", callback_data: "tr:fmt:LONG" },
       ],
-      [{ text: "🧠 Facts & Science", callback_data: `tr:cat:facts:${modeTag}` }, { text: "📱 Tech & Gadgets", callback_data: `tr:cat:tech:${modeTag}` }],
-      [{ text: "🎬 Movies & Reviews", callback_data: `tr:cat:movies:${modeTag}` }, { text: "🚀 YT / IG / AI Updates", callback_data: `tr:cat:updates:${modeTag}` }],
-      [{ text: "💼 Business & History", callback_data: `tr:cat:business:${modeTag}` }, { text: "🌍 Mix All", callback_data: `tr:cat:mix:${modeTag}` }],
+      [{ text: "🧠 Facts & Science", callback_data: `tr:cat:facts:${modeTag}` }, { text: "💼 Business & History", callback_data: `tr:cat:business:${modeTag}` }],
+      [{ text: "🔥 Influencer News", callback_data: `tr:cat:influencer:${modeTag}` }, { text: "📱 Tech & AI Updates", callback_data: `tr:cat:tech:${modeTag}` }],
+      [{ text: "🎬 Movies & Reviews", callback_data: `tr:cat:movies:${modeTag}` }, { text: "🌍 Mix All", callback_data: `tr:cat:mix:${modeTag}` }],
     ],
   };
   if (editMsgId) {
@@ -923,8 +950,10 @@ async function showTrendCategoryMenu(env, chatId, editMsgId = null, fmt = "SHORT
 }
 
 async function runTrendsForCategory(env, chatId, catKey = "facts", isRefresh = false, editMsgId = null, fmt = "SHORT") {
+  const isLongFmt = String(fmt || "SHORT").toUpperCase() === "LONG";
+  const fmtLabel = isLongFmt ? "LONG 5–6m" : "SHORT 9:16";
   const cat = TREND_CATEGORIES[catKey] || TREND_CATEGORIES.facts;
-  const waitTxt = `🔥 ${cat.label} ke ${isRefresh ? "NAYE viral topics" : "top viral videos"} scan kar raha hoon (~5 sec)...`;
+  const waitTxt = `🔥 [${fmtLabel}] ${cat.label} ke ${isRefresh ? "NAYE viral topics" : "latest viral videos"} scan kar raha hoon (~5 sec)...`;
   let waitMsgId = editMsgId;
   if (waitMsgId) {
     await tgApi(env, "editMessageText", { chat_id: chatId, message_id: waitMsgId, text: waitTxt });
@@ -933,39 +962,41 @@ async function runTrendsForCategory(env, chatId, catKey = "facts", isRefresh = f
     waitMsgId = waitRes.ok ? ((await waitRes.json()).result || {}).message_id : null;
   }
 
+  const cacheKey = `${catKey}_${isLongFmt ? "LONG" : "SHORT"}`;
   const prev = await readGhJson(env, TRENDS_CACHE_PATH, { items: [], seenByCat: {} });
   const seenByCat = (prev.data && prev.data.seenByCat && typeof prev.data.seenByCat === "object") ? { ...prev.data.seenByCat } : {};
-  const prevSeen = Array.isArray(seenByCat[catKey]) ? seenByCat[catKey] : [];
-  const prevIds = (prev.data && Array.isArray(prev.data.items) && prev.data.catKey === catKey)
+  const prevSeen = Array.isArray(seenByCat[cacheKey]) ? seenByCat[cacheKey] : [];
+  const prevIds = (prev.data && Array.isArray(prev.data.items) && prev.data.catKey === catKey && prev.data.fmt === (isLongFmt ? "LONG" : "SHORT"))
     ? prev.data.items.map(x => x.id).filter(Boolean) : [];
   const excludeIds = isRefresh ? Array.from(new Set([...prevSeen, ...prevIds])) : prevSeen;
 
-  const scan = await scanCompetitorTrends(env, catKey, excludeIds);
+  const scan = await scanCompetitorTrends(env, catKey, excludeIds, isLongFmt ? "LONG" : "SHORT");
   const trends = scan.items || [];
   if (!trends.length) {
-    const errTxt = `❌ ${cat.label} me abhi koi trending video nahi mili (YOUTUBE_KEY quota check karein).`;
+    const errTxt = `❌ [${fmtLabel}] ${cat.label} me abhi koi fresh trending video nahi mili (YOUTUBE_KEY quota ya doosri category try karein).`;
     if (waitMsgId) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: waitMsgId, text: errTxt });
     else await tgReply(env.TG_TOKEN, chatId, errTxt, true);
     return;
   }
 
   const newIds = trends.map(v => v.id);
-  seenByCat[catKey] = scan.recycled
+  seenByCat[cacheKey] = scan.recycled
     ? newIds
     : Array.from(new Set([...excludeIds, ...newIds])).slice(-50);
 
-  const isLongFmt = String(fmt || "SHORT").toUpperCase() === "LONG";
   const taggedTrends = trends.map(v => ({ ...v, fmt: isLongFmt ? "LONG" : "SHORT" }));
-  await writeGhJson(env, TRENDS_CACHE_PATH, { items: taggedTrends, catKey, fmt: isLongFmt ? "LONG" : "SHORT", seenByCat, ts: Date.now() }, prev.sha, `trends ${catKey}`);
+  await writeGhJson(env, TRENDS_CACHE_PATH, { items: taggedTrends, catKey, fmt: isLongFmt ? "LONG" : "SHORT", seenByCat, ts: Date.now() }, prev.sha, `trends ${cacheKey}`);
 
   const lines = [
-    `🔥 ${cat.label} — Top 5 ${isRefresh ? "NAYE " : ""}Viral Topics${scan.recycled ? " (Pool reset ✓)" : ""}:\n`,
+    `🔥 [${fmtLabel}] ${cat.label} — Top 5 ${isRefresh ? "NAYE " : ""}Viral Topics${scan.recycled ? " (Pool reset ✓)" : ""}:\n`,
   ];
   trends.forEach((v, i) => {
     const badge = v.outlierMult ? ` • 🔥 ${v.outlierMult}x (${v.viralRating}/10)` : "";
     lines.push(`${i + 1}️⃣ ${v.title.slice(0, 72)}\n   📺 ${v.channel} • 👁 ${fmtViews(v.views)} (${v.ageDays}d)${badge}\n   🔗 ${v.url}`);
   });
-  lines.push("\n👇 Number tap karo (100% original Hindi script + exact visuals hints banenge — approval ke baad hi video banegi):");
+  lines.push(isLongFmt
+    ? "\n👇 Number tap karo (STRICT 5–6 min Nitish/Dhruv style Hindi documentary script + realistic newspaper/maps hints banenge):"
+    : "\n👇 Number tap karo (100% original Hindi Short script + viral hook + exact visuals hints banenge):");
 
   const kb = {
     inline_keyboard: [
@@ -1184,6 +1215,7 @@ async function callGeminiTrendScript(env, video, rewrite = false) {
   if (!keys.length && !groqKeys.length) return { text: "", error: "GEMINI_KEY aur GROQ_KEY dono missing hain" };
 
   const isLongVideo = String((video && video.fmt) || "SHORT").toUpperCase() === "LONG";
+  const curYear = new Date().getFullYear();
   const catRule = (TREND_CATEGORIES[(video && video.catKey) || "facts"] || TREND_CATEGORIES.facts).visualRule;
   const basePrompt = isLongVideo ? `You are India's #1 viral Hindi Documentary Scriptwriter (Dhruv Rathee / Nitish Rajput pacing) for "The Viral Gyaan".
 TASK:
@@ -1194,7 +1226,7 @@ TASK:
    - Real numbers, dates, proof & climax reveal
    - Short engaging comment-question CTA at the end
 3) UNIVERSAL VISUAL HINT & DIGIT RULES (CRITICAL — FOLLOW FOR EVERY LINE):
-   - ALWAYS write ALL numbers & years in ENGLISH digits (e.g., 1999, 2026, 10 Billion — NEVER Hindi digits like १९९९!).
+   - CURRENT YEAR IS ${curYear}. NEVER refer to ${curYear - 2} as "this year" or outdated timelines. ALWAYS write ALL numbers & years in ENGLISH digits (e.g., 1999, ${curYear}, 10 Billion — NEVER Hindi digits like १९९९! NEVER use markdown ** bold asterisks!).
    - Put 2-4 simple lowercase English CONCRETE PHYSICAL CAMERA words after "||" (Object + Action + Setting). STRICTLY FORBIDDEN: abstract words ("secret", "concerned", "question mark", "subscribe animation", "reconstruction", "interview", "chart") and fictional/unknown names.
    - Last CTA line MUST end with "|| <cinematic hero closing visual of main topic>".
    - Apply category-matched documentary editing tags ([map:], [news:], [impact], [ding], [ink] max 5 total).
@@ -1216,15 +1248,15 @@ TITLE: <45-60 char high-CTR Hindi SEO title> | <2-4 bold Hindi thumbnail words>
 TASK:
 1) Study this reference viral YouTube Short. Focus ONLY on the factual topic and WHAT REAL FOOTAGES, IMAGES, OBJECTS, PEOPLE, AND SCENES best explain it.
 2) Write a 100% ORIGINAL, 100% FACTUAL Hindi YouTube Short script (40-55 sec) using the proven 4-Block Viral Retention Formula:
-   - Line 1 (0-3s): Shock/Curiosity Hook (ZERO slow intro!)
+   - Line 1 (0-3s): Scroll-Stopper Curiosity/Shock Hook (a bold question or surprising fact that stops thumb-scroll in 2 seconds — ZERO slow intro, ZERO broken numbering, ZERO ** markdown!)
    - Lines 2-8: Fast Escalation with 2-3 concrete numbers/facts
    - Lines 9-14: Unexpected Twist / Big Reveal
    - Final Line: Ultra-short 2-sec CTA
    (NEVER copy/translate, and NEVER invent fake app features or fake stats${rewrite ? " — use a COMPLETELY DIFFERENT opening hook and angle than before" : ""}).
 3) UNIVERSAL VISUAL HINT & DIGIT RULES (CRITICAL — FOLLOW FOR EVERY LINE):
-   - ALWAYS write ALL numbers & years in ENGLISH digits (e.g., 1999, 2026, 15 Lakh, 230°C — NEVER Hindi digits like १९९९!).
+   - CURRENT YEAR IS ${curYear}. NEVER use outdated years like ${curYear - 2} as current! ALWAYS write ALL numbers & years in ENGLISH digits (e.g., 1999, ${curYear}, 15 Lakh, 230°C — NEVER Hindi digits like १९९९! NEVER use markdown ** bold!).
    - Put 2-4 simple lowercase English CONCRETE PHYSICAL CAMERA words after "||" (Object + Action + Setting, e.g., "grey wolf pack snow", "airplane cockpit night lights", "iphone 17 pro closeup").
-   - STRICTLY FORBIDDEN in "||" hints: abstract/unfilmable words ("truth", "secret", "concerned", "question mark", "subscribe animation", "reconstruction", "reenactment", "interview", "chart") and fictional/unknown personal names (use real physical scene instead!).
+   - STRICTLY FORBIDDEN in "||" hints: abstract/unfilmable/garbage words ("shocked face", "view counter", "calendar", "locked door", "truth", "secret", "concerned", "question mark", "subscribe animation", "thank you for watching", "reconstruction", "reenactment", "interview", "chart") and fictional/unknown personal names (use concrete HD real-world scenes instead!).
    - Last Subscribe CTA line MUST also end with "|| <hero closing visual of main topic>" (e.g., "|| wolf howling full moon").
    - Match category editing DNA with tasteful tags (Science: counters+[ding]/[impact]; Business/History/Mystery: [map:]/[news:]/[ink]; Tech/Updates: [typing]/[whoosh]; Movies: [impact]/[ink]).
 ${catRule}
@@ -1394,9 +1426,12 @@ async function handleTrendCallback(env, cq) {
         if (msgId) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: msgId, text: "⚠️ Draft script nahi mili. Dobara 🔥 /trends chalao." });
         return;
       }
-      const res = await enqueueOrStart(env, [{ script: dr.data.script, mode: "SHORT", ts: Date.now() }]);
+      const cleanDraftScript = String(dr.data.script || "").replace(/\*{2,}/g, "");
+      const isLongDraft = /^LONG\b/im.test(cleanDraftScript) || (dr.data.video && String(dr.data.video.fmt || "").toUpperCase() === "LONG");
+      const runMode = isLongDraft ? "LONG" : "SHORT";
+      const res = await enqueueOrStart(env, [{ script: cleanDraftScript, mode: runMode, ts: Date.now() }]);
       const reply = res.started > 0
-        ? "🚀 Approved! SHORT video cloud par shuru ho gayi hai!\nBante hi video + Cover + Story + Auto-Publish buttons yahin aayenge."
+        ? `🚀 Approved! ${runMode === "LONG" ? "LONG (5–6 min, 16:9)" : "SHORT (9:16)"} video cloud par shuru ho gayi hai!\nBante hi video + Cover + Story + Auto-Publish buttons yahin aayenge.`
         : (res.queued > 0
           ? `📋 Approved! Queue me lag gayi (queue: ${res.queueLen}). Pehli video khatam hote hi apne aap chalegi.`
           : "❌ GitHub render trigger fail ho gaya.");
