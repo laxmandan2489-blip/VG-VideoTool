@@ -1,3 +1,10 @@
+v4.03 (🧠 SAMJHA AI FIX + 📣 META FB/IG AUTO-PUBLISH FIX + ⚠️ /TRENDS FACT GUARD + CUMULATIVE v4.01–v4.02):
+🧠 Samjha AI Brain Fix (app/free_ai.py): Groq backup me naye 2026 models (qwen3.8-27b -> qwen3.6-27b -> gpt-oss-120b -> gpt-oss-20b) + reasoning_effort ('none' for Qwen3, 'low' for GPT-OSS) lagaye — ab Gemini 503 par bhi `samajh: ai` chalega aur har line ka `Samjha:` bhara aayega (visuals bohot zyada accurate baithenge; visual_brain.py 0% untouched!).
+📣 Facebook #200 Permission Fix (cloudflare_worker.js): FB Reels/Videos upload se pehle System User token se automatically "The Viral Gyaan" ka Page Access Token fetch hota hai — #200 error khatam!
+📸 Instagram Story & Reel Media Bridge (cloud_run.py + cloudflare_worker.js): Cloudflare Worker ab khud clean `image/jpeg` aur `video/mp4` stream (/media/tg/... & /media/proxy) Meta ko deta hai (litterbox/qu.ax crawler block khatam!) + auto-retry without cover_url + exact Meta status error reporting.
+⚠️ /trends Anti-Hallucination & No-Transcript Fact Warning (cloudflare_worker.js): Transcript na milne par saaf warning aayegi aur AI kabhi fake features invent nahi karega.
+📦 Cumulative v4.01–v4.02 included: Gemini 3.8 Charon pure-Hindi voice fix, YouTube Copyright Screenshot Shield, 1-tap `/log` downloadable files, reversible `/vfilter` toggle, aur Groq live auto-discovery.
+
 v4.02 (🎙️ GEMINI 3.8 VOICE FIX + 🛡️ COPYRIGHT SCREENSHOT SHIELD + 📋 1-TAP /log FILE + 🎨 REVERSIBLE /vfilter + CUMULATIVE v4.01):
 🎙️ Gemini 3.8 TTS Voice Prompt Fix (app/voice.py): Gemini 3.8+ TTS ko ab sirf 100% pure Hindi script bheji jaati hai — English style prompt kabhi zor se nahi bolega, aur Charon voice clean/deep Hindi me locked rahegi!
 🛡️ Universal YouTube Copyright & Screenshot-Only Shield (app/yt_clips.py + app/visual_pick.py): News channels (Aaj Tak, ABP, NDTV, Zee, BBC, CNN, etc.), OTT/Movies/Music (T-Series, Netflix, Prime, SonyLIV, Hotstar, Zee5, YRF, Dharma, Disney, Marvel, HBO) aur Sports broadcasts ki video clip 0% download nahi hogi — har line ke liye alag timestamp ka crisp HD screenshot (.jpg) smooth motion ke saath lagega!

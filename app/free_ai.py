@@ -105,8 +105,8 @@ def available(keys):
 
 # ------------------------------------------------------------------ v3.12: TEXT backup (Gemini limit khatam ho to)
 _TMODELS = {}
-TEXT_PREF = ("llama-3.3-70b", "gpt-oss-120b", "deepseek-v3", "deepseek-chat", "qwen3-235b", "qwen-2.5-72b",
-             "llama-4-maverick", "gemma-3-27b", "mistral-small", "llama-3.1-70b", "qwen3-32b")
+TEXT_PREF = ("qwen3.8-27b", "qwen3.6-27b", "gpt-oss-120b", "gpt-oss-20b", "deepseek-v3", "deepseek-chat",
+             "qwen3-235b", "qwen-2.5-72b", "llama-4-maverick", "gemma-3-27b", "mistral-small")
 
 
 def text_models(prov, key):
@@ -141,18 +141,30 @@ def ask_text(keys, prompt, json_mode=False, temperature=0.4, timeout=60):
     for prov in ("GROQ", "OPENROUTER"):
         key = (keys or {}).get(prov)
         if not key: continue
-        for mid in text_models(prov, key)[:3]:
+        for mid in text_models(prov, key)[:4]:
             body = {"model": mid, "temperature": temperature, "max_tokens": 4000,
                     "messages": [{"role": "user", "content": prompt + ("\n\nReply with valid JSON only." if json_mode else "")}]}
+            if prov == "GROQ":
+                ml = mid.lower()
+                if "qwen3" in ml:
+                    body["reasoning_effort"] = "none"
+                elif "gpt-oss" in ml:
+                    body["reasoning_effort"] = "low"
             try:
                 r = rq.post(PROVIDERS[prov]["base"] + "/chat/completions", json=body, timeout=timeout,
                             headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json", "X-Title": "VG Video Tool"})
+                if r.status_code == 400 and "reasoning_effort" in body:
+                    body.pop("reasoning_effort", None)
+                    r = rq.post(PROVIDERS[prov]["base"] + "/chat/completions", json=body, timeout=timeout,
+                                headers={"Authorization": f"Bearer {key}", "Content-Type": "application/json", "X-Title": "VG Video Tool"})
                 if r.status_code in (400, 404, 422): _DEAD.add(mid); continue
                 if r.status_code in (401, 403):
                     log(f"   {prov} key galat / band ({r.status_code})", show=False); break
                 if r.status_code == 429: continue
                 r.raise_for_status()
-                txt = r.json()["choices"][0]["message"]["content"]
+                txt = (r.json()["choices"][0]["message"].get("content") or "").strip()
+                if not txt:
+                    continue
                 if txt and txt.strip():
                     return txt, f"{'Groq' if prov == 'GROQ' else 'OpenRouter'} ({mid.split('/')[-1][:30]})"
             except Exception as e:

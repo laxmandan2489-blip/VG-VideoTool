@@ -147,8 +147,13 @@ def register_run_log(tg_token, tg_chat, title, mode, status_str, elapsed_str, vr
         print("register_run_log skip:", e)
 
 
+_LAST_TG_PHOTO_FILE_ID = ""
+
+
 def tg_send_photo(token, chat_id, path, caption=""):
-    """v3.93: Send Reel Cover / Designer IG Story photo directly to Telegram."""
+    """v4.03: Send Reel Cover / Designer IG Story photo to Telegram & capture highest-res file_id for Meta Media Bridge."""
+    global _LAST_TG_PHOTO_FILE_ID
+    _LAST_TG_PHOTO_FILE_ID = ""
     p = Path(path) if path else None
     if not (token and chat_id and p and p.exists()) or p.stat().st_size > 10 * 1024 * 1024:
         return False
@@ -160,6 +165,13 @@ def tg_send_photo(token, chat_id, path, caption=""):
                 files={"photo": (p.name, f, "image/jpeg")},
                 timeout=90,
             )
+        if r.ok:
+            try:
+                photos = (r.json().get("result") or {}).get("photo") or []
+                if photos:
+                    _LAST_TG_PHOTO_FILE_ID = str(photos[-1].get("file_id") or "")
+            except Exception:
+                pass
         return r.ok
     except Exception as e:
         print("TG photo error:", e)
@@ -647,11 +659,15 @@ def main():
         try:
             cover_url = None
             story_url = None
+            cover_tg_fid = ""
+            story_tg_fid = ""
             if reel_cover_p and Path(reel_cover_p).exists():
                 tg_send_photo(tg_token, tg_chat, reel_cover_p, "🖼️ Reel Cover Photo (IG Grid Center-Safe)")
+                cover_tg_fid = str(globals().get("_LAST_TG_PHOTO_FILE_ID") or "")
                 cover_url, _ = public_link(reel_cover_p)
             if ig_story_p and Path(ig_story_p).exists():
                 tg_send_photo(tg_token, tg_chat, ig_story_p, "✨ Designer Instagram Story (Curiosity Hook)")
+                story_tg_fid = str(globals().get("_LAST_TG_PHOTO_FILE_ID") or "")
                 story_url, _ = public_link(ig_story_p)
             _title = (vid_meta.get("yt_title") or first_line).strip()
             _desc = (vid_meta.get("yt_description") or _title).strip()
@@ -673,6 +689,8 @@ def main():
                         "tg_file_id": _tg_vid_fid,
                         "cover_url": cover_url or "",
                         "story_url": story_url or "",
+                        "cover_tg_file_id": cover_tg_fid,
+                        "story_tg_file_id": story_tg_fid,
                         "title": _title,
                         "description": _desc + "\n\n" + " ".join(_htags),
                         "ig_caption": _ig_cap,

@@ -111,8 +111,18 @@ const GUIDE_TEXT = `📖 VIRAL GYAAN CLOUD BOT (24×7)
 
 export default {
   async fetch(request, env, ctx) {
+    if (request.method === "GET" || request.method === "HEAD") {
+      const u = new URL(request.url);
+      if (u.pathname.startsWith("/media/tg/")) {
+        return handleTgMediaBridge(env, u.pathname, request.method === "HEAD");
+      }
+      if (u.pathname === "/media/proxy") {
+        return handleProxyMediaBridge(u.searchParams.get("u") || "", u.searchParams.get("t") || "mp4", request.method === "HEAD");
+      }
+      return new Response("VideoTool Cloud Bridge v4.03 is LIVE!", { status: 200 });
+    }
     if (request.method !== "POST") {
-      return new Response("VideoTool Cloud Bridge v3.93 is LIVE!", { status: 200 });
+      return new Response("Method Not Allowed", { status: 405 });
     }
     let update;
     try {
@@ -1107,7 +1117,7 @@ async function callGeminiTrendScript(env, video, rewrite = false) {
   const basePrompt = `You are India's #1 viral Hindi YouTube Shorts Director for "The Viral Gyaan".
 TASK:
 1) Study this reference viral YouTube Short. Ignore competitor editing — focus ONLY on the factual topic and WHAT REAL FOOTAGES, IMAGES, OBJECTS, PEOPLE, AND SCENES best explain it.
-2) Write a 100% ORIGINAL Hindi YouTube Short script on this same viral topic (NEVER copy/translate — use a fresh, gripping hook${rewrite ? " with a COMPLETELY DIFFERENT opening hook and angle than before" : ""}).
+2) Write a 100% ORIGINAL, 100% FACTUAL Hindi YouTube Short script on this same viral topic (NEVER copy/translate, and NEVER invent fake app features, fake updates, or fake statistics not in the reference info — use a fresh, gripping hook${rewrite ? " with a COMPLETELY DIFFERENT opening hook and angle than before" : ""}).
 3) For every script line, put camera-exact English visual references after "||" (3-5 simple English words — NO "reconstruction", "reenactment", "examination", "interview", "chart"; NO "[YT]"/"[X]" tags).
 ${(TREND_CATEGORIES[(video && video.catKey) || "facts"] || TREND_CATEGORIES.facts).visualRule}
 
@@ -1313,8 +1323,8 @@ async function handleTrendCallback(env, cq) {
         : (gen.mode === "groq_transcript"
           ? `⚡ Gemini busy (503) tha — Groq backup ne YouTube transcript se original script + visual hints banaye ✓ (${gen.model})`
           : (gen.mode === "groq_topic"
-            ? `⚡ Gemini busy (503) tha — Groq backup ne viral topic se original script + visual hints banaye ✓ (${gen.model})`
-            : `⚡ Viral topic se 100% original script + visual hints banaye ✓ (${gen.model})`)));
+            ? `⚡ Gemini busy (503) tha — Groq backup ne viral topic se script banayi (${gen.model})\n⚠️ Note: Is video ka transcript nahi mila tha (sirf title se bani) — publish se pehle facts zaroor check kar lein!`
+            : `⚡ Viral topic se script banayi (${gen.model})\n⚠️ Note: Is video ka transcript nahi mila tha (sirf title se bani) — publish se pehle facts zaroor check kar lein!`)));
     const preview = `${badge}\n\n${parsed.refs ? "🎬 Visual References:\n" + parsed.refs + "\n\n" : ""}📝 ORIGINAL SCRIPT (Padh kar approve karo):\n\n${parsed.script}`.slice(0, 3950);
     const approveKb = {
       inline_keyboard: [
@@ -1372,6 +1382,8 @@ async function registerPublishCard(env, payload) {
     tg_file_id: payload.tg_file_id || "",
     cover_url: payload.cover_url || "",
     story_url: payload.story_url || "",
+    cover_tg_file_id: payload.cover_tg_file_id || "",
+    story_tg_file_id: payload.story_tg_file_id || "",
     title: payload.title || "The Viral Gyaan",
     description: payload.description || "",
     ig_caption: payload.ig_caption || payload.description || "",
@@ -1404,33 +1416,122 @@ async function registerPublishCard(env, payload) {
   await tgApi(env, "sendMessage", { chat_id: chatId, text: cardText.slice(0, 3900), reply_markup: kb });
 }
 
-async function publishFacebookPage(env, item) {
-  const token = (env.META_ACCESS_TOKEN || "").trim();
-  const pageId = (env.FB_PAGE_ID || "").trim();
-  if (!token || !pageId) return { ok: false, msg: "⚠️ FB skip: Cloudflare me META_ACCESS_TOKEN aur FB_PAGE_ID add karo." };
+const WORKER_PUBLIC_ORIGIN = "https://vg-bots.laxmandan2489.workers.dev";
+
+function buildMetaMediaUrl(tgFileId, fallbackUrl, ext) {
+  const cleanExt = ext === "jpg" ? "jpg" : "mp4";
+  if (tgFileId) {
+    return `${WORKER_PUBLIC_ORIGIN}/media/tg/${encodeURIComponent(tgFileId)}.${cleanExt}`;
+  }
+  if (fallbackUrl) {
+    return `${WORKER_PUBLIC_ORIGIN}/media/proxy?u=${encodeURIComponent(fallbackUrl)}&t=${cleanExt}`;
+  }
+  return "";
+}
+
+async function handleTgMediaBridge(env, pathname, headOnly = false) {
+  const token = (env.TG_TOKEN || "").trim();
+  if (!token) return new Response("missing token", { status: 500 });
+  const raw = pathname.slice("/media/tg/".length);
+  const dot = raw.lastIndexOf(".");
+  const fid = decodeURIComponent(dot > 0 ? raw.slice(0, dot) : raw).trim();
+  const ext = (dot > 0 ? raw.slice(dot + 1) : "jpg").toLowerCase();
+  const ctype = ext === "mp4" ? "video/mp4" : "image/jpeg";
+  if (!fid || fid.length < 10) return new Response("bad file_id", { status: 400 });
   try {
+    const gf = await fetchWithTimeout(`https://api.telegram.org/bot${token}/getFile?file_id=${encodeURIComponent(fid)}`, {}, 8000);
+    const gj = await gf.json();
+    const fpath = gj && gj.ok && gj.result && gj.result.file_path;
+    if (!fpath) return new Response("tg file not found", { status: 404 });
+    const upstream = await fetch(`https://api.telegram.org/file/bot${token}/${fpath}`);
+    if (!upstream.ok) return new Response("tg download fail", { status: 502 });
+    const headers = new Headers({
+      "Content-Type": ctype,
+      "Accept-Ranges": "bytes",
+      "Cache-Control": "public, max-age=3600",
+    });
+    const cl = upstream.headers.get("Content-Length");
+    if (cl) headers.set("Content-Length", cl);
+    return new Response(headOnly ? null : upstream.body, { status: 200, headers });
+  } catch (e) {
+    return new Response("tg bridge err", { status: 502 });
+  }
+}
+
+async function handleProxyMediaBridge(rawUrl, typeHint, headOnly = false) {
+  const target = String(rawUrl || "").trim();
+  if (!/^https?:\/\//i.test(target)) return new Response("bad url", { status: 400 });
+  const ctype = typeHint === "jpg" ? "image/jpeg" : "video/mp4";
+  try {
+    const upstream = await fetch(target, {
+      headers: {
+        "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/128.0.0.0 Safari/537.36",
+        "Accept": "*/*",
+      },
+      redirect: "follow",
+    });
+    if (!upstream.ok) return new Response("upstream fail", { status: 502 });
+    const headers = new Headers({
+      "Content-Type": ctype,
+      "Accept-Ranges": "bytes",
+      "Cache-Control": "public, max-age=3600",
+    });
+    const cl = upstream.headers.get("Content-Length");
+    if (cl) headers.set("Content-Length", cl);
+    return new Response(headOnly ? null : upstream.body, { status: 200, headers });
+  } catch (e) {
+    return new Response("proxy bridge err", { status: 502 });
+  }
+}
+
+async function getFacebookPageToken(systemToken, pageId) {
+  // v4.03 FIX: Facebook Page Reels / Videos API requires a Page Access Token (not raw System User Token -> #200 error)
+  try {
+    const r = await fetchWithTimeout(
+      `https://graph.facebook.com/${GRAPH_VER}/${pageId}?fields=access_token&access_token=${encodeURIComponent(systemToken)}`,
+      {},
+      8000
+    );
+    if (r.ok) {
+      const j = await r.json();
+      if (j && j.access_token) return String(j.access_token).trim();
+    }
+  } catch (e) {
+    // Fallback to provided token if already a Page token
+  }
+  return systemToken;
+}
+
+async function publishFacebookPage(env, item) {
+  const sysToken = (env.META_ACCESS_TOKEN || "").trim();
+  const pageId = (env.FB_PAGE_ID || "").trim();
+  if (!sysToken || !pageId) return { ok: false, msg: "⚠️ FB skip: Cloudflare me META_ACCESS_TOKEN aur FB_PAGE_ID add karo." };
+  try {
+    const pageToken = await getFacebookPageToken(sysToken, pageId);
+    const mediaUrl = buildMetaMediaUrl(item.mode === "SHORT" ? item.tg_file_id : "", item.video_url, "mp4") || item.video_url;
+
     if (item.mode === "LONG") {
       const r = await fetchWithTimeout(`https://graph.facebook.com/${GRAPH_VER}/${pageId}/videos`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ file_url: item.video_url, title: item.title, description: item.ig_caption, access_token: token }),
+        body: JSON.stringify({ file_url: mediaUrl, title: item.title, description: item.ig_caption, access_token: pageToken }),
       }, 22000);
       const j = await r.json();
       if (r.ok && j.id) return { ok: true, msg: `✅ Facebook Video Published (ID: ${j.id})` };
       return { ok: false, msg: `❌ FB Video error: ${(j.error && j.error.message) || r.status}` };
     }
-    // SHORT -> Official Facebook Page Reels 3-step URL flow (0 GitHub minutes!)
+    // SHORT -> Official Facebook Page Reels 3-step URL flow (with Page Access Token!)
     const s1 = await fetchWithTimeout(`https://graph.facebook.com/${GRAPH_VER}/${pageId}/video_reels`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ upload_phase: "start", access_token: token }),
+      body: JSON.stringify({ upload_phase: "start", access_token: pageToken }),
     }, 12000);
     const j1 = await s1.json();
     if (!s1.ok || !j1.video_id) return { ok: false, msg: `❌ FB Reel start fail: ${(j1.error && j1.error.message) || s1.status}` };
 
     const s2 = await fetchWithTimeout(`https://rupload.facebook.com/video-upload/${GRAPH_VER}/${j1.video_id}`, {
       method: "POST",
-      headers: { Authorization: `OAuth ${token}`, file_url: item.video_url },
+      headers: { Authorization: `OAuth ${pageToken}`, file_url: mediaUrl },
     }, 18000);
     if (!s2.ok) {
       const t2 = await s2.text();
@@ -1445,7 +1546,7 @@ async function publishFacebookPage(env, item) {
         video_id: j1.video_id,
         video_state: "PUBLISHED",
         description: item.ig_caption || item.title,
-        access_token: token,
+        access_token: pageToken,
       }),
     }, 12000);
     const j3 = await s3.json();
@@ -1463,13 +1564,14 @@ async function publishInstagramReelAndStory(env, item) {
   const notes = [];
   let pendingContainer = null;
 
-  // 1) Create & Publish Designer Instagram Story (fast image container!)
-  if (item.story_url) {
+  // 1) Create & Publish Designer Instagram Story via Cloudflare clean JPEG Media Bridge
+  const storyBridgeUrl = buildMetaMediaUrl(item.story_tg_file_id, item.story_url, "jpg");
+  if (storyBridgeUrl) {
     try {
       const st1 = await fetchWithTimeout(`https://graph.facebook.com/${GRAPH_VER}/${igId}/media`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ media_type: "STORIES", image_url: item.story_url, access_token: token }),
+        body: JSON.stringify({ media_type: "STORIES", image_url: storyBridgeUrl, access_token: token }),
       }, 10000);
       const sj1 = await st1.json();
       if (st1.ok && sj1.id) {
@@ -1489,16 +1591,19 @@ async function publishInstagramReelAndStory(env, item) {
     }
   }
 
-  // 2) Create & Poll Instagram Reel (with Center-Safe Cover URL!)
-  try {
+  // 2) Create & Poll Instagram Reel via Cloudflare clean MP4 + Cover JPEG Media Bridge
+  const videoBridgeUrl = buildMetaMediaUrl(item.tg_file_id, item.video_url, "mp4") || item.video_url;
+  const coverBridgeUrl = buildMetaMediaUrl(item.cover_tg_file_id, item.cover_url, "jpg");
+
+  const tryCreateAndPollReel = async (includeCover) => {
     const reelBody = {
       media_type: "REELS",
-      video_url: item.video_url,
+      video_url: videoBridgeUrl,
       caption: (item.ig_caption || item.title).slice(0, 2100),
       share_to_feed: true,
       access_token: token,
     };
-    if (item.cover_url) reelBody.cover_url = item.cover_url;
+    if (includeCover && coverBridgeUrl) reelBody.cover_url = coverBridgeUrl;
     const r1 = await fetchWithTimeout(`https://graph.facebook.com/${GRAPH_VER}/${igId}/media`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
@@ -1506,31 +1611,47 @@ async function publishInstagramReelAndStory(env, item) {
     }, 12000);
     const j1 = await r1.json();
     if (!r1.ok || !j1.id) {
-      notes.push(`❌ IG Reel create fail: ${(j1.error && j1.error.message) || r1.status}`);
-      return { ok: false, msg: notes.join("\n") };
+      return { status: "create_fail", err: (j1.error && j1.error.message) || String(r1.status) };
     }
     const cid = j1.id;
-    let ready = false;
     for (let attempt = 0; attempt < 4; attempt++) {
       await new Promise(r => setTimeout(r, 3500));
-      const st = await fetchWithTimeout(`https://graph.facebook.com/${GRAPH_VER}/${cid}?fields=status_code&access_token=${encodeURIComponent(token)}`, {}, 8000);
+      const st = await fetchWithTimeout(
+        `https://graph.facebook.com/${GRAPH_VER}/${cid}?fields=status_code,status&access_token=${encodeURIComponent(token)}`,
+        {},
+        8000
+      );
       if (st.ok) {
         const sj = await st.json();
-        if (sj.status_code === "FINISHED") { ready = true; break; }
-        if (sj.status_code === "ERROR") { notes.push("❌ IG Reel processing error on Meta"); return { ok: false, msg: notes.join("\n") }; }
+        if (sj.status_code === "FINISHED") return { status: "ready", cid };
+        if (sj.status_code === "ERROR") {
+          return { status: "meta_error", err: sj.status || "Meta processing error" };
+        }
       }
     }
-    if (ready) {
+    return { status: "pending", cid };
+  };
+
+  try {
+    let res = await tryCreateAndPollReel(true);
+    // If failed with cover_url, retry once cleanly without cover_url
+    if ((res.status === "create_fail" || res.status === "meta_error") && coverBridgeUrl) {
+      res = await tryCreateAndPollReel(false);
+    }
+    if (res.status === "ready") {
       const pub = await fetchWithTimeout(`https://graph.facebook.com/${GRAPH_VER}/${igId}/media_publish`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ creation_id: cid, access_token: token }),
+        body: JSON.stringify({ creation_id: res.cid, access_token: token }),
       }, 10000);
       const pj = await pub.json();
       notes.push(pub.ok && pj.id ? "✅ Instagram Reel (+ Cover) Published!" : `❌ IG Publish fail: ${(pj.error && pj.error.message) || pub.status}`);
-    } else {
-      pendingContainer = cid;
+    } else if (res.status === "pending") {
+      pendingContainer = res.cid;
       notes.push("⏳ Instagram video abhi Meta par process ho raha hai — 15 sec baad neeche '🔄 Complete IG Reel Publish' dabao!");
+    } else {
+      notes.push(`❌ IG Reel fail: ${res.err}`);
+      return { ok: false, msg: notes.join("\n") };
     }
   } catch (e) {
     notes.push(`❌ IG Reel error: ${String(e).slice(0, 100)}`);
