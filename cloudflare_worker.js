@@ -114,7 +114,7 @@ export default {
     if (request.method === "GET" || request.method === "HEAD") {
       const u = new URL(request.url);
       if (u.pathname.startsWith("/media/tg/")) {
-        return handleTgMediaBridge(env, u.pathname, request.method === "HEAD");
+        return handleTgMediaBridge(env, u.pathname, u.searchParams.get("fb") || "", request.method === "HEAD");
       }
       if (u.pathname === "/media/proxy") {
         return handleProxyMediaBridge(u.searchParams.get("u") || "", u.searchParams.get("t") || "mp4", request.method === "HEAD");
@@ -1418,10 +1418,15 @@ async function registerPublishCard(env, payload) {
 
 const WORKER_PUBLIC_ORIGIN = "https://vg-bots.laxmandan2489.workers.dev";
 
-function buildMetaMediaUrl(tgFileId, fallbackUrl, ext) {
+function buildMetaMediaUrl(tgFileId, fallbackUrl, ext, preferProxyForVideo = true) {
   const cleanExt = ext === "jpg" ? "jpg" : "mp4";
+  // v4.04: For Video (MP4), prioritize Verified Full-HD Master proxy FIRST (0% compression + supports 50-200MB Long Videos!)
+  if (cleanExt === "mp4" && preferProxyForVideo && fallbackUrl) {
+    return `${WORKER_PUBLIC_ORIGIN}/media/proxy?u=${encodeURIComponent(fallbackUrl)}&t=mp4`;
+  }
   if (tgFileId) {
-    return `${WORKER_PUBLIC_ORIGIN}/media/tg/${encodeURIComponent(tgFileId)}.${cleanExt}`;
+    const fbQ = fallbackUrl ? `?fb=${encodeURIComponent(fallbackUrl)}` : "";
+    return `${WORKER_PUBLIC_ORIGIN}/media/tg/${encodeURIComponent(tgFileId)}.${cleanExt}${fbQ}`;
   }
   if (fallbackUrl) {
     return `${WORKER_PUBLIC_ORIGIN}/media/proxy?u=${encodeURIComponent(fallbackUrl)}&t=${cleanExt}`;
@@ -1429,33 +1434,39 @@ function buildMetaMediaUrl(tgFileId, fallbackUrl, ext) {
   return "";
 }
 
-async function handleTgMediaBridge(env, pathname, headOnly = false) {
+async function handleTgMediaBridge(env, pathname, fallbackUrl = "", headOnly = false) {
   const token = (env.TG_TOKEN || "").trim();
-  if (!token) return new Response("missing token", { status: 500 });
   const raw = pathname.slice("/media/tg/".length);
   const dot = raw.lastIndexOf(".");
   const fid = decodeURIComponent(dot > 0 ? raw.slice(0, dot) : raw).trim();
   const ext = (dot > 0 ? raw.slice(dot + 1) : "jpg").toLowerCase();
   const ctype = ext === "mp4" ? "video/mp4" : "image/jpeg";
-  if (!fid || fid.length < 10) return new Response("bad file_id", { status: 400 });
-  try {
-    const gf = await fetchWithTimeout(`https://api.telegram.org/bot${token}/getFile?file_id=${encodeURIComponent(fid)}`, {}, 8000);
-    const gj = await gf.json();
-    const fpath = gj && gj.ok && gj.result && gj.result.file_path;
-    if (!fpath) return new Response("tg file not found", { status: 404 });
-    const upstream = await fetch(`https://api.telegram.org/file/bot${token}/${fpath}`);
-    if (!upstream.ok) return new Response("tg download fail", { status: 502 });
-    const headers = new Headers({
-      "Content-Type": ctype,
-      "Accept-Ranges": "bytes",
-      "Cache-Control": "public, max-age=3600",
-    });
-    const cl = upstream.headers.get("Content-Length");
-    if (cl) headers.set("Content-Length", cl);
-    return new Response(headOnly ? null : upstream.body, { status: 200, headers });
-  } catch (e) {
-    return new Response("tg bridge err", { status: 502 });
+  if (token && fid && fid.length >= 10) {
+    try {
+      const gf = await fetchWithTimeout(`https://api.telegram.org/bot${token}/getFile?file_id=${encodeURIComponent(fid)}`, {}, 8000);
+      const gj = await gf.json();
+      const fpath = gj && gj.ok && gj.result && gj.result.file_path;
+      if (fpath) {
+        const upstream = await fetch(`https://api.telegram.org/file/bot${token}/${fpath}`);
+        if (upstream.ok) {
+          const headers = new Headers({
+            "Content-Type": ctype,
+            "Accept-Ranges": "bytes",
+            "Cache-Control": "public, max-age=3600",
+          });
+          const cl = upstream.headers.get("Content-Length");
+          if (cl) headers.set("Content-Length", cl);
+          return new Response(headOnly ? null : upstream.body, { status: 200, headers });
+        }
+      }
+    } catch (e) {
+      // Fall through to fallbackUrl proxy if Telegram getFile >20MB fails
+    }
   }
+  if (fallbackUrl && /^https?:\/\//i.test(fallbackUrl)) {
+    return handleProxyMediaBridge(fallbackUrl, ext, headOnly);
+  }
+  return new Response("tg file unavailable", { status: 404 });
 }
 
 async function handleProxyMediaBridge(rawUrl, typeHint, headOnly = false) {
@@ -1485,7 +1496,7 @@ async function handleProxyMediaBridge(rawUrl, typeHint, headOnly = false) {
 }
 
 async function getFacebookPageToken(systemToken, pageId) {
-  // v4.03 FIX: Facebook Page Reels / Videos API requires a Page Access Token (not raw System User Token -> #200 error)
+  // v4.04 FIX: Try BOTH /{pageId}?fields=access_token AND /me/accounts (required for New Pages Experience System Users!)
   try {
     const r = await fetchWithTimeout(
       `https://graph.facebook.com/${GRAPH_VER}/${pageId}?fields=access_token&access_token=${encodeURIComponent(systemToken)}`,
@@ -1496,9 +1507,19 @@ async function getFacebookPageToken(systemToken, pageId) {
       const j = await r.json();
       if (j && j.access_token) return String(j.access_token).trim();
     }
-  } catch (e) {
-    // Fallback to provided token if already a Page token
-  }
+  } catch (e) {}
+  try {
+    const r2 = await fetchWithTimeout(
+      `https://graph.facebook.com/${GRAPH_VER}/me/accounts?fields=id,name,access_token&limit=50&access_token=${encodeURIComponent(systemToken)}`,
+      {},
+      8000
+    );
+    if (r2.ok) {
+      const j2 = await r2.json();
+      const hit = (j2.data || []).find(p => String(p.id) === String(pageId));
+      if (hit && hit.access_token) return String(hit.access_token).trim();
+    }
+  } catch (e) {}
   return systemToken;
 }
 

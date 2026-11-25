@@ -1,3 +1,9 @@
+v4.04 (🎬 FULL-HD 200MB–1GB VERIFIED HOSTING + 📣 FB /me/accounts TOKEN FIX + CUMULATIVE v4.01–v4.03):
+🎬 0% Quality Loss Full-HD First (cloud_run.py + cloudflare_worker.js): Broken qu.ax permanently removed! Naya direct-MP4 order: litterbox (1GB/72h) -> catbox.moe (200MB permanent CDN) -> uguu.se (128MB/24h) -> tmpfiles (512MB/1h) + live 64-byte MP4/JPEG binary header verification (HTML block pages auto-reject!). 50–200MB Long Videos aur Shorts dono 100% Full HD me upload honge!
+🛡️ Shorts Emergency Backup (cloud_run.py): Telegram preview copy <19MB (sirf emergency backup jab sab hosts down hon; Full HD Master 100% uncompressed rehta hai!).
+📣 Facebook /me/accounts Fallback + TG Bridge Auto-Fallback (cloudflare_worker.js): FB Page Access Token ab /{pageId} aur /me/accounts dono se fetch hota hai, aur /media/tg fail hone par auto-proxy fallback chalta hai.
+📦 Cumulative v4.01–v4.03 included: Samjha AI Groq fix, Gemini 3.8 Charon pure-Hindi voice fix, YouTube Copyright Screenshot Shield, 1-tap `/log` files, reversible `/vfilter`, aur `/trends` fact-warning.
+
 v4.03 (🧠 SAMJHA AI FIX + 📣 META FB/IG AUTO-PUBLISH FIX + ⚠️ /TRENDS FACT GUARD + CUMULATIVE v4.01–v4.02):
 🧠 Samjha AI Brain Fix (app/free_ai.py): Groq backup me naye 2026 models (qwen3.8-27b -> qwen3.6-27b -> gpt-oss-120b -> gpt-oss-20b) + reasoning_effort ('none' for Qwen3, 'low' for GPT-OSS) lagaye — ab Gemini 503 par bhi `samajh: ai` chalega aur har line ka `Samjha:` bhara aayega (visuals bohot zyada accurate baithenge; visual_brain.py 0% untouched!).
 📣 Facebook #200 Permission Fix (cloudflare_worker.js): FB Reels/Videos upload se pehle System User token se automatically "The Viral Gyaan" ka Page Access Token fetch hota hai — #200 error khatam!

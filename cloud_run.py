@@ -66,19 +66,19 @@ def _fmt_elapsed(sec):
     return f"{m}:{s:02d}"
 
 
-def _make_tg_copy(video_path):
-    """If master MP4 > 48 MB, build a crisp < 44 MB Telegram-playable copy in ~10s so user ALWAYS gets instant video!"""
+def _make_tg_copy(video_path, max_mb=48.0, maxrate="3200k"):
+    """Build a crisp 1080p Telegram copy under `max_mb` (Full HD master stays 100% uncompressed for YouTube/FB/IG!)."""
     vp = Path(video_path)
     out_tg = JOBS / "tg_preview.mp4"
     try:
         r = subprocess.run(
             ["ffmpeg", "-y", "-v", "error", "-i", str(vp),
-             "-c:v", "libx264", "-preset", "veryfast", "-crf", "24",
-             "-maxrate", "3200k", "-bufsize", "6400k",
+             "-c:v", "libx264", "-preset", "veryfast", "-crf", "23",
+             "-maxrate", maxrate, "-bufsize", "5000k",
              "-c:a", "aac", "-b:a", "128k", "-movflags", "+faststart", str(out_tg)],
             capture_output=True, text=True, timeout=180,
         )
-        if r.returncode == 0 and out_tg.exists() and out_tg.stat().st_size < 49 * 1024 * 1024:
+        if r.returncode == 0 and out_tg.exists() and out_tg.stat().st_size < max_mb * 1024 * 1024:
             return out_tg
     except Exception as e:
         print("TG compress error:", e)
@@ -187,11 +187,17 @@ def tg_send_video(token, chat_id, video_path, caption=""):
     size_mb = vp.stat().st_size / (1024 * 1024)
     send_p = vp
     extra_note = ""
-    if size_mb > 48.0:
-        comp = _make_tg_copy(vp)
+    _is_short_cap = "[SHORT]" in str(caption or "")
+    if _is_short_cap and size_mb > 19.0:
+        # Keep Telegram copy < 19 MB so Bot getFile emergency backup ALWAYS works, while Full HD Master uploads uncompressed!
+        comp = _make_tg_copy(vp, max_mb=19.2, maxrate="2500k")
         if comp:
             send_p = comp
-            extra_note = f"\n(Telegram preview {comp.stat().st_size/(1024*1024):.1f} MB — Full {size_mb:.1f} MB HD Master Drive par hai!)"
+    elif size_mb > 48.0:
+        comp = _make_tg_copy(vp, max_mb=48.5, maxrate="3200k")
+        if comp:
+            send_p = comp
+            extra_note = f"\n(Telegram preview {comp.stat().st_size/(1024*1024):.1f} MB — Full {size_mb:.1f} MB HD Master auto-publish me jayega!)"
         else:
             return False
     try:
@@ -217,9 +223,43 @@ def tg_send_video(token, chat_id, video_path, caption=""):
         return False
 
 
+def _verify_direct_media_url(url, is_image=False):
+    """v4.04: Verify uploaded URL actually serves raw MP4/JPEG bytes (rejects HTML challenge/block pages!)."""
+    try:
+        r = requests.get(
+            url,
+            headers={
+                "User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/128.0.0.0 Safari/537.36",
+                "Range": "bytes=0-63",
+            },
+            timeout=12,
+            stream=True,
+            allow_redirects=True,
+        )
+        if not (200 <= r.status_code < 300):
+            return False, f"HTTP {r.status_code}"
+        ctype = (r.headers.get("Content-Type") or "").lower()
+        if "text/html" in ctype or "application/xhtml" in ctype:
+            return False, "HTML content-type"
+        head = next(r.iter_content(chunk_size=64), b"") or b""
+        r.close()
+        low = head.lstrip().lower()
+        if low.startswith((b"<!doctype", b"<html", b"<head", b"<?xml", b"{")):
+            return False, "HTML/JSON body"
+        if is_image:
+            if head[:2] == b"\xff\xd8" or head[:4] == b"\x89PNG" or head[:4] == b"RIFF":
+                return True, "valid image"
+            return False, "non-image header"
+        if b"ftyp" in head[:32] or head[:4] == b"\x1a\x45\xdf\xa3" or "video/" in ctype or "octet-stream" in ctype:
+            return True, "valid MP4"
+        return False, "unrecognized header"
+    except Exception as e:
+        return False, str(e)[:45]
+
+
 def public_link(video_path):
-    """v3.99: Reliable 72h-30d direct MP4/JPG upload links for YouTube, FB Reels, IG Reels & Phone download.
-    Order: litterbox (72h, 90s + 2x retry) -> qu.ax (30 days, 256MB) -> uguu.se (128MB) -> tmpfiles (1h last resort)."""
+    """v4.04: Verified Full-HD Direct MP4/JPG hosting (up to 1 GB / 200 MB Long Videos — qu.ax removed!).
+    Order: litterbox (1GB/72h) -> catbox.moe (200MB/permanent) -> uguu.se (128MB/24h) -> tmpfiles (512MB/1h)."""
     if (os.environ.get("VG_PUBLIC_LINK") or "haan").strip().lower() in ("nahi", "no", "0", "off"):
         return None, "band hai"
     vp = Path(video_path)
@@ -228,15 +268,18 @@ def public_link(video_path):
     errs = []
     size_mb = vp.stat().st_size / (1024 * 1024)
     _ext = (vp.suffix or ".mp4").lower()
-    _mime = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp"}.get(_ext, "video/mp4")
+    _is_img = _ext in (".jpg", ".jpeg", ".png", ".webp")
+    _is_txt = _ext in (".txt", ".md", ".log")
+    _mime = {".jpg": "image/jpeg", ".jpeg": "image/jpeg", ".png": "image/png", ".webp": "image/webp",
+             ".txt": "text/plain", ".md": "text/markdown"}.get(_ext, "video/mp4")
     _up_name = f"VG_media_{time.strftime('%Y%m%d_%H%M%S')}{_ext}"
     _ua = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/128.0.0.0 Safari/537.36"}
 
     hosts = [
         ("litterbox", "https://litterbox.catbox.moe/resources/internals/api.php",
          {"reqtype": "fileupload", "time": "72h"}, "fileToUpload", 1000, 90, 2, "72 ghante"),
-        ("quax", "https://qu.ax/upload.php",
-         {}, "files[]", 256, 75, 1, "30 din"),
+        ("catbox", "https://catbox.moe/user/api.php",
+         {"reqtype": "fileupload"}, "fileToUpload", 200, 90, 1, "permanent CDN"),
         ("uguu", "https://uguu.se/upload",
          {}, "files[]", 128, 60, 1, "24 ghante"),
         ("tmpfiles", "https://tmpfiles.org/api/v1/upload",
@@ -252,21 +295,28 @@ def public_link(video_path):
                 with open(vp, "rb") as f:
                     r = requests.post(url, data=data, files={field: (_up_name, f, _mime)}, headers=_ua, timeout=tout)
                 if r.ok:
-                    if name in ("quax", "uguu"):
+                    link = ""
+                    if name == "uguu":
                         j = r.json() or {}
                         arr = j.get("files") or []
                         link = str((arr[0].get("url") if arr and isinstance(arr[0], dict) else "") or "").strip()
-                        if link.startswith("http"):
-                            return link, ttl_lbl
                     elif name == "tmpfiles":
                         j = r.json() or {}
-                        link = str(((j.get("data") or {}).get("url")) or "").strip()
-                        if link.startswith("http"):
-                            return link.replace("http://tmpfiles.org/", "https://tmpfiles.org/").replace("tmpfiles.org/", "tmpfiles.org/dl/"), ttl_lbl
+                        raw_l = str(((j.get("data") or {}).get("url")) or "").strip()
+                        if raw_l.startswith("http"):
+                            link = raw_l.replace("http://tmpfiles.org/", "https://tmpfiles.org/").replace("tmpfiles.org/", "tmpfiles.org/dl/")
                     else:
-                        link = (r.text or "").strip()
-                        if link.startswith("http") and " " not in link and len(link) < 220:
+                        cand = (r.text or "").strip()
+                        if cand.startswith("http") and " " not in cand and len(cand) < 220:
+                            link = cand
+                    if link.startswith("http"):
+                        if _is_txt:
                             return link, ttl_lbl
+                        vok, vwhy = _verify_direct_media_url(link, is_image=_is_img)
+                        if vok:
+                            return link, ttl_lbl
+                        errs.append(f"{name}: verify fail ({vwhy})")
+                        break
                 errs.append(f"{name}: HTTP {r.status_code}")
             except Exception as e:
                 errs.append(f"{name}: {str(e)[:55]}")
