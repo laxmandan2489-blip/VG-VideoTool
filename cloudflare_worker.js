@@ -122,7 +122,7 @@ export default {
       if (u.pathname === "/media/proxy") {
         return handleProxyMediaBridge(u.searchParams.get("u") || "", u.searchParams.get("t") || "mp4", request.method === "HEAD");
       }
-      return new Response("VideoTool Cloud Bridge v4.06 is LIVE!", { status: 200 });
+      return new Response("VideoTool Cloud Bridge v4.07 is LIVE!", { status: 200 });
     }
     if (request.method !== "POST") {
       return new Response("Method Not Allowed", { status: 405 });
@@ -233,7 +233,7 @@ export default {
     // 2) Start / Menu / Guide
     if (tl === "/start" || tl === "/menu") {
       await tgReply(env.TG_TOKEN, chatId,
-        "☁️ VideoTool Cloud v4.06 LIVE hai!\nNeeche ke buttons use karo, script bhejo, ya purani video (<20MB) forward karo:", true);
+        "☁️ VideoTool Cloud v4.07 LIVE hai!\nNeeche ke buttons use karo, script bhejo, ya purani video (<20MB) forward karo:", true);
       return new Response("ok", { status: 200 });
     }
     if (tl === "/guide" || text.includes("/guide")) {
@@ -1657,8 +1657,8 @@ async function publishInstagramReelAndStory(env, item) {
       return { status: "create_fail", err: (j1.error && j1.error.message) || String(r1.status) };
     }
     const cid = j1.id;
-    for (let attempt = 0; attempt < 4; attempt++) {
-      await new Promise(r => setTimeout(r, 3500));
+    for (let attempt = 0; attempt < 2; attempt++) {
+      await new Promise(r => setTimeout(r, 4000));
       const st = await fetchWithTimeout(
         `https://graph.facebook.com/${GRAPH_VER}/${cid}?fields=status_code,status&access_token=${encodeURIComponent(token)}`,
         {},
@@ -1760,10 +1760,12 @@ async function handlePublishCallback(env, cq) {
     let pendingIgCid = null;
 
     const doYt = (action === "yt" || action === "all" || action === "yt_pub" || action === "all_pub");
-    const doMeta = (action === "meta" || action === "all" || action === "all_pub");
+    const doFb = (action === "meta" || action === "all" || action === "all_pub" || action === "fb_only");
+    const doIg = (action === "meta" || action === "all" || action === "all_pub" || action === "ig_only");
     const ytPrivacy = (action === "yt_pub" || action === "all_pub") ? "public" : "unlisted";
 
-    if (doYt) {
+    // v4.07 PARALLEL EXECUTION: Run YouTube + Facebook + Instagram simultaneously (~15s total, never hits 30s CF timeout!)
+    const ytTask = doYt ? (async () => {
       const ytVideoUrl = item.video_url
         ? (item.tg_file_id ? `${item.video_url}#vg_tg=${item.tg_file_id}` : item.video_url)
         : (item.tg_file_id ? `tgfile://${item.tg_file_id}` : "");
@@ -1777,21 +1779,25 @@ async function handlePublishCallback(env, cq) {
         privacy: ytPrivacy,
       });
       const privLbl = ytPrivacy === "public" ? "PUBLIC 🚀" : "Unlisted 🔒";
-      report.push(ok
+      return ok
         ? `▶️ YouTube (${privLbl}): Upload shuru ho gaya (~1 min me link yahin aayega!)`
-        : "❌ YouTube trigger fail: Check karo .github/workflows/publish_video.yml GitHub par updated hai ya nahi.");
-    }
+        : "❌ YouTube trigger fail: Check karo .github/workflows/publish_video.yml GitHub par updated hai ya nahi.";
+    })() : Promise.resolve(null);
 
-    if (doMeta) {
-      const fbRes = await publishFacebookPage(env, item);
-      report.push(fbRes.msg);
-      if (item.mode !== "LONG") {
-        const igRes = await publishInstagramReelAndStory(env, item);
-        report.push(igRes.msg);
-        if (igRes.pendingContainer) pendingIgCid = igRes.pendingContainer;
-      } else {
-        report.push("ℹ️ Long (16:9) video ke liye Instagram Reels auto-skip kiya gaya.");
-      }
+    const fbTask = doFb ? publishFacebookPage(env, item) : Promise.resolve(null);
+
+    const igTask = doIg ? (
+      item.mode !== "LONG"
+        ? publishInstagramReelAndStory(env, item)
+        : Promise.resolve({ ok: true, msg: "ℹ️ Long (16:9) video ke liye Instagram Reels auto-skip kiya gaya." })
+    ) : Promise.resolve(null);
+
+    const [ytMsg, fbRes, igRes] = await Promise.all([ytTask, fbTask, igTask]);
+    if (ytMsg) report.push(ytMsg);
+    if (fbRes) report.push(fbRes.msg);
+    if (igRes) {
+      report.push(igRes.msg);
+      if (igRes.pendingContainer) pendingIgCid = igRes.pendingContainer;
     }
 
     const retryRows = [];
@@ -1805,7 +1811,10 @@ async function handlePublishCallback(env, cq) {
         { text: "▶️ YT PUBLIC Retry", callback_data: `pub:${id}:yt_pub` },
       ]);
       retryRows.push([
+        { text: "📸 Sirf IG Retry", callback_data: `pub:${id}:ig_only` },
         { text: "📱 FB + IG Retry", callback_data: `pub:${id}:meta` },
+      ]);
+      retryRows.push([
         { text: "📋 Full Publish Menu", callback_data: `pub:${id}:card` },
       ]);
     }

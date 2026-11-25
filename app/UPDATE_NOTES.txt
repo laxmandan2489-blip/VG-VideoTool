@@ -1,3 +1,8 @@
+v4.07 (⚡ PARALLEL 3-PLATFORM AUTO-PUBLISH: YT + FB + IG EK SAATH + CUMULATIVE v4.01–v4.06):
+⚡ 3-Platform Parallel Execution (cloudflare_worker.js): YouTube, Facebook Page Reel, aur Instagram Reel + Story ab `Promise.all` me EK SAATH chalte hain (~15 sec total — Cloudflare 30s timeout kabhi nahi aayega, teeno ka exact result turant Telegram par aayega!).
+📸 Fast IG Poll + Sirf IG Retry Button (cloudflare_worker.js): IG polling 2x4s fast kiya + agar kabhi sirf IG retry karna ho to alag `📸 Sirf IG Retry` button (FB duplicate nahi hoga!).
+📦 Cumulative v4.01–v4.06 included: Gallery/Forwarded video instant Publish Card, `/republish` 10-video vault, Auto-Retry buttons, Full-HD First verified hosting (litterbox/catbox/uguu/tmpfiles), FB `/me/accounts` token fix, Samjha AI fix, Gemini 3.8 Charon pure-Hindi voice fix, Copyright Screenshot Shield, `/log` files, aur `/vfilter`.
+
 v4.06 (📤 GALLERY/FORWARDED VIDEO AUTO-PUBLISH FIX + 🏷️ /start v4.06 TEXT FIX + CUMULATIVE v4.01–v4.05):
 📤 Gallery / Forwarded Video Fix (cloudflare_worker.js): `msg.video` (aur `video/mp4` document) handler ko `if (!text) return` ke upar move kiya — ab Gallery ya Forward se koi bhi video + caption bhejte hi 1 second me 1-Tap Auto-Publish Card aayega!
 🏷️ /start & /guide Version Sync (cloudflare_worker.js): Purana hardcoded `v3.93` hata kar `v4.06 LIVE` + naye `/republish`, `/publish`, `/vfilter`, aur `/log` commands add kiye.
