@@ -1,3 +1,7 @@
+v4.08 (🖼️ AUTO YOUTUBE SHORTS & LONG CUSTOM THUMBNAIL + CUMULATIVE v4.01–v4.07):
+🖼️ YouTube Custom Thumbnail Auto-Set (app/yt_publish.py + cloudflare_worker.js): Bot jo crisp 1080x1920 Cover / Thumbnail har nayi video ke liye banata hai, wahi YouTube video processing (`processingStatus == succeeded`) poori hote hi official `thumbnails.set` API se YouTube Shorts aur Long Videos dono par automatically set ho jayega!
+📦 Cumulative v4.01–v4.07 included: Parallel 3-platform publish (YT + FB + IG ek saath), Gallery/Forwarded video instant Publish Card, `/republish` 10-video vault, Auto-Retry buttons, Full-HD First verified hosting (`litterbox`/`catbox`/`uguu`/`tmpfiles`), FB `/me/accounts` token fix, Samjha AI fix, Gemini 3.8 Charon pure-Hindi voice fix, Copyright Screenshot Shield, `/log` files, aur `/vfilter`.
+
 v4.07 (⚡ PARALLEL 3-PLATFORM AUTO-PUBLISH: YT + FB + IG EK SAATH + CUMULATIVE v4.01–v4.06):
 ⚡ 3-Platform Parallel Execution (cloudflare_worker.js): YouTube, Facebook Page Reel, aur Instagram Reel + Story ab `Promise.all` me EK SAATH chalte hain (~15 sec total — Cloudflare 30s timeout kabhi nahi aayega, teeno ka exact result turant Telegram par aayega!).
 📸 Fast IG Poll + Sirf IG Retry Button (cloudflare_worker.js): IG polling 2x4s fast kiya + agar kabhi sirf IG retry karna ho to alag `📸 Sirf IG Retry` button (FB duplicate nahi hoga!).

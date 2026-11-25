@@ -122,7 +122,7 @@ export default {
       if (u.pathname === "/media/proxy") {
         return handleProxyMediaBridge(u.searchParams.get("u") || "", u.searchParams.get("t") || "mp4", request.method === "HEAD");
       }
-      return new Response("VideoTool Cloud Bridge v4.07 is LIVE!", { status: 200 });
+      return new Response("VideoTool Cloud Bridge v4.08 is LIVE!", { status: 200 });
     }
     if (request.method !== "POST") {
       return new Response("Method Not Allowed", { status: 405 });
@@ -233,7 +233,7 @@ export default {
     // 2) Start / Menu / Guide
     if (tl === "/start" || tl === "/menu") {
       await tgReply(env.TG_TOKEN, chatId,
-        "☁️ VideoTool Cloud v4.07 LIVE hai!\nNeeche ke buttons use karo, script bhejo, ya purani video (<20MB) forward karo:", true);
+        "☁️ VideoTool Cloud v4.08 LIVE hai!\nNeeche ke buttons use karo, script bhejo, ya purani video (<20MB) forward karo:", true);
       return new Response("ok", { status: 200 });
     }
     if (tl === "/guide" || text.includes("/guide")) {
@@ -1766,9 +1766,11 @@ async function handlePublishCallback(env, cq) {
 
     // v4.07 PARALLEL EXECUTION: Run YouTube + Facebook + Instagram simultaneously (~15s total, never hits 30s CF timeout!)
     const ytTask = doYt ? (async () => {
-      const ytVideoUrl = item.video_url
+      let ytVideoUrl = item.video_url
         ? (item.tg_file_id ? `${item.video_url}#vg_tg=${item.tg_file_id}` : item.video_url)
         : (item.tg_file_id ? `tgfile://${item.tg_file_id}` : "");
+      if (item.cover_tg_file_id) ytVideoUrl += `#vg_th_tg=${item.cover_tg_file_id}`;
+      if (item.cover_url) ytVideoUrl += `#vg_th_url=${encodeURIComponent(item.cover_url)}`;
       const ok = await dispatchGH(env, "publish_video.yml", {
         video_url: ytVideoUrl,
         title: item.title,

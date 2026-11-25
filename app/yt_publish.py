@@ -42,14 +42,31 @@ def tg_send(token, chat_id, text):
 
 
 def parse_video_source(raw_url):
-    """Split optional '#vg_tg=<file_id>' or 'tgfile://<file_id>' backup tag from PUB_VIDEO_URL."""
+    """Split optional '#vg_tg=<file_id>', '#vg_th_tg=...', '#vg_th_url=...' or 'tgfile://<file_id>' tags."""
     s = (raw_url or "").strip()
-    if s.startswith("tgfile://"):
-        return "", s[len("tgfile://"):].strip()
-    if "#vg_tg=" in s:
-        base, fid = s.split("#vg_tg=", 1)
-        return base.strip(), fid.strip()
-    return s, ""
+    parts = s.split("#")
+    base = parts[0].strip()
+    fid = ""
+    if base.startswith("tgfile://"):
+        fid = base[len("tgfile://"):].strip()
+        base = ""
+    for tag in parts[1:]:
+        if tag.startswith("vg_tg="):
+            fid = tag[len("vg_tg="):].strip()
+    return base, fid
+
+
+def parse_thumb_source(raw_url):
+    """Extract optional '#vg_th_tg=<cover_file_id>' and '#vg_th_url=<encoded_url>' tags from PUB_VIDEO_URL."""
+    from urllib.parse import unquote
+    s = (raw_url or "").strip()
+    th_fid, th_url = "", ""
+    for tag in s.split("#")[1:]:
+        if tag.startswith("vg_th_tg="):
+            th_fid = tag[len("vg_th_tg="):].strip()
+        elif tag.startswith("vg_th_url="):
+            th_url = unquote(tag[len("vg_th_url="):].strip())
+    return th_fid, th_url
 
 
 def _is_valid_mp4(path):
@@ -280,6 +297,79 @@ def upload_to_youtube(video_path, metadata, access_token):
     return vid_id
 
 
+
+
+def _download_thumbnail(dst_path, tg_token="", thumb_tg_fid="", thumb_url=""):
+    """Download crisp JPEG/PNG thumbnail (<2MB) from Telegram file_id (preferred) or direct URL."""
+    dst = Path(dst_path)
+    # 1) Telegram file_id first (<500KB, 100% reliable, never blocked)
+    if tg_token and thumb_tg_fid:
+        try:
+            r = requests.get(f"https://api.telegram.org/bot{tg_token}/getFile?file_id={thumb_tg_fid}", timeout=20)
+            j = r.json() if r.ok else {}
+            fp = (j.get("result") or {}).get("file_path")
+            if fp:
+                r2 = requests.get(f"https://api.telegram.org/file/bot{tg_token}/{fp}", timeout=30)
+                if r2.ok and len(r2.content) > 2000 and len(r2.content) <= 2 * 1024 * 1024:
+                    head = r2.content[:8]
+                    if head[:2] == b"\xff\xd8" or head[:4] == b"\x89PNG":
+                        dst.write_bytes(r2.content)
+                        return True, "image/jpeg" if head[:2] == b"\xff\xd8" else "image/png"
+        except Exception as e:
+            print("Thumb TG download skip:", e)
+    # 2) Direct cover_url fallback
+    if thumb_url and thumb_url.startswith("http"):
+        try:
+            r = requests.get(thumb_url, headers={"User-Agent": BROWSER_UA}, timeout=25, allow_redirects=True)
+            if r.ok and len(r.content) > 2000 and len(r.content) <= 2 * 1024 * 1024:
+                head = r.content[:8]
+                if head[:2] == b"\xff\xd8" or head[:4] == b"\x89PNG":
+                    dst.write_bytes(r.content)
+                    return True, "image/jpeg" if head[:2] == b"\xff\xd8" else "image/png"
+        except Exception as e:
+            print("Thumb URL download skip:", e)
+    return False, ""
+
+
+def set_youtube_thumbnail(vid_id, access_token, thumb_path, mime_type="image/jpeg", mode="SHORT"):
+    """v4.08: Wait for YouTube video processingStatus=='succeeded' (required for Shorts since Nov 2026), then call thumbnails.set."""
+    # Poll processingDetails (up to ~48s) so Shorts custom thumbnail sticks reliably!
+    for attempt in range(6):
+        try:
+            st = requests.get(
+                "https://www.googleapis.com/youtube/v3/videos",
+                params={"part": "processingDetails", "id": vid_id},
+                headers={"Authorization": f"Bearer {access_token}"},
+                timeout=15,
+            )
+            if st.ok:
+                items = (st.json() or {}).get("items") or []
+                pstat = ((items[0].get("processingDetails") or {}).get("processingStatus") or "").lower() if items else ""
+                print(f"YouTube processingStatus (try {attempt+1}): {pstat or 'pending'}")
+                if pstat == "succeeded":
+                    break
+        except Exception as e:
+            print("processingStatus poll skip:", e)
+        if attempt < 5:
+            time.sleep(8)
+
+    data = Path(thumb_path).read_bytes()
+    r = requests.post(
+        "https://www.googleapis.com/upload/youtube/v3/thumbnails/set",
+        params={"videoId": vid_id, "uploadType": "media"},
+        headers={
+            "Authorization": f"Bearer {access_token}",
+            "Content-Type": mime_type or "image/jpeg",
+            "Content-Length": str(len(data)),
+        },
+        data=data,
+        timeout=60,
+    )
+    if r.ok:
+        return True, "🖼️ Custom Thumbnail: Set ✓"
+    return False, f"⚠️ Thumbnail skip ({r.status_code}): {r.text[:140]}"
+
+
 def main():
     tg_token = (os.environ.get("TG_TOKEN") or "").strip()
     tg_chat = (os.environ.get("TG_CHAT_ID") or "").strip()
@@ -320,14 +410,33 @@ def main():
             yt_link = f"https://youtu.be/{vid_id}"
             studio_link = f"https://studio.youtube.com/video/{vid_id}/edit"
             print("Uploaded successfully:", yt_link)
+
+            # v4.08: Auto-upload custom Shorts (1080x1920) / Long (16:9) thumbnail if Cover is attached
+            thumb_note = ""
+            th_fid, th_url = parse_thumb_source(video_url)
+            if th_fid or th_url:
+                th_path = Path(td) / "thumb.jpg"
+                dl_ok, th_mime = _download_thumbnail(th_path, tg_token=tg_token, thumb_tg_fid=th_fid, thumb_url=th_url)
+                if dl_ok:
+                    _, thumb_note = set_youtube_thumbnail(vid_id, token, th_path, mime_type=th_mime, mode=mode)
+                    print(thumb_note)
+                else:
+                    thumb_note = "⚠️ Thumbnail download skip (video live hai)"
+
+            footer = (
+                "🚀 Video ab LIVE (PUBLIC) hai!"
+                if privacy == "public"
+                else "👉 Phone me YouTube Studio khol kar 5 sec me copyright check + 'Altered/Synthetic Content' tick karke Public kar do!"
+            )
             tg_send(
                 tg_token,
                 tg_chat,
                 f"✅ YouTube Upload Done ({privacy.upper()})!\n\n"
                 f"🎬 {meta['snippet']['title']}\n"
-                f"🔗 Preview: {yt_link}\n"
+                + (f"{thumb_note}\n" if thumb_note else "")
+                + f"🔗 Link: {yt_link}\n"
                 f"⚙️ YT Studio: {studio_link}\n\n"
-                f"👉 Phone me YouTube Studio khol kar 5 sec me copyright check + 'Altered/Synthetic Content' tick karke Public kar do!",
+                f"{footer}",
             )
     except Exception as e:
         err = f"❌ YouTube Upload fail: {str(e)[:340]}"
