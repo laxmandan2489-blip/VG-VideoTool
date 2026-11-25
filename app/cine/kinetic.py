@@ -56,8 +56,13 @@ def events(scenes, sents, total, W, H, b, ass_time, style=None, busy=()):
     y_main = int(H * (0.21 if H > W else 0.24))  # v3.25: clear top margin above 16:9 / Polaroid frames
     size = int((W if H > W else H) * 0.17)
     out = []
+    _DEV_DIG = str.maketrans("०१२३४५६७८९", "0123456789")
     for sc in scenes:
         if not sc.get("kw") or sc.get("graphic") == "map": continue
+        sc = dict(sc)
+        sc["kw"] = str(sc["kw"]).translate(_DEV_DIG)
+        if sc.get("kw2"):
+            sc["kw2"] = str(sc["kw2"]).translate(_DEV_DIG)
         i = sc["i"]
         if i >= len(sents): continue
         st = sents[i]["start"] if i else 0.10

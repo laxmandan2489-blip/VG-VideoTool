@@ -1,3 +1,9 @@
+v4.12 (🔢 UNIVERSAL ENGLISH DIGITS 1999 + 🎯 CONCRETE '||' VISUAL HINTS + 🎬 CATEGORY EDITING DNA + 📰 ZERO ☒☒☒ FONT BOXES — 0% VISUAL SEARCH TOUCH):
+🔢 Universal English Digits (app/cine/kinetic.py + app/cine/cards.py + cloudflare_worker.js): Screen counters, labels aur scripts me kabhi Hindi ganit (`१९९९`) nahi dikhegi — hamesha crisp English digits (`1999`, `2026`, `15 Lakh`) aayenge!
+🎯 Universal Concrete '||' Visual Hints & Category Editing DNA (cloudflare_worker.js): Har category (SHORT + LONG) ke liye strictly 2–4 word physical camera shots, zero abstract/fictional hints, hero closing visual on CTA line, aur category-matched viral editing tags (Visual Search Engine core 0% untouched!).
+📰 Newspaper/Document Card Font Fix (app/cine/cards.py): `latin()` ab kabhi raw Devanagari glyphs English fonts me nahi bhejega — `☒☒☒☒` broken boxes 100% khatam!
+📦 Cumulative v4.01–v4.11 included: Telegram '/' command menu auto-sync + bottom keyboard, Auto-Pilot Planner + Cloudflare Cron, Smart 25m YouTube Auto-Public, SHORT/LONG `/trends`, Cinematic SEO Thumbnails, Parallel 3-Platform Publish, Auto YouTube Thumbnail, Full-HD Verified Hosting, Samjha AI fix, Gemini 3.8 Charon voice fix, Copyright Screenshot Shield, `/log` files, `/vfilter`, `/republish`.
+
 v4.11 (⌨️ TELEGRAM '/' COMMAND MENU AUTO-SYNC + UPDATED BOTTOM KEYBOARD + CUMULATIVE v4.01–v4.10):
 ⌨️ Telegram '/' Autocomplete Menu (cloudflare_worker.js): `/start` dabate hi Telegram `setMyCommands` API se saare 11 commands (`/trends`, `/planner`, `/republish`, `/publish`, `/log`, `/vfilter`, `/status`, `/rok`, `/competitors`, `/purana`, `/start`) auto-register honge!
 📱 Updated Bottom Keyboard (cloudflare_worker.js): Permanent bottom menu me `📈 /planner`, `📂 /republish`, `📜 /log`, `🎨 /vfilter` 1-tap buttons add kiye.

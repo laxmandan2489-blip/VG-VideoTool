@@ -69,14 +69,33 @@ class _Base:
         return tw
 
 
+_DEV_DIGITS = str.maketrans("०१२३४५६७८९", "0123456789")
+
+
+def to_eng_digits(txt):
+    """v4.12: Convert Devanagari digits (१९९९) -> crisp English digits (1999) everywhere on screen."""
+    return str(txt or "").translate(_DEV_DIGITS)
+
+
 def latin(txt):
-    """PIL Hindi (matra) theek se nahi jodta – card par Hinglish (Roman) likho."""
-    if not re.search("[\u0900-\u097F]", txt or ""): return txt or ""
+    """v4.12: PIL English fonts cannot draw Devanagari -> convert digits to 0-9 & transliterate cleanly (ZERO ☒☒☒ boxes!)."""
+    s = to_eng_digits(txt)
+    if not re.search("[\u0900-\u097F]", s):
+        return s
     try:
-        from translit import word as tw
-        return " ".join(tw(w) for w in txt.split())
+        import translit as _tr
+        if hasattr(_tr, "to_hinglish"):
+            out = _tr.to_hinglish(s)
+        else:
+            out = " ".join(_tr.word(w) for w in s.split())
+        out = to_eng_digits(out)
+        # Strip any leftover Devanagari codepoints so English fonts NEVER render ☒ boxes
+        out = re.sub("[\u0900-\u097F]+", "", out)
+        out = re.sub(r"\s+", " ", out).strip()
+        return out or "FACT REPORT"
     except Exception:
-        return re.sub("[\u0900-\u097F]+", "", txt).strip()
+        out = re.sub("[\u0900-\u097F]+", "", s)
+        return re.sub(r"\s+", " ", out).strip() or "FACT REPORT"
 
 
 def _fit_font(kind, txt, max_w, start):

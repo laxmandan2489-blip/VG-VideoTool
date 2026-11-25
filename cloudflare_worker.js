@@ -137,7 +137,7 @@ export default {
       if (u.pathname === "/media/proxy") {
         return handleProxyMediaBridge(u.searchParams.get("u") || "", u.searchParams.get("t") || "mp4", request.method === "HEAD");
       }
-      return new Response("VideoTool Cloud Bridge v4.11 Auto-Pilot is LIVE!", { status: 200 });
+      return new Response("VideoTool Cloud Bridge v4.12 Auto-Pilot is LIVE!", { status: 200 });
     }
     if (request.method !== "POST") {
       return new Response("Method Not Allowed", { status: 405 });
@@ -252,7 +252,7 @@ export default {
     if (tl === "/start" || tl === "/menu") {
       await tgApi(env, "setMyCommands", { commands: BOT_COMMANDS });
       await tgReply(env.TG_TOKEN, chatId,
-        "☁️ VideoTool Cloud v4.11 Auto-Pilot LIVE hai!\n✅ Telegram '/' command menu aur neeche ke buttons dono update ho gaye hain:", true);
+        "☁️ VideoTool Cloud v4.12 Auto-Pilot LIVE hai!\n✅ Telegram '/' command menu aur neeche ke buttons dono update ho gaye hain:", true);
       return new Response("ok", { status: 200 });
     }
     if (tl === "/guide" || text.includes("/guide")) {
@@ -1193,7 +1193,11 @@ TASK:
    - 3 Short Chapters (use open loops like "Par asli khel toh ab shuru hota hai...")
    - Real numbers, dates, proof & climax reveal
    - Short engaging comment-question CTA at the end
-3) Put camera-exact English visual references after "||" on EVERY line (3-5 simple lowercase English words — NO "reconstruction", "reenactment", "examination", "interview", "chart").
+3) UNIVERSAL VISUAL HINT & DIGIT RULES (CRITICAL — FOLLOW FOR EVERY LINE):
+   - ALWAYS write ALL numbers & years in ENGLISH digits (e.g., 1999, 2026, 10 Billion — NEVER Hindi digits like १९९९!).
+   - Put 2-4 simple lowercase English CONCRETE PHYSICAL CAMERA words after "||" (Object + Action + Setting). STRICTLY FORBIDDEN: abstract words ("secret", "concerned", "question mark", "subscribe animation", "reconstruction", "interview", "chart") and fictional/unknown names.
+   - Last CTA line MUST end with "|| <cinematic hero closing visual of main topic>".
+   - Apply category-matched documentary editing tags ([map:], [news:], [impact], [ding], [ink] max 5 total).
 ${catRule}
 
 OUTPUT FORMAT (strictly follow):
@@ -1217,7 +1221,12 @@ TASK:
    - Lines 9-14: Unexpected Twist / Big Reveal
    - Final Line: Ultra-short 2-sec CTA
    (NEVER copy/translate, and NEVER invent fake app features or fake stats${rewrite ? " — use a COMPLETELY DIFFERENT opening hook and angle than before" : ""}).
-3) Put camera-exact English visual references after "||" on EVERY line (3-5 simple lowercase English words — NO "reconstruction", "reenactment", "examination", "interview", "chart"; NO "[YT]"/"[X]" tags).
+3) UNIVERSAL VISUAL HINT & DIGIT RULES (CRITICAL — FOLLOW FOR EVERY LINE):
+   - ALWAYS write ALL numbers & years in ENGLISH digits (e.g., 1999, 2026, 15 Lakh, 230°C — NEVER Hindi digits like १९९९!).
+   - Put 2-4 simple lowercase English CONCRETE PHYSICAL CAMERA words after "||" (Object + Action + Setting, e.g., "grey wolf pack snow", "airplane cockpit night lights", "iphone 17 pro closeup").
+   - STRICTLY FORBIDDEN in "||" hints: abstract/unfilmable words ("truth", "secret", "concerned", "question mark", "subscribe animation", "reconstruction", "reenactment", "interview", "chart") and fictional/unknown personal names (use real physical scene instead!).
+   - Last Subscribe CTA line MUST also end with "|| <hero closing visual of main topic>" (e.g., "|| wolf howling full moon").
+   - Match category editing DNA with tasteful tags (Science: counters+[ding]/[impact]; Business/History/Mystery: [map:]/[news:]/[ink]; Tech/Updates: [typing]/[whoosh]; Movies: [impact]/[ink]).
 ${catRule}
 
 OUTPUT FORMAT (strictly follow):
@@ -1330,8 +1339,12 @@ TITLE: <45-60 char high-CTR Hindi SEO title> | <2-4 bold Hindi thumbnail words>
   return { text: "", error: (mergedErrs.length ? mergedErrs : errs.slice(0, 6)).join(" | ") };
 }
 
+function devanagariToEngDigits(s) {
+  return String(s || "").replace(/[०-९]/g, ch => String(ch.charCodeAt(0) - 0x0966));
+}
+
 function parseTrendGeminiOutput(raw) {
-  let clean = String(raw || "").replace(/```[a-z]*\n?/gi, "").replace(/```/g, "").trim();
+  let clean = devanagariToEngDigits(String(raw || "")).replace(/```[a-z]*\n?/gi, "").replace(/```/g, "").trim();
   // v3.98 FIX: Join accidental newlines before punctuation or '||' (prevents empty '।' lines that trigger voice glitches!)
   clean = clean.replace(/\r\n/g, "\n").replace(/\n+\s*([।.!?]+\s*\|\||\|\|)/g, " $1");
   const idx = clean.indexOf("SCRIPT:");
