@@ -1,3 +1,8 @@
+v4.06 (📤 GALLERY/FORWARDED VIDEO AUTO-PUBLISH FIX + 🏷️ /start v4.06 TEXT FIX + CUMULATIVE v4.01–v4.05):
+📤 Gallery / Forwarded Video Fix (cloudflare_worker.js): `msg.video` (aur `video/mp4` document) handler ko `if (!text) return` ke upar move kiya — ab Gallery ya Forward se koi bhi video + caption bhejte hi 1 second me 1-Tap Auto-Publish Card aayega!
+🏷️ /start & /guide Version Sync (cloudflare_worker.js): Purana hardcoded `v3.93` hata kar `v4.06 LIVE` + naye `/republish`, `/publish`, `/vfilter`, aur `/log` commands add kiye.
+📦 Cumulative v4.01–v4.05 included: Auto-Retry buttons, `/republish` 10-video vault, Full-HD First verified hosting (litterbox/catbox/uguu/tmpfiles), FB `/me/accounts` token fix, IG Media Bridge, Samjha AI fix, Gemini 3.8 Charon pure-Hindi voice fix, Copyright Screenshot Shield, `/log` files, aur `/vfilter`.
+
 v4.05 (🔄 1-TAP RE-UPLOAD / RETRY + 📂 /republish VAULT + 📤 VIDEO FORWARD & /publish + CUMULATIVE v4.01–v4.04):
 🔄 Auto-Retry Buttons on Any Failed Publish (cloudflare_worker.js): Agar YT, FB ya IG kabhi fail ho, to report ke neeche hi 1-tap '🔄 Sab Retry (PUBLIC)', '▶️ YT PUBLIC Retry', '📱 FB + IG Retry', aur '📋 Full Publish Menu' buttons milenge — video save/dobara upload kiye bina exact Cover + Story + Caption ke saath retry!
 📂 /republish Vault (cloudflare_worker.js): Aakhri 10 rendered videos (Cover Photo, IG Story, Title, Caption, Tags sahit) saved rahengi — `/republish` likhte hi kisi bhi video ko 1 tap me dobara YT/FB/IG par daal sakte ho!

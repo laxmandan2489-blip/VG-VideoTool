@@ -105,7 +105,10 @@ const GUIDE_TEXT = `📖 VIRAL GYAAN CLOUD BOT (24×7)
 • 🎬 Long Prompt: News + Fact documentary (16:9) ka prompt milta hai.
 • Script bhejna: Seedha apni script paste karke bhejo (Long ke liye sabse upar LONG likho).
 • 🛑 /rok: Cloud par chal rahi video ko turant rokta hai.
-• 📊 /status aur 📜 /log: Live progress aur GitHub log link dikhata hai.
+• 📊 /status: Live progress | 📜 /log: Seedha downloadable log + Visual Report files.
+• 📂 /republish: Aakhri 10 videos (Cover+Story sahit) 1-tap dobara upload.
+• 📤 Video bhejo (<20MB) ya /publish <catbox_link> | <Title> (20-200MB).
+• 🎨 /vfilter: Visual Quality Filter ON/OFF.
 • 📦 Update: Koi bhi nayi .zip file caption "update" ke saath bhejo -> cloud 30 sec me update!
 • ⏪ /purana: Pichhle version par wapas jaane ke liye.`;
 
@@ -119,7 +122,7 @@ export default {
       if (u.pathname === "/media/proxy") {
         return handleProxyMediaBridge(u.searchParams.get("u") || "", u.searchParams.get("t") || "mp4", request.method === "HEAD");
       }
-      return new Response("VideoTool Cloud Bridge v4.03 is LIVE!", { status: 200 });
+      return new Response("VideoTool Cloud Bridge v4.06 is LIVE!", { status: 200 });
     }
     if (request.method !== "POST") {
       return new Response("Method Not Allowed", { status: 405 });
@@ -195,8 +198,15 @@ export default {
       return new Response("ok", { status: 200 });
     }
 
+    // v4.06: Gallery / Forwarded Video (ya video/mp4 File) -> turant 1-Tap Auto-Publish Card (BEFORE `if (!text) return`!)
+    const vidObj = msg.video || (doc && /^video\//.test(doc.mime_type || "") ? doc : null);
+    if (vidObj && vidObj.file_id && update.message) {
+      await handleForwardedVideoPublish(env, chatId, vidObj, msg.caption || "");
+      return new Response("ok", { status: 200 });
+    }
+
     // v3.83: aapki awaaz (voice note / audio file) -> pehle chuni hui script ke saath video
-    const aud = msg.voice || msg.audio || (doc && /^(audio|video)\//.test(doc.mime_type || "") ? doc : null);
+    const aud = msg.voice || msg.audio || (doc && /^audio\//.test(doc.mime_type || "") ? doc : null);
     if (aud && update.message) {
       const pend = await readPending(env);
       if (!pend || !pend.script || Date.now() - (pend.ts || 0) > 6 * 3600e3) {
@@ -223,7 +233,7 @@ export default {
     // 2) Start / Menu / Guide
     if (tl === "/start" || tl === "/menu") {
       await tgReply(env.TG_TOKEN, chatId,
-        "☁️ VideoTool Cloud v3.93 LIVE hai!\nNeeche ke buttons use karo ya seedha script bhejo:", true);
+        "☁️ VideoTool Cloud v4.06 LIVE hai!\nNeeche ke buttons use karo, script bhejo, ya purani video (<20MB) forward karo:", true);
       return new Response("ok", { status: 200 });
     }
     if (tl === "/guide" || text.includes("/guide")) {
@@ -301,12 +311,6 @@ export default {
     // 5e) v4.05 /publish <direct_mp4_url> | <Title> -> Publish any 20MB-200MB old video via link!
     if (tl.startsWith("/publish ")) {
       await handleManualPublishUrl(env, chatId, text.slice(9).trim());
-      return new Response("ok", { status: 200 });
-    }
-
-    // 5f) v4.05 Forwarded / Uploaded Video in Telegram -> Instant 1-Tap Auto-Publish Card!
-    if (msg.video && msg.video.file_id) {
-      await handleForwardedVideoPublish(env, chatId, msg.video, msg.caption || "");
       return new Response("ok", { status: 200 });
     }
 
