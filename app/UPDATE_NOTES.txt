@@ -1,3 +1,9 @@
+=== v4.15 (25 Nov 2026) — Mandatory '||' Visual Hints & Auto-Hint Repair Guard ===
+- Added concrete few-shot '||' visual hint + [map:]/[news:]/[impact] example lines inside both LONG & SHORT /trends prompts (fixes Groq backup omitting '||' hints)
+- Added hasEnoughVisualHints() + automatic fast repairMissingVisualHints() pass in cloudflare_worker.js whenever any model forgets '||' hints
+- Added TITLE: sanitizer in parseTrendGeminiOutput() to strip stray extra '| 3 शब्द |' LLM placeholders + banned slow 'क्या आपने कभी सोचा है' intros
+- Visual Search Engine: 0% untouched
+
 === v4.14 (25 Nov 2026) — Long AI Brain Batching, Zero Font Boxes, Multi-Story Newspaper & Reliable Dispatch ===
 - Batched AI visual planning in app/visual_brain.py (14-line chunks for Long videos -> samajh: AI 100% active instead of falling back to rules!) + current year (2026) fact-check fix
 - Removed ugly tilted red DANGER/BANNED stamp (app/cine/kinetic.py) & fixed 'अरब दुनिया' -> 'BILLION' false trigger (app/cine/storyboard.py)

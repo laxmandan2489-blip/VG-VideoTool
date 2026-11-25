@@ -252,7 +252,7 @@ export default {
     if (tl === "/start" || tl === "/menu") {
       await tgApi(env, "setMyCommands", { commands: BOT_COMMANDS });
       await tgReply(env.TG_TOKEN, chatId,
-        "☁️ VideoTool Cloud v4.14 Auto-Pilot LIVE hai!\n✅ Short/Long alag Trends, Influencer category, Full-Screen Shorts aur Realistic Newspaper sab active hain:", true);
+        "☁️ VideoTool Cloud v4.15 Auto-Pilot LIVE hai!\n✅ Short/Long alag Trends, Influencer category, Full-Screen Shorts aur Realistic Newspaper sab active hain:", true);
       return new Response("ok", { status: 200 });
     }
     if (tl === "/guide" || text.includes("/guide")) {
@@ -1260,9 +1260,13 @@ VISUAL_REFS:
 SCRIPT:
 LONG
 MODE: <science | army | news | business | history | mystery | sports | influencer | technology | general>
-TITLE: <45-60 char high-CTR Hindi SEO title> | <2-4 bold Hindi thumbnail words>
-<42-55 crisp Hindi documentary lines totaling 750-880 words, tasteful [map:]/[news:]/[impact] tags max 5 total (NEVER write [riser] or [gola:] or [label:]), EVERY line except last CTA ends with "|| <3-5 simple lowercase English visual words>">
-इस पूरे मामले पर आपकी क्या राय है? कमेंट में ज़रूर बताएं और ऐसे ही रिसर्च वीडियो के लिए सब्सक्राइब करें।`
+TITLE: <45-60 char high-CTR Hindi SEO title> | <2-3 bold Hindi thumbnail words ONLY — NEVER add a 3rd pipe '|'>
+<STRICT FORMAT — EVERY SINGLE SPOKEN LINE MUST END WITH " || <3-4 lowercase English camera words>"! NEVER start with "क्या आपने कभी सोचा है" or "चलिए शुरू करते हैं". Follow this exact pattern for all 42-55 lines (750-880 words total) with 3-5 [map:]/[news:]/[impact]/[ink] tags:>
+2009 में NASA के ऑर्बिटर ने चाँद की सतह के नीचे एक रहस्यमयी गड्ढा पकड़ा! [impact] || nasa lunar orbiter crater closeup
+यह गड्ढा Mare Tranquillitatis इलाके में मिला था। [map: Mare Tranquillitatis, Moon] || moon surface dark crater aerial
+रिपोर्ट के मुताबिक इसके अंदर का तापमान हमेशा स्थिर रहता है। [news: NASA Confirms Subsurface Lunar Cave | NASA LRO] || lunar cave rocky interior shadows
+... (continue 42-55 lines, EVERY line ending with " || <3-4 lowercase English camera words>") ...
+इस पूरे मामले पर आपकी क्या राय है? कमेंट में ज़रूर बताएं और ऐसे ही रिसर्च वीडियो के लिए सब्सक्राइब करें। || <hero closing visual of main topic>`
   : `You are India's #1 viral Hindi YouTube Shorts Director for "The Viral Gyaan".
 TASK:
 1) Study this reference viral YouTube Short. Focus ONLY on the factual topic and WHAT REAL FOOTAGES, IMAGES, OBJECTS, PEOPLE, AND SCENES best explain it.
@@ -1288,9 +1292,12 @@ VISUAL_REFS:
 
 SCRIPT:
 MODE: <science | army | news | business | history | mystery | sports | influencer | technology | general>
-TITLE: <45-60 char high-CTR Hindi SEO title> | <2-4 bold Hindi thumbnail words>
-<14-17 short punchy Hindi lines, 5-9 words each, tasteful [map:]/[news:]/[impact] tags max 3 total (NEVER write [riser] or [gola:] or [label:]), EVERY line except last CTA ends with "|| <3-4 simple lowercase English visual words>">
-ऐसे ही चौंकाने वाले फैक्ट्स के लिए अभी सब्सक्राइब करें और अगली वीडियो देखना मत भूलना।`;
+TITLE: <45-60 char high-CTR Hindi SEO title> | <2-3 bold Hindi thumbnail words ONLY — NEVER add a 3rd pipe '|'>
+<STRICT FORMAT — EVERY SINGLE SPOKEN LINE MUST END WITH " || <3-4 lowercase English camera words>"! Follow this exact pattern for all 14-17 lines with 2-3 [map:]/[news:]/[impact]/[ink] tags:>
+क्या आप यकीन करेंगे कि समुद्र के 11 किलोमीटर नीचे भी ज़िंदगी मौजूद है? [impact] || deep ocean mariana trench submarine
+वैज्ञानिकों ने यहाँ एक अनोखा जीव खोजा है। [news: New Deep Sea Species Found | NOAA] || glowing deep sea creature underwater
+... (continue 14-17 short lines, EVERY line ending with " || <3-4 lowercase English camera words>") ...
+ऐसे ही चौंकाने वाले फैक्ट्स के लिए अभी सब्सक्राइब करें और अगली वीडियो देखना मत भूलना। || <hero closing visual of main topic>`;
 
   const errs = [];
   let models = [];
@@ -1363,7 +1370,10 @@ TITLE: <45-60 char high-CTR Hindi SEO title> | <2-4 bold Hindi thumbnail words>
             const j2 = await r2.json();
             const out2 = j2.candidates && j2.candidates[0] && j2.candidates[0].content && j2.candidates[0].content.parts
               ? j2.candidates[0].content.parts.map(p => p.text || "").join("\n").trim() : "";
-            if (out2) return { text: out2, mode: transcript ? "transcript" : "topic", model };
+            if (out2) {
+              const fixed2 = await repairMissingVisualHints(env, out2, isLongVideo, t0 + 27500);
+              return { text: fixed2, mode: transcript ? "transcript" : "topic", model };
+            }
           } else {
             errs.push(`${model}: ${r2.status}`);
             if (r2.status === 503 || r2.status === 429) tried503 = true;
@@ -1380,14 +1390,56 @@ TITLE: <45-60 char high-CTR Hindi SEO title> | <2-4 bold Hindi thumbnail words>
 
   // Step 3 (v4.01): Instant Groq Zero-Downtime Backup (auto-discovered active models + non-empty reasoning guard!)
   if (groqKeys.length) {
-    const groqRes = await callGroqTrendScript(env, fbPrompt, Boolean(transcript), errs, t0 + 27500);
-    if (groqRes && groqRes.text) return groqRes;
+    const groqRes = await callGroqTrendScript(env, fbPrompt, Boolean(transcript), errs, t0 + 22000);
+    if (groqRes && groqRes.text) {
+      groqRes.text = await repairMissingVisualHints(env, groqRes.text, isLongVideo, t0 + 28000);
+      return groqRes;
+    }
   }
 
   const gemErrs = errs.filter(e => !e.startsWith("groq")).slice(0, 4);
   const grqErrs = errs.filter(e => e.startsWith("groq")).slice(0, 4);
   const mergedErrs = [...gemErrs, ...grqErrs];
   return { text: "", error: (mergedErrs.length ? mergedErrs : errs.slice(0, 6)).join(" | ") };
+}
+
+function hasEnoughVisualHints(rawText) {
+  const txt = String(rawText || "");
+  const idx = txt.indexOf("SCRIPT:");
+  const body = idx >= 0 ? txt.slice(idx + 7) : txt;
+  const spoken = body.split(/\r?\n/).map(l => l.trim()).filter(l =>
+    l && !/^(LONG|SHORT|MODE:|TITLE:|##|#|VISUAL_REFS:|-\s)/i.test(l)
+  );
+  if (spoken.length < 4) return true;
+  const withHint = spoken.filter(l => /\|\|\s*[a-zA-Z0-9]{2,}/.test(l)).length;
+  return (withHint / spoken.length) >= 0.60;
+}
+
+async function repairMissingVisualHints(env, rawText, isLongVideo, deadlineMs) {
+  if (hasEnoughVisualHints(rawText)) return rawText;
+  if (Date.now() > deadlineMs - 3500) return rawText;
+  const groqKeys = getGroqKeys(env);
+  if (!groqKeys.length) return rawText;
+  const repairPrompt = `You are a VideoTool script formatter. The Hindi script below is MISSING "|| <visual hint>" on its lines!
+TASK:
+1) Keep the exact same Hindi story, MODE:, TITLE: (max 2 parts separated by ONE '|'), and ${isLongVideo ? "LONG header" : "Short lines"}.
+2) Append " || <3-4 simple lowercase English physical camera words>" to EVERY SINGLE spoken Hindi line (including last CTA).
+3) Add ${isLongVideo ? "3-4" : "2"} tasteful documentary tags BEFORE "||" on key lines: [map: Place, Country], [news: Short Headline | Source], [impact].
+4) NEVER output Chinese/Bengali characters or ** bold markdown.
+Return ONLY the repaired output starting with SCRIPT:
+
+INPUT TO REPAIR:
+${String(rawText || "").slice(0, 6500)}`;
+  try {
+    const rep = await callGroqTrendScript(env, repairPrompt, true, [], deadlineMs);
+    if (rep && rep.text && hasEnoughVisualHints(rep.text)) {
+      const origIdx = String(rawText || "").indexOf("SCRIPT:");
+      const origRefs = origIdx > 0 ? String(rawText || "").slice(0, origIdx).trim() : "";
+      const repBody = rep.text.includes("SCRIPT:") ? rep.text.slice(rep.text.indexOf("SCRIPT:")).trim() : ("SCRIPT:\n" + rep.text.trim());
+      return origRefs ? (origRefs + "\n\n" + repBody) : repBody;
+    }
+  } catch (e) {}
+  return rawText;
 }
 
 function devanagariToEngDigits(s) {
@@ -1401,7 +1453,12 @@ function parseTrendGeminiOutput(raw) {
   const idx = clean.indexOf("SCRIPT:");
   if (idx === -1) return { refs: "", script: clean };
   const refs = clean.slice(0, idx).replace(/VISUAL_REFS:/i, "").trim();
-  const script = clean.slice(idx + 7).trim();
+  let script = clean.slice(idx + 7).trim();
+  // v4.15: sanitize accidental 3rd '|' or placeholder words like '3 शब्द' in TITLE:
+  script = script.replace(/^TITLE:\s*(.+)$/im, (_, val) => {
+    const parts = val.split("|").map(x => x.trim()).filter(x => x && !/^(\d+\s*शब्द|2-4\s*bold|bold\s*hindi)/i.test(x));
+    return "TITLE: " + parts.slice(0, 2).join(" | ");
+  });
   return { refs, script };
 }
 
