@@ -28,7 +28,7 @@ STRONG = {   # Hindi shabd -> screen keyword
     "सबसे बड़ा": "BIGGEST", "सबसे बड़ी": "BIGGEST", "सबसे छोटा": "SMALLEST", "सबसे तेज": "FASTEST",
     "सबसे गहरा": "DEEPEST", "सबसे ऊंचा": "TALLEST", "सबसे पुराना": "OLDEST", "सबसे महंगा": "COSTLIEST",
     "चौंकाने": "SHOCKING", "हैरान": "SHOCKING", "बैन": "BANNED", "प्रतिबंध": "BANNED", "गैरकानूनी": "ILLEGAL",
-    "रिजेक्ट": "REJECT", "बर्बाद": "WASTE", "कचरा": "WASTE", "करोड़": "CRORE", "अरब": "BILLION", "आग": "FIRE",
+    "रिजेक्ट": "REJECT", "बर्बाद": "WASTE", "कचरा": "WASTE", "करोड़": "CRORE", "आग": "FIRE",  # v4.14: removed bare अरब->BILLION (triggered on अरब दुनिया / सऊदी अरब)
     "बिजली": "ELECTRICITY", "ऑक्सीजन": "OXYGEN", "दिमाग": "BRAIN", "दिल": "HEART", "खून": "BLOOD", "पानी": "WATER",
     "रद्द": "CANCELLED", "अवैध": "INVALID", "गिरफ्तार": "ARRESTED", "इस्तीफा": "RESIGNED", "इस्तीफ़ा": "RESIGNED",
     "दोषी": "GUILTY", "नकली": "FAKE", "इमरजेंसी": "EMERGENCY", "आपातकाल": "EMERGENCY",

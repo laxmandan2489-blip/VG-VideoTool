@@ -109,11 +109,7 @@ def events(scenes, sents, total, W, H, b, ass_time, style=None, busy=()):
         is_year = bool(re.fullmatch(r"(1[5-9]\d\d|20\d\d)", kw.strip()))
         if is_year:
             anim = "year"                               # v3.1: saal (1975) count-up nahi – bada, shadow ke saath (reference)
-        if kw.strip().upper() in STAMP:                 # v3.1: INVALID / BANNED jaisa laal THAPPA (stamp)
-            sz2 = int(sz * 0.62); rd = "&H2A2ADD&"
-            st_ = (f"{{\\an5\\pos({x},{y_main})\\fn{b['fonts']['impact']}\\fs{sz2}\\c{rd}\\3c{rd}\\bord5\\shad0"
-                   f"\\frz-12\\fscx165\\fscy165\\alpha&HFF&\\t(0,140,\\fscx100\\fscy100\\alpha&H10&){exitt}}}")
-            out.append(f"Dialogue: 8,{A},{B},Cap,,0,0,0,," + st_ + kw.upper())
+        if kw.strip().upper() in STAMP:                 # v4.14: disable intrusive red tilted stamp overlay
             continue
         if anim == "year":
             yfx = (f"\\alpha&HFF&\\fscx118\\fscy118\\blur10\\t(0,300,\\alpha&H00&\\fscx100\\fscy100\\blur0)"

@@ -1,3 +1,10 @@
+=== v4.14 (25 Nov 2026) — Long AI Brain Batching, Zero Font Boxes, Multi-Story Newspaper & Reliable Dispatch ===
+- Batched AI visual planning in app/visual_brain.py (14-line chunks for Long videos -> samajh: AI 100% active instead of falling back to rules!) + current year (2026) fact-check fix
+- Removed ugly tilted red DANGER/BANNED stamp (app/cine/kinetic.py) & fixed 'अरब दुनिया' -> 'BILLION' false trigger (app/cine/storyboard.py)
+- Realistic multi-story broadsheet Newspaper Card in app/cine/doc_cards.py (zero repeated placeholder lines + mixed Hindi/English dual-font rendering -> ZERO □□□□□ boxes on Syria/Israel/Assad!)
+- Foreign script artifact sanitizer (strips Chinese/Bengali LLM glitches like 软弱/ট) + strict real-fact-only guard in app/make_video.py & cloudflare_worker.js
+- Reliable dispatchGH() with string-safe inputs, auto-retry & exact GitHub HTTP error reporting + safe queue pop (video stays queued if dispatch fails)
+
 === v4.13 (25 Nov 2026) — Viral Shorts/Long Separation, Cinematic Full-Screen & Realistic Newspaper ===
 - Separate SHORT (15-95s) vs LONG (4-40m source explainers -> strict 5-6 min 750-900w script) /trends pools + fresh recency filter (Nitish Rajput, Dhruv Rathee, Think School, FactTechz, PJ Explained)
 - NEW Influencer & Creator News category in /trends (both SHORT & LONG) + fixed LONG draft approval mode

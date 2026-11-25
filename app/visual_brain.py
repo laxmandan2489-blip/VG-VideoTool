@@ -162,11 +162,38 @@ def _llm_plan(lines, eng, keys, main=""):
             '"emotion": "..", "must_show": "..", "beats": [{"phrase": "..", "subject": "..", "query": ".."}], '
             '"real": true, "exact_q": [".."], "stock_q": [".."], "avoid": [".."], "shot": "..", "fallback": ".."}]}'
             + (f"\nMain subject hint: {main}" if main else "") + "\n\nSCRIPT:\n" + rows)
-        data = ai.ask_json(key, [prompt], temperature=0.2, timeout=90, budget=150)
-        if isinstance(data, list): data = {"lines": data}
-        if not isinstance(data, dict) or not isinstance(data.get("lines"), list): return None
-        if len(data["lines"]) < max(1, int(len(lines) * 0.8)): return None
-        return data
+        # v4.14 BATCHED LONG-VIDEO AI PLANNER: Split >16-line Long scripts into 14-line batches
+        # so LLM response never truncates and falls back to 'samajh: rules'!
+        if len(lines) <= 16:
+            data = ai.ask_json(key, [prompt], temperature=0.2, timeout=90, budget=150)
+            if isinstance(data, list): data = {"lines": data}
+            if not isinstance(data, dict) or not isinstance(data.get("lines"), list): return None
+            if len(data["lines"]) < max(1, int(len(lines) * 0.8)): return None
+            return data
+        merged_lines = []
+        top_cat = ""
+        top_main = main or ""
+        chunk_sz = 14
+        for off in range(0, len(lines), chunk_sz):
+            sub_l = lines[off:off + chunk_sz]
+            sub_e = (list(eng) + [""] * len(lines))[off:off + chunk_sz]
+            sub_rows = "\n".join(f"{k+1}. {l_}" + (f"  [EN: {e_}]" if e_ else "") for k, (l_, e_) in enumerate(zip(sub_l, sub_e)))
+            sub_prompt = prompt.split("\n\nSCRIPT:\n")[0] + (f"\nContext main subject: {top_main}" if top_main else "") + "\n\nSCRIPT:\n" + sub_rows
+            cd = ai.ask_json(key, [sub_prompt], temperature=0.2, timeout=75, budget=110)
+            if isinstance(cd, list): cd = {"lines": cd}
+            if isinstance(cd, dict) and isinstance(cd.get("lines"), list) and len(cd["lines"]) >= max(1, int(len(sub_l) * 0.6)):
+                if not top_cat and _s(cd.get("category"), 20): top_cat = _s(cd.get("category"), 20)
+                if not top_main and _s(cd.get("main"), 60): top_main = _s(cd.get("main"), 60)
+                cl = cd["lines"][:len(sub_l)]
+                while len(cl) < len(sub_l):
+                    cl.append({})
+                merged_lines.extend(cl)
+            else:
+                merged_lines.extend([{} for _ in sub_l])
+        filled = sum(1 for x in merged_lines if isinstance(x, dict) and x)
+        if filled < max(1, int(len(lines) * 0.45)):
+            return None
+        return {"category": top_cat or "general", "main": top_main, "lines": merged_lines}
     except Exception as e:
         log(f"   (visual brain AI skip: {str(e)[:100]})", show=False)
         return None

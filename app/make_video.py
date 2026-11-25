@@ -119,8 +119,10 @@ def read_script(path):
         s = ln.strip()
         if not s:
             continue
-        # v4.13: strip stray LLM markdown bold/italic (** / __) so '2 अपडेट**' never leaks on screen
+        # v4.13/v4.14: strip stray LLM markdown (** / __) & foreign CJK/Bengali/Arabic glitch chars
         s = re.sub(r"\*{2,}|_{2,}", "", s).strip()
+        s = re.sub(r"[\u4E00-\u9FFF\u3400-\u4DBF\u0980-\u09FF\u0600-\u06FF\u0400-\u04FF]+", "", s)
+        s = re.sub(r"\s{2,}", " ", s).strip()
         if s.startswith("*") and not s.startswith("* "):
             s = s.lstrip("*").strip()
         if s.endswith("*"):

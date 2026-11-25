@@ -252,7 +252,7 @@ export default {
     if (tl === "/start" || tl === "/menu") {
       await tgApi(env, "setMyCommands", { commands: BOT_COMMANDS });
       await tgReply(env.TG_TOKEN, chatId,
-        "☁️ VideoTool Cloud v4.13 Auto-Pilot LIVE hai!\n✅ Short/Long alag Trends, Influencer category, Full-Screen Shorts aur Realistic Newspaper sab active hain:", true);
+        "☁️ VideoTool Cloud v4.14 Auto-Pilot LIVE hai!\n✅ Short/Long alag Trends, Influencer category, Full-Screen Shorts aur Realistic Newspaper sab active hain:", true);
       return new Response("ok", { status: 200 });
     }
     if (tl === "/guide" || text.includes("/guide")) {
@@ -533,13 +533,15 @@ async function popAndStartNext(env, chatId) {
   if (!q.items.length) return;
   const next = q.items[0];
   const rest = q.items.slice(1);
-  await saveQueue(env, rest, q.sha);
   const ok = await dispatchGH(env, "make_video.yml", { script: next.script, mode: next.mode || "SHORT" });
+  if (ok) {
+    await saveQueue(env, rest, q.sha);
+  }
   if (chatId) {
     const firstLn = (next.script || "").split("\n").find(l => l.trim() && !/^(MODE|TITLE|LONG)/i.test(l.trim())) || "Agli video";
     await tgReply(env.TG_TOKEN, chatId, ok
       ? `▶️ Queue se agli ${next.mode || "SHORT"} video shuru ho gayi! (Baaki ${rest.length} line me)\n${firstLn.slice(0, 60)}`
-      : "⚠️ Queue se agli video start nahi ho paayi.", true);
+      : `⚠️ Queue se agli video start nahi ho paayi (${LAST_GH_DISPATCH_ERR || "dispatch fail"}) — video queue me safe hai!`, true);
   }
 }
 
@@ -585,9 +587,26 @@ async function saveCookieRef(env, kind, fileId) {
   return r.ok;
 }
 
+let LAST_GH_DISPATCH_ERR = "";
 async function dispatchGH(env, workflowFile, inputs) {
-  const res = await ghFetch(env, `/actions/workflows/${workflowFile}/dispatches`, "POST", { ref: "main", inputs });
-  return res.ok;
+  LAST_GH_DISPATCH_ERR = "";
+  const cleanInputs = {};
+  for (const [k, v] of Object.entries(inputs || {})) {
+    cleanInputs[k] = (v === undefined || v === null) ? "" : String(v);
+  }
+  for (let attempt = 0; attempt < 2; attempt++) {
+    try {
+      const res = await ghFetch(env, `/actions/workflows/${workflowFile}/dispatches`, "POST", { ref: "main", inputs: cleanInputs });
+      if (res.ok || res.status === 204) return true;
+      const body = (await res.text().catch(() => "")).slice(0, 140).replace(/\s+/g, " ");
+      LAST_GH_DISPATCH_ERR = `HTTP ${res.status}${body ? ": " + body : ""}`;
+      if (res.status < 500 && res.status !== 429) return false;
+    } catch (e) {
+      LAST_GH_DISPATCH_ERR = String(e).slice(0, 120);
+    }
+    await sleepMs(800);
+  }
+  return false;
 }
 
 async function cancelActiveRuns(env) {
@@ -1226,7 +1245,7 @@ TASK:
    - Real numbers, dates, proof & climax reveal
    - Short engaging comment-question CTA at the end
 3) UNIVERSAL VISUAL HINT & DIGIT RULES (CRITICAL — FOLLOW FOR EVERY LINE):
-   - CURRENT YEAR IS ${curYear}. NEVER refer to ${curYear - 2} as "this year" or outdated timelines. ALWAYS write ALL numbers & years in ENGLISH digits (e.g., 1999, ${curYear}, 10 Billion — NEVER Hindi digits like १९९९! NEVER use markdown ** bold asterisks!).
+   - STRICT LANGUAGE & FACT LOCK: Write ONLY in Hindi (Devanagari) + common English words — NEVER output Chinese/Bengali/Arabic/foreign script characters! NEVER invent fake people, fake spy names, or fake operations; use ONLY verified real facts from the reference video.\n   - CURRENT YEAR IS ${curYear}. NEVER refer to ${curYear - 2} as "this year" or outdated timelines. ALWAYS write ALL numbers & years in ENGLISH digits (e.g., 1999, ${curYear}, 10 Billion — NEVER Hindi digits like १९९९! NEVER use markdown ** bold asterisks!).
    - Put 2-4 simple lowercase English CONCRETE PHYSICAL CAMERA words after "||" (Object + Action + Setting). STRICTLY FORBIDDEN: abstract words ("secret", "concerned", "question mark", "subscribe animation", "reconstruction", "interview", "chart") and fictional/unknown names.
    - Last CTA line MUST end with "|| <cinematic hero closing visual of main topic>".
    - Apply category-matched documentary editing tags ([map:], [news:], [impact], [ding], [ink] max 5 total).
@@ -1254,7 +1273,7 @@ TASK:
    - Final Line: Ultra-short 2-sec CTA
    (NEVER copy/translate, and NEVER invent fake app features or fake stats${rewrite ? " — use a COMPLETELY DIFFERENT opening hook and angle than before" : ""}).
 3) UNIVERSAL VISUAL HINT & DIGIT RULES (CRITICAL — FOLLOW FOR EVERY LINE):
-   - CURRENT YEAR IS ${curYear}. NEVER use outdated years like ${curYear - 2} as current! ALWAYS write ALL numbers & years in ENGLISH digits (e.g., 1999, ${curYear}, 15 Lakh, 230°C — NEVER Hindi digits like १९९९! NEVER use markdown ** bold!).
+   - STRICT LANGUAGE & FACT LOCK: Write ONLY in Hindi (Devanagari) + common English words — NEVER output Chinese/Bengali/foreign characters! NEVER invent fake names or fake facts.\n   - CURRENT YEAR IS ${curYear}. NEVER use outdated years like ${curYear - 2} as current! ALWAYS write ALL numbers & years in ENGLISH digits (e.g., 1999, ${curYear}, 15 Lakh, 230°C — NEVER Hindi digits like १९९९! NEVER use markdown ** bold!).
    - Put 2-4 simple lowercase English CONCRETE PHYSICAL CAMERA words after "||" (Object + Action + Setting, e.g., "grey wolf pack snow", "airplane cockpit night lights", "iphone 17 pro closeup").
    - STRICTLY FORBIDDEN in "||" hints: abstract/unfilmable/garbage words ("shocked face", "view counter", "calendar", "locked door", "truth", "secret", "concerned", "question mark", "subscribe animation", "thank you for watching", "reconstruction", "reenactment", "interview", "chart") and fictional/unknown personal names (use concrete HD real-world scenes instead!).
    - Last Subscribe CTA line MUST also end with "|| <hero closing visual of main topic>" (e.g., "|| wolf howling full moon").
@@ -1434,7 +1453,7 @@ async function handleTrendCallback(env, cq) {
         ? `🚀 Approved! ${runMode === "LONG" ? "LONG (5–6 min, 16:9)" : "SHORT (9:16)"} video cloud par shuru ho gayi hai!\nBante hi video + Cover + Story + Auto-Publish buttons yahin aayenge.`
         : (res.queued > 0
           ? `📋 Approved! Queue me lag gayi (queue: ${res.queueLen}). Pehli video khatam hote hi apne aap chalegi.`
-          : "❌ GitHub render trigger fail ho gaya.");
+          : `❌ GitHub render trigger fail (${LAST_GH_DISPATCH_ERR || "unknown"}).`);
       if (msgId) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: msgId, text: reply });
       return;
     }
@@ -1906,7 +1925,7 @@ async function handlePublishCallback(env, cq) {
       const privLbl = ytPrivacy === "scheduled" ? "25m Auto-PUBLIC ⏱️" : (ytPrivacy === "public" ? "PUBLIC 🚀" : "Unlisted 🔒");
       return ok
         ? `▶️ YouTube (${privLbl}): Upload shuru ho gaya (~1 min me link yahin aayega!)`
-        : "❌ YouTube trigger fail: Check karo .github/workflows/publish_video.yml GitHub par updated hai ya nahi.";
+        : `❌ YouTube trigger fail (${LAST_GH_DISPATCH_ERR || "unknown error"}). Agar 401/403 ho to Cloudflare me GH_TOKEN refresh karein.`;
     })() : Promise.resolve(null);
 
     const fbTask = doFb ? publishFacebookPage(env, item) : Promise.resolve(null);

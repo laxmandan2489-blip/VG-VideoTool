@@ -533,6 +533,52 @@ def _dc_font(name, size):
     return ImageFont.load_default()
 
 
+
+_DEV_RUN_RE = re.compile(r"([\u0900-\u097F]+(?:\s+[\u0900-\u097F]+)*)")
+
+
+def _draw_mixed_text(draw, xy, text, f_hi, f_en, fill):
+    """v4.14: Render mixed Devanagari + English/Digits seamlessly with ZERO □□□□□ missing-glyph boxes."""
+    x, y = xy
+    parts = _DEV_RUN_RE.split(str(text or ""))
+    for part in parts:
+        if not part:
+            continue
+        is_dev = bool(re.search(r"[\u0900-\u097F]", part))
+        fnt = f_hi if is_dev else f_en
+        # Slight vertical baseline alignment for English font next to Devanagari
+        dy = 0 if is_dev else max(0, int((getattr(f_hi, "size", 32) - getattr(f_en, "size", 32)) * 0.25))
+        draw.text((x, y + dy), part, fill=fill, font=fnt)
+        try:
+            x += int(draw.textlength(part, font=fnt))
+        except Exception:
+            x += int(fnt.getlength(part))
+    return x
+
+
+def _wrap_mixed(text, f_hi, f_en, max_w):
+    """Word-wrap mixed Devanagari + English text accurately."""
+    words = str(text or "").split()
+    lines, cur = [], ""
+    def _wlen(s):
+        tot = 0
+        for part in _DEV_RUN_RE.split(s):
+            if not part: continue
+            fnt = f_hi if re.search(r"[\u0900-\u097F]", part) else f_en
+            tot += fnt.getlength(part)
+        return tot
+    for w in words:
+        cand = (cur + " " + w).strip() if cur else w
+        if _wlen(cand) <= max_w or not cur:
+            cur = cand
+        else:
+            lines.append(cur)
+            cur = w
+    if cur:
+        lines.append(cur)
+    return lines
+
+
 def _dc_persp(src_pts, dst_pts):
     m = []
     for s, d in zip(src_pts, dst_pts):
@@ -572,36 +618,75 @@ class RealisticNewsProofCard:
         self.PW, self.PH = PW, PH
         yy, _ = np.mgrid[0:PH, 0:PW].astype(np.float32)
         p = np.zeros((PH, PW, 3), dtype=np.float32)
-        p[..., 0] = 236 - 10 * (yy / PH)
-        p[..., 1] = 229 - 12 * (yy / PH)
-        p[..., 2] = 213 - 15 * (yy / PH)
+        p[..., 0] = 238 - 10 * (yy / PH)
+        p[..., 1] = 231 - 12 * (yy / PH)
+        p[..., 2] = 214 - 15 * (yy / PH)
         p = np.clip(p + self.rng.normal(0, 4.2, (PH, PW, 1)), 0, 255).astype(np.uint8)
         page = Image.fromarray(p, "RGB")
         d = ImageDraw.Draw(page, "RGBA")
         f_m = _dc_font("DMSerifDisplay-Regular.ttf", 48)
-        f_s = _dc_font("Poppins-SemiBold.ttf", 19)
-        d.line([(55, 65), (PW - 55, 65)], fill=(25, 22, 20, 230), width=4)
+        f_s = _dc_font("Poppins-SemiBold.ttf", 17)
+        f_sub = _dc_font("DMSerifDisplay-Regular.ttf", 22)
+        f_body = _dc_font("Poppins-SemiBold.ttf", 14)
+
+        # Classic Double-Rule Newspaper Masthead
+        d.line([(55, 58), (PW - 55, 58)], fill=(25, 22, 20, 235), width=4)
+        d.line([(55, 65), (PW - 55, 65)], fill=(25, 22, 20, 210), width=1)
         d.text((PW // 2, 108), self.source[:28], fill=(20, 18, 16, 245), font=f_m, anchor="mm")
-        d.text((62, 152), self.date_str, fill=(65, 60, 54, 210), font=f_s)
-        d.text((PW - 62, 152), "ARCHIVAL VERIFIED EDITION", fill=(65, 60, 54, 210), font=f_s, anchor="ra")
-        d.line([(55, 184), (PW - 55, 184)], fill=(25, 22, 20, 220), width=2)
-        for idx in range(5):
-            d.text((62, 212 + idx * 32), "Independent documentary records & verified telemetry confirm", fill=(55, 50, 45, 155), font=f_s)
-        d.line([(55, 396), (PW - 55, 396)], fill=(30, 28, 25, 190), width=2)
-        d.text((62, 424), f"VERIFIED REPORT • {self.source[:22]}", fill=(150, 32, 24, 235), font=f_s)
-        # Monochrome archival halftone graphic block at bottom
-        hx0, hy0, hx1, hy1 = 62, 820, 440, 1120
-        hy, hx = np.mgrid[0:hy1 - hy0, 0:hx1 - hx0].astype(np.float32)
-        rad = np.sqrt(((hx - 190) / 190) ** 2 + ((hy - 150) / 150) ** 2)
-        tone = np.clip(95 + 85 * np.exp(-rad * rad * 1.6) + self.rng.normal(0, 7, rad.shape), 25, 215)
-        h_arr = np.stack([tone * 0.96, tone * 0.93, tone * 0.86], axis=-1).astype(np.uint8)
-        page.paste(Image.fromarray(h_arr), (hx0, hy0))
-        d.rectangle([hx0, hy0, hx1, hy1], outline=(35, 32, 28, 200), width=2)
-        for idx in range(7):
-            d.text((470, 828 + idx * 38), "Archival cross-reference verified", fill=(55, 50, 45, 155), font=f_s)
+        d.text((62, 148), self.date_str, fill=(65, 60, 54, 215), font=f_s)
+        d.text((PW - 62, 148), "VOL. XLIV  •  NATIONAL & WORLD EDITION  •  P. 01", fill=(65, 60, 54, 215), font=f_s, anchor="ra")
+        d.line([(55, 178), (PW - 55, 178)], fill=(25, 22, 20, 225), width=2)
+
+        # TOP 2-COLUMN DISTINCT SURROUNDING NEWS STORIES (NO repeated placeholder lines!)
+        d.line([(PW // 2, 194), (PW // 2, 386)], fill=(140, 132, 120, 185), width=1)
+        d.text((62, 196), "GLOBAL MARKETS REACT TO POLICY SHIFT", fill=(48, 44, 40, 205), font=f_sub)
+        top_left = _wrap_text(
+            "NEW DELHI — Trade analysts and regional desks monitored diplomatic cables throughout the "
+            "morning session as parliamentary committees reviewed freshly released briefs and archival filings.",
+            f_body, 400,
+        )[:5]
+        for idx, tl in enumerate(top_left):
+            d.text((62, 230 + idx * 26), tl, fill=(75, 70, 64, 175), font=f_body)
+
+        d.text((PW // 2 + 24, 196), "REGIONAL SUMMIT AGENDA FINALIZED", fill=(48, 44, 40, 205), font=f_sub)
+        top_right = _wrap_text(
+            "GENEVA — Senior envoys confirmed bilateral talks will focus on border stability, energy "
+            "corridors, and joint verification mechanisms scheduled for review later this quarter.",
+            f_body, 400,
+        )[:5]
+        for idx, tr in enumerate(top_right):
+            d.text((PW // 2 + 24, 230 + idx * 26), tr, fill=(75, 70, 64, 175), font=f_body)
+
+        d.line([(55, 396), (PW - 55, 396)], fill=(30, 28, 25, 210), width=2)
+        d.text((62, 420), f"SPECIAL INVESTIGATION  •  {self.source[:22]}", fill=(165, 28, 24, 240), font=f_s)
+
+        # BOTTOM 2-COLUMN DISTINCT NEWSPRINT ARTICLES (zero repeated lines!)
+        d.line([(55, 785), (PW - 55, 785)], fill=(30, 28, 25, 200), width=2)
+        d.line([(PW // 2, 800), (PW // 2, 1210)], fill=(140, 132, 120, 185), width=1)
+        d.text((62, 804), "PUBLIC ARCHIVES & OFFICIAL TIMELINE", fill=(48, 44, 40, 205), font=f_sub)
+        bot_left = _wrap_text(
+            "Declassified memos and contemporary press dispatches offer a detailed chronology of events "
+            "leading up to the decisive announcement. Independent historians cross-checked parliamentary "
+            "transcripts alongside broadcast recordings preserved in national libraries.",
+            f_body, 400,
+        )[:11]
+        for idx, bl in enumerate(bot_left):
+            d.text((62, 840 + idx * 28), bl, fill=(75, 70, 64, 175), font=f_body)
+
+        d.text((PW // 2 + 24, 804), "EXPERTS WEIGH LONG-TERM IMPACT", fill=(48, 44, 40, 205), font=f_sub)
+        bot_right = _wrap_text(
+            "Observers note that decisions made during moments of intense pressure frequently reshape "
+            "alliances for decades. Editorial boards across major capitals published follow-up analyses "
+            "examining how institutional accountability and public scrutiny evolved in the aftermath.",
+            f_body, 400,
+        )[:11]
+        for idx, br in enumerate(bot_right):
+            d.text((PW // 2 + 24, 840 + idx * 28), br, fill=(75, 70, 64, 175), font=f_body)
+
         self.page_base = page
         self.f_pg_hi = _dc_font("NotoSansDevanagari-Bold.ttf", 40)
-        self.hl_lines = _wrap_text(self.headline, self.f_pg_hi, PW - 140)[:3]
+        self.f_pg_en = _dc_font("Poppins-ExtraBold.ttf", 38)
+        self.hl_lines = _wrap_mixed(self.headline, self.f_pg_hi, self.f_pg_en, PW - 140)[:3]
 
     def frame(self, i, fps):
         W, H = self.W, self.H
@@ -623,7 +708,7 @@ class RealisticNewsProofCard:
                 pg = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
             dp = ImageDraw.Draw(pg, "RGBA")
             for li, ln in enumerate(self.hl_lines):
-                dp.text((74, 500 + li * 82), ln, fill=(18, 16, 14, 252), font=self.f_pg_hi)
+                _draw_mixed_text(dp, (74, 500 + li * 82), ln, self.f_pg_hi, self.f_pg_en, fill=(18, 16, 14, 252))
 
             tilt = -0.05 + 0.08 * (3 * t * t - 2 * t * t * t)
             z = 0.88 + 0.14 * ent + 0.07 * t
@@ -673,7 +758,7 @@ class RealisticNewsProofCard:
                     if hw > 8:
                         d.rounded_rectangle([cx0 + 28, ly - 8, cx0 + 28 + hw, ly + int(self.f_hi.size * 1.18)], radius=8, fill=(235, 175, 55, 65))
                         d.rectangle([cx0 + 28, ly + int(self.f_hi.size * 1.14), cx0 + 28 + hw, ly + int(self.f_hi.size * 1.19)], fill=(245, 195, 75, 240))
-                d.text((cx0 + 36, ly), ln, fill=(250, 246, 232, 255), font=self.f_hi)
+                _draw_mixed_text(d, (cx0 + 36, ly), ln, self.f_hi, self.f_sans, fill=(250, 246, 232, 255))
             d.rounded_rectangle([cx0 + 30, cy0 + ch - 95, cx0 + cw - 30, cy0 + ch - 28], radius=12, fill=(255, 255, 255, 14))
             d.text((cx0 + 50, cy0 + ch - 72), f"SOURCE: {self.source} • {self.date_str}", fill=(140, 195, 255, 230), font=self.f_sm)
             return Image.alpha_composite(frame, ov).convert("RGB")
