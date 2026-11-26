@@ -689,10 +689,16 @@ async function tgReply(token, chatId, text, withKb = false) {
 const DEFAULT_COMPETITORS = [
   "@FactsMine",
   "@FactTechz",
-  "@dhruvrathee",
-  "@NitishRajput",
   "@GetsetflyFACT",
   "@AbhiandNiyu",
+  "@A2Motivation",
+  "@ItsFacts",
+  "@RighttoShiksha",
+  "@Fact2Fact",
+  "@GauravThakur-GSF",
+  "@ThinkSchool",
+  "@dhruvrathee",
+  "@NitishRajput",
 ];
 const COMP_PATH = "/contents/seekha/competitors.json";
 const TRENDS_CACHE_PATH = "/contents/seekha/trends_cache.json";
@@ -771,7 +777,7 @@ const TREND_CATEGORIES = {
     modeHint: "science | history | mystery | general",
     visualRule: "Use exact real-world objects, places, NASA/wildlife/science HD scenes — NEVER abstract words like shocked face or question mark.",
     shortHandles: null, // uses saved /competitors list (DEFAULT_COMPETITORS)
-    longHandles: ["@FactTechz", "@GauravThakur-GSF", "@GetsetflySCIENCE", "@AntarikshTV", "@zemtv", "@VigyanTvIndia"],
+    longHandles: ["@FactTechz", "@GauravThakur-GSF", "@GetsetflySCIENCE", "@AntarikshTV", "@zemtv", "@VigyanTvIndia", "@dhruvrathee", "@NitishRajput", "@ThinkSchool", "@MohakMangal"],
   },
   business: {
     label: "💼 Business & History",
@@ -812,16 +818,16 @@ const TREND_CATEGORIES = {
     label: "🌐 X / IG / FB Viral News",
     modeHint: "news | influencer | business | technology",
     visualRule: "CRITICAL FOR VIRAL SOCIAL NEWS: Use concrete real-world people, locations, official press/event scenes, and [news:] / [route:] cards — NEVER generic vlogs.",
-    shortHandles: [],
-    longHandles: [],
+    shortHandles: ["@NeonMan", "@NeuzBoy", "@AbhiandNiyu", "@A2Motivation", "@ThinkSchool", "@TheLallantop", "@TechBurnerShorts", "@NitishRajput"],
+    longHandles: ["@NitishRajput", "@dhruvrathee", "@AbhiandNiyu", "@MohakMangal", "@TheLallantop", "@StudyIQEducationLtd", "@ThinkSchool", "@NeonMan"],
     isSocialRss: true,
   },
   mix: {
     label: "🌍 Mix All (Top Viral)",
     modeHint: "science | business | history | influencer | technology | mystery",
     visualRule: "Include the exact concrete person/object/place/app name in every '||' visual hint so sharp HD visuals load.",
-    shortHandles: ["@FactsMine", "@FactTechz", "@TechBurner", "@PJExplained", "@NeonMan", "@ThinkSchool", "@ManojDey"],
-    longHandles: ["@NitishRajput", "@dhruvrathee", "@ThinkSchool", "@GauravThakur-GSF", "@FactTechz", "@PJExplained", "@MohakMangal"],
+    shortHandles: ["@FactsMine", "@FactTechz", "@GetsetflyFACT", "@AbhiandNiyu", "@A2Motivation", "@RighttoShiksha", "@Fact2Fact", "@TechBurner", "@PJExplained", "@NeonMan", "@ThinkSchool", "@ManojDey"],
+    longHandles: ["@NitishRajput", "@dhruvrathee", "@ThinkSchool", "@GauravThakur-GSF", "@FactTechz", "@MohakMangal", "@AbhiandNiyu", "@PJExplained", "@GetsetflySCIENCE", "@StudyIQEducationLtd"],
   },
 };
 
@@ -831,7 +837,7 @@ function isBoringVlogTitle(title) {
   return BORING_VLOG_RE.test(String(title || ""));
 }
 
-function parseGoogleNewsRss(xmlText, catKey, fmt) {
+function parseGoogleNewsRss(xmlText, catKey, fmt, defaultSource = "Trending India") {
   const items = [];
   const itemRe = /<item>([\s\S]*?)<\/item>/gi;
   let m;
@@ -839,16 +845,29 @@ function parseGoogleNewsRss(xmlText, catKey, fmt) {
     const blk = m[1];
     const getTag = (tag) => {
       const r = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i").exec(blk);
-      return r ? r[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1").replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim() : "";
+      return r
+        ? r[1]
+            .replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1")
+            .replace(/<[^>]+>/g, "")
+            .replace(/&amp;/g, "&")
+            .replace(/&quot;/g, '"')
+            .replace(/&#39;/g, "'")
+            .replace(/&apos;/g, "'")
+            .replace(/&lt;/g, "<")
+            .replace(/&gt;/g, ">")
+            .replace(/\s+/g, " ")
+            .trim()
+        : "";
     };
     const title = getTag("title");
     const link = getTag("link");
     const pubDate = getTag("pubDate");
-    const source = getTag("source") || "Google News India";
-    if (!title || isBoringVlogTitle(title)) continue;
+    const source = getTag("source") || defaultSource;
+    if (!title || title.length < 18 || isBoringVlogTitle(title)) continue;
     const pubMs = Date.parse(pubDate || "") || Date.now();
     const ageDays = Math.max(0, Math.round((Date.now() - pubMs) / 86400000));
-    if (ageDays > 14) continue;
+    // Strict 15-day fresh window for social news
+    if (ageDays > 15) continue;
     let h = 0;
     for (let i = 0; i < title.length; i++) h = ((h << 5) - h + title.charCodeAt(i)) | 0;
     const id = "gn_" + Math.abs(h).toString(36);
@@ -856,14 +875,14 @@ function parseGoogleNewsRss(xmlText, catKey, fmt) {
       id,
       title,
       channel: source,
-      handle: "@GoogleNews",
+      handle: "@ViralNews",
       catKey,
       fmt,
-      views: 250000,
+      views: 300000,
       dur: fmt === "LONG" ? 360 : 50,
       ageDays,
-      outlierMult: 3.5,
-      viralRating: 8.8,
+      outlierMult: 4.0,
+      viralRating: 9.0,
       score: 1000 / Math.max(1, ageDays + 1),
       url: link || "https://news.google.com/?hl=en-IN&gl=IN&ceid=IN:en",
     });
@@ -877,47 +896,79 @@ async function scanSocialNewsTrends(env, excludeIds = [], fmt = "SHORT") {
   const seenSet = new Set((excludeIds || []).map(String));
   const feeds = isLongFmt
     ? [
-        "https://news.google.com/rss/search?q=India+viral+controversy+OR+influencer+OR+geopolitics+OR+business+when:7d&hl=en-IN&gl=IN&ceid=IN:en",
-        "https://news.google.com/rss/search?q=YouTuber+OR+Instagram+OR+Twitter+viral+news+India+when:7d&hl=en-IN&gl=IN&ceid=IN:en",
+        { url: "https://news.google.com/rss/search?q=India+viral+OR+controversy+OR+influencer+OR+business+when:14d&hl=en-IN&gl=IN&ceid=IN:en", src: "Google News India" },
+        { url: "https://news.google.com/rss/search?q=YouTuber+OR+Instagram+OR+Twitter+trending+India+when:14d&hl=en-IN&gl=IN&ceid=IN:en", src: "Google News Social" },
+        { url: "https://feeds.feedburner.com/ndtvnews-trending-news", src: "NDTV Trending" },
+        { url: "https://timesofindia.indiatimes.com/rssfeedmostread.cms", src: "Times of India Trending" },
+        { url: "https://www.hindustantimes.com/feeds/rss/trending/rssfeed.xml", src: "Hindustan Times Trending" },
       ]
     : [
-        "https://news.google.com/rss/search?q=viral+on+Instagram+OR+Twitter+OR+X+India+when:3d&hl=en-IN&gl=IN&ceid=IN:en",
-        "https://news.google.com/rss/search?q=Indian+YouTuber+OR+influencer+news+controversy+donation+when:5d&hl=en-IN&gl=IN&ceid=IN:en",
+        { url: "https://news.google.com/rss/search?q=viral+Instagram+OR+Twitter+OR+X+India+when:7d&hl=en-IN&gl=IN&ceid=IN:en", src: "Google News Social" },
+        { url: "https://news.google.com/rss/search?q=Indian+YouTuber+OR+influencer+viral+news+when:10d&hl=en-IN&gl=IN&ceid=IN:en", src: "Google News Creator" },
+        { url: "https://feeds.feedburner.com/ndtvnews-trending-news", src: "NDTV Trending" },
+        { url: "https://timesofindia.indiatimes.com/rssfeedmostread.cms", src: "Times of India Trending" },
+        { url: "https://www.hindustantimes.com/feeds/rss/trending/rssfeed.xml", src: "Hindustan Times Trending" },
       ];
-  const all = [];
-  for (const url of feeds) {
-    try {
-      const r = await fetchWithTimeout(url, { headers: { "User-Agent": "VG-VideoTool/4.16" } }, 6000);
-      if (r.ok) {
+  const reqHeaders = {
+    "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36",
+    "Accept": "application/rss+xml, application/xml, text/xml;q=0.9, */*;q=0.8",
+  };
+  const fetched = await Promise.all(
+    feeds.map(async (f) => {
+      try {
+        const r = await fetchWithTimeout(f.url, { headers: reqHeaders }, 7500);
+        if (!r.ok) return [];
         const xml = await r.text();
-        all.push(...parseGoogleNewsRss(xml, "socialnews", fmtStr));
+        return parseGoogleNewsRss(xml, "socialnews", fmtStr, f.src);
+      } catch (e) {
+        return [];
       }
-    } catch (e) {}
-  }
+    })
+  );
+  const all = fetched.flat();
   const uniq = [];
   const seenTitle = new Set();
   for (const it of all) {
-    const key = it.title.toLowerCase().slice(0, 42);
-    if (!seenTitle.has(key)) { seenTitle.add(key); uniq.push(it); }
+    const key = it.title.toLowerCase().replace(/[^a-z0-9]+/g, "").slice(0, 36);
+    if (key && !seenTitle.has(key)) {
+      seenTitle.add(key);
+      uniq.push(it);
+    }
   }
-  const fresh = uniq.filter(x => !seenSet.has(x.id));
-  const recycled = fresh.length < 3 && uniq.length > 0;
-  const pool = recycled ? uniq : fresh;
-  return { items: pool.slice(0, 5), recycled };
+  uniq.sort((a, b) => a.ageDays - b.ageDays);
+  const fresh = uniq.filter((x) => !seenSet.has(x.id));
+  if (fresh.length >= 3) {
+    return { items: fresh.slice(0, 5), recycled: false };
+  }
+  if (uniq.length >= 3) {
+    return { items: uniq.slice(0, 5), recycled: true };
+  }
+  // Automatic YouTube Viral/Creator News backup if RSS feeds are blocked or empty
+  const ytBackup = await scanCompetitorTrends(env, "socialnews", excludeIds, fmtStr);
+  if (ytBackup && Array.isArray(ytBackup.items) && ytBackup.items.length) {
+    return ytBackup;
+  }
+  return { items: uniq.slice(0, 5), recycled: false };
 }
 
 async function scanCompetitorTrends(env, catKey = "facts", excludeIds = [], fmt = "SHORT") {
   const ytKey = (env.YOUTUBE_KEY || "").trim();
+  if (!ytKey) return { items: [], recycled: false };
   const isLongFmt = String(fmt || "SHORT").toUpperCase() === "LONG";
   const cat = TREND_CATEGORIES[catKey] || TREND_CATEGORIES.facts;
-  let handles = isLongFmt ? (cat.longHandles || cat.shortHandles) : (cat.shortHandles || cat.longHandles);
-  if (!handles) {
+  let handles = isLongFmt ? cat.longHandles : cat.shortHandles;
+  if (!handles || !handles.length) {
     const cur = await readGhJson(env, COMP_PATH, DEFAULT_COMPETITORS);
-    handles = (Array.isArray(cur.data) && cur.data.length ? cur.data : DEFAULT_COMPETITORS).slice(0, 10);
+    const saved = Array.isArray(cur.data) && cur.data.length ? cur.data : DEFAULT_COMPETITORS;
+    // Merge user's saved competitors with DEFAULT_COMPETITORS so 15-day scan always has a strong 12-channel pool
+    const merged = Array.from(new Set([...saved, ...DEFAULT_COMPETITORS]));
+    handles = merged.slice(0, 12);
+  } else {
+    handles = handles.slice(0, 12);
   }
   const seenSet = new Set((excludeIds || []).map(String));
 
-  // 1) Resolve uploads playlist for each handle (~1 quota unit each)
+  // 1) Resolve uploads playlist for each handle (1 quota unit each)
   const chanTasks = handles.map(async (h) => {
     try {
       const clean = h.replace(/^@/, "");
@@ -933,10 +984,11 @@ async function scanCompetitorTrends(env, catKey = "facts", excludeIds = [], fmt 
   const chans = (await Promise.all(chanTasks)).filter(Boolean);
   if (!chans.length) return { items: [], recycled: false };
 
-  // 2) Fetch last 15 uploads per channel (fresh recent videos only!)
+  // 2) Fetch last 35 uploads per channel (SAME 1 quota unit per channel!)
+  // Used to calculate accurate channel median + catch every breakout in the last 15 days
   const vidTasks = chans.map(async (c) => {
     try {
-      const r = await fetchWithTimeout(`https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId=${encodeURIComponent(c.uploads)}&maxResults=15&key=${encodeURIComponent(ytKey)}`, {}, 6000);
+      const r = await fetchWithTimeout(`https://www.googleapis.com/youtube/v3/playlistItems?part=contentDetails&playlistId=${encodeURIComponent(c.uploads)}&maxResults=35&key=${encodeURIComponent(ytKey)}`, {}, 6500);
       if (!r.ok) return [];
       const j = await r.json();
       return (j.items || []).map(x => ({ id: x.contentDetails && x.contentDetails.videoId, channel: c.name, handle: c.handle })).filter(x => x.id);
@@ -948,18 +1000,22 @@ async function scanCompetitorTrends(env, catKey = "facts", excludeIds = [], fmt 
   const allIds = Array.from(idMap.keys());
   if (!allIds.length) return { items: [], recycled: false };
 
-  // 3) Batch video stats + duration (up to 2 batches of 50 = 2 quota units max!)
-  const vItems = [];
-  for (let off = 0; off < Math.min(allIds.length, 100); off += 50) {
-    const chunk = allIds.slice(off, off + 50);
-    try {
-      const vr = await fetchWithTimeout(`https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=${chunk.join(",")}&key=${encodeURIComponent(ytKey)}`, {}, 7000);
-      if (vr.ok) {
-        const vj = await vr.json();
-        vItems.push(...(vj.items || []));
-      }
-    } catch (e) {}
+  // 3) Batch video stats + duration in parallel chunks of 50 (1 quota unit per 50 videos)
+  const chunks = [];
+  for (let off = 0; off < Math.min(allIds.length, 300); off += 50) {
+    chunks.push(allIds.slice(off, off + 50));
   }
+  const vBatches = await Promise.all(
+    chunks.map(async (chunk) => {
+      try {
+        const vr = await fetchWithTimeout(`https://www.googleapis.com/youtube/v3/videos?part=snippet,statistics,contentDetails&id=${chunk.join(",")}&key=${encodeURIComponent(ytKey)}`, {}, 7500);
+        if (!vr.ok) return [];
+        const vj = await vr.json();
+        return vj.items || [];
+      } catch (e) { return []; }
+    })
+  );
+  const vItems = vBatches.flat();
 
   const now = Date.now();
   const strictAll = [];
@@ -969,16 +1025,16 @@ async function scanCompetitorTrends(env, catKey = "facts", excludeIds = [], fmt 
     const pubMs = Date.parse((v.snippet && v.snippet.publishedAt) || "");
     const ageH = Math.max(6, (now - (pubMs || now)) / 3600000);
     const ageDays = Math.round(ageH / 24);
-    // Reject outdated > 18 months old videos so trends stay modern (2025-2026 style)
-    if (ageDays > 540) continue;
+    // Keep up to 180d ONLY for accurate channel baseline median; final selection is strictly 15d (max 30d backup)
+    if (ageDays > 180) continue;
     const vTitle = (v.snippet && v.snippet.title) || "Untitled";
     if (isBoringVlogTitle(vTitle)) continue;
     const views = Number((v.statistics && v.statistics.viewCount) || 0);
-    if (views < 1000) continue;
+    if (views < 2000) continue;
     const meta = idMap.get(v.id) || {};
     const entry = {
       id: v.id,
-      title: (v.snippet && v.snippet.title) || "Untitled",
+      title: vTitle,
       channel: meta.channel || (v.snippet && v.snippet.channelTitle) || "",
       handle: meta.handle || "",
       catKey,
@@ -990,18 +1046,17 @@ async function scanCompetitorTrends(env, catKey = "facts", excludeIds = [], fmt 
       url: `https://www.youtube.com/watch?v=${v.id}`,
     };
     if (isLongFmt) {
-      // LONG mode: strictly 4 min to 40 min source explainers/documentaries (Nitish Rajput, Dhruv Rathee, Think School)
       if (dur >= 240 && dur <= 2400) strictAll.push(entry);
       else if (dur >= 150 && dur <= 3600) relaxedAll.push(entry);
     } else {
-      // SHORT mode: strictly Shorts (12s to 95s)
       if (dur >= 12 && dur <= 95) strictAll.push(entry);
       else if (dur >= 12 && dur <= 180) relaxedAll.push(entry);
     }
   }
-  const all = strictAll.length >= 4 ? strictAll : [...strictAll, ...relaxedAll];
+  const all = strictAll.length >= 6 ? strictAll : [...strictAll, ...relaxedAll];
 
-  // Outlier Viral Score (views / channel median)
+  // 4) Accurate Channel Median & Breakout-First Scoring (v4.19)
+  // Prevents brand-new 0.5x videos from beating genuine 3x-10x+ breakout hits!
   const byCh = new Map();
   for (const x of all) {
     const k = x.handle || x.channel;
@@ -1011,36 +1066,69 @@ async function scanCompetitorTrends(env, catKey = "facts", excludeIds = [], fmt 
   const chMed = new Map();
   for (const [k, arr] of byCh.entries()) {
     arr.sort((a, b) => a - b);
-    chMed.set(k, Math.max(1000, arr[Math.floor(arr.length / 2)] || 1000));
+    chMed.set(k, Math.max(2000, arr[Math.floor(arr.length / 2)] || 2000));
   }
   for (const x of all) {
     const med = chMed.get(x.handle || x.channel) || 10000;
     const mult = Math.max(0.2, x.views / med);
     x.outlierMult = Number(mult.toFixed(1));
     x.viralRating = Math.min(9.9, Math.max(5.0, Number((5.2 + Math.log2(mult + 0.5) * 1.85).toFixed(1))));
-    x.score = x.velScore * Math.min(4.0, Math.sqrt(mult));
+    const multWeight = Math.pow(Math.min(12.0, mult), 1.65);
+    const scaleBoost = Math.log10(Math.max(1000, x.views));
+    const recencyBoost = x.ageDays <= 7 ? 1.25 : (x.ageDays <= 15 ? 1.0 : 0.65);
+    x.score = multWeight * scaleBoost * recencyBoost;
   }
 
-  // Prefer fresh recent videos (SHORT: <= 60 days, LONG: <= 180 days)
-  const maxFreshDays = isLongFmt ? 180 : 60;
-  const recent = all.filter(x => x.ageDays <= maxFreshDays);
-  const basePool = recent.length >= 5 ? recent : all;
-  const freshPool = basePool.filter(x => !seenSet.has(x.id));
-  const recycled = freshPool.length < 3 && basePool.length > 0;
-  const pool = recycled ? [...basePool] : [...freshPool];
-  pool.sort((a, b) => b.score - a.score);
+  // 5) STRICT 15-DAY FRESH + BREAKOUT MULTIPLIER TIERS (v4.19)
+  // Tier 1: Last 15 days AND >= 2.0x breakout (Gold!)
+  // Tier 2: Last 15 days AND >= 1.3x strong performer (only if Tier 1 < 5)
+  // Tier 3: Last 30 days AND >= 2.0x breakout backup (only if last 15d still < 5)
+  // Tier 4: Last 30 days sorted by breakout multiplier (last resort, never old >30d unless empty)
+  const fresh15 = all.filter(x => x.ageDays <= 15);
+  const fresh30 = all.filter(x => x.ageDays <= 30);
 
-  // Pick Top 5 diverse (max 1 per channel first, then fill)
+  const pickTiered = (filterSeen) => {
+    const ok = (x) => !filterSeen || !seenSet.has(x.id);
+    const byScore = (a, b) => b.score - a.score;
+    const t1 = fresh15.filter(x => x.outlierMult >= 2.0 && ok(x)).sort(byScore);
+    const t2 = fresh15.filter(x => x.outlierMult >= 1.3 && x.outlierMult < 2.0 && ok(x)).sort(byScore);
+    const t3 = fresh30.filter(x => x.ageDays > 15 && x.outlierMult >= 2.0 && ok(x)).sort(byScore);
+    const t4 = fresh30.filter(x => x.outlierMult < 1.3 && ok(x)).sort((a, b) => (b.outlierMult - a.outlierMult) || (b.score - a.score));
+    const ordered = [...t1, ...t2, ...t3, ...t4];
+    if (ordered.length) return ordered;
+    return all.filter(ok).sort(byScore);
+  };
+
+  let pool = pickTiered(true);
+  // If unseen high-quality breakout items (<15d, >=1.3x) ran out, recycle 15-day breakouts instead of showing 0.5x junk!
+  const unseenGood = pool.filter(x => x.ageDays <= 15 && x.outlierMult >= 1.3).length;
+  const totalGood = fresh15.filter(x => x.outlierMult >= 1.3).length;
+  const recycled = unseenGood < 3 && totalGood >= 3;
+  if (recycled) {
+    pool = pickTiered(false);
+  } else if (pool.length < 3 && all.length > 0) {
+    pool = pickTiered(false);
+  }
+
+  // Pick Top 5 diverse: prefer 1 per channel from strong breakouts first, then allow 2nd from same channel if it's >= 2.0x
   const picked = [];
-  const usedCh = new Set();
+  const chCount = new Map();
   for (const v of pool) {
     if (picked.length >= 5) break;
-    if (!usedCh.has(v.handle)) { picked.push(v); usedCh.add(v.handle); }
+    const k = v.handle || v.channel;
+    if ((chCount.get(k) || 0) === 0) {
+      picked.push(v);
+      chCount.set(k, 1);
+    }
   }
   for (const v of pool) {
     if (picked.length >= 5) break;
-    if (!picked.some(p => p.id === v.id)) picked.push(v);
+    if (!picked.some(p => p.id === v.id)) {
+      picked.push(v);
+    }
   }
+  // Keep final Top 5 cleanly ordered by highest breakout score
+  picked.sort((a, b) => b.score - a.score);
   return { items: picked, recycled };
 }
 
@@ -1095,7 +1183,9 @@ async function runTrendsForCategory(env, chatId, catKey = "facts", isRefresh = f
     : await scanCompetitorTrends(env, catKey, excludeIds, isLongFmt ? "LONG" : "SHORT");
   const trends = scan.items || [];
   if (!trends.length) {
-    const errTxt = `❌ [${fmtLabel}] ${cat.label} me abhi koi fresh trending video nahi mili (YOUTUBE_KEY quota ya doosri category try karein).`;
+    const errTxt = (catKey === "socialnews")
+      ? `❌ [${fmtLabel}] ${cat.label} ke news feeds abhi slow hain. 1 minute baad dobara try karein ya doosri category chunein.`
+      : `❌ [${fmtLabel}] ${cat.label} me abhi koi fresh trending video nahi mili (YOUTUBE_KEY quota ya doosri category try karein).`;
     if (waitMsgId) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: waitMsgId, text: errTxt });
     else await tgReply(env.TG_TOKEN, chatId, errTxt, true);
     return;
@@ -1110,7 +1200,7 @@ async function runTrendsForCategory(env, chatId, catKey = "facts", isRefresh = f
   await writeGhJson(env, TRENDS_CACHE_PATH, { items: taggedTrends, catKey, fmt: isLongFmt ? "LONG" : "SHORT", seenByCat, ts: Date.now() }, prev.sha, `trends ${cacheKey}`);
 
   const lines = [
-    `🔥 [${fmtLabel}] ${cat.label} — Top 5 ${isRefresh ? "NAYE " : ""}Viral Topics${scan.recycled ? " (Pool reset ✓)" : ""}:\n`,
+    `🔥 [${fmtLabel}] ${cat.label} — Top 5 ${isRefresh ? "NAYE " : ""}15-Day Breakout Topics${scan.recycled ? " (Pool reset ✓)" : ""}:\n`,
   ];
   trends.forEach((v, i) => {
     const badge = v.outlierMult ? ` • 🔥 ${v.outlierMult}x (${v.viralRating}/10)` : "";

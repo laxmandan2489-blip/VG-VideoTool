@@ -1,3 +1,16 @@
+THE VIRAL GYAAN VIDEOTOOL — v4.20 (Cumulative over v4.18)
+==========================================================
+Included in this single ZIP (v4.19 + v4.20):
+1. Critical Video Render Crash Fix (app/make_video.py):
+   - Fixed NameError ('LONG_MODE' -> 'LONG') on the global map cap line so Shorts and Long videos render smoothly without stopping after visual planning.
+   - Added safe fallback parsing if 'auto_map' in style.txt is non-numeric.
+2. Strict 15-Day Fresh + Breakout Viral Filter (cloudflare_worker.js):
+   - Fixed hidden bug where Facts SHORT (and Daily 9 AM IST cron) accidentally scanned long-form channels instead of Shorts competitors.
+   - Scans last 35 uploads across up to 12 active Hindi viral channels (same YouTube API quota per channel) for accurate channel medians and selects strictly last-15-day breakout hits (2x-10x+), blocking 0.5x weak flops.
+3. X / IG / FB Viral News 100% Reliability Fix (cloudflare_worker.js):
+   - Upgraded to parallel multi-source fresh Indian trending RSS feeds (Google News India, NDTV Trending, Times of India Most Read, Hindustan Times Trending) with browser-standard headers and automatic YouTube Viral News fallback.
+
+--- Previous Release Notes ---
 THE VIRAL GYAAN VIDEOTOOL — v4.18 (Cumulative over v4.15)
 ==========================================================
 Included in this single ZIP (v4.16 + v4.17 + v4.18):

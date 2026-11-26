@@ -966,7 +966,10 @@ def main():
     import fx
     PRO = yes(style.get("pro_effects", "haan"))
     _fx_map_state = {"count": 0, "places": set(), "last_i": -99}
-    _fx_map_max = int(float(style.get("auto_map", "2" if LONG_MODE else "1") or (2 if LONG_MODE else 1)))
+    try:
+        _fx_map_max = int(float(style.get("auto_map", 2 if LONG else 1) or (2 if LONG else 1)))
+    except Exception:
+        _fx_map_max = 2 if LONG else 1
     def fx_line(i):
         """v2.15 + v4.18: [explain:] / [route:] / [map:] (hard capped) / [news:] (realistic broadsheet)."""
         if not PRO: return None
