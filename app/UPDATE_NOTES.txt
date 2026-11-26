@@ -1,3 +1,21 @@
+THE VIRAL GYAAN VIDEOTOOL — v4.30 (Cumulative over v4.18)
+==========================================================
+Included in this single ZIP (v4.19 through v4.30 — Live Audit Polish & Default AI Cinematic Edition):
+1. Default-ON AI Cinematic Documentary Mode (cloudflare_worker.js + app/make_video.py):
+   - AI Cinematic Mode is now AUTOMATICALLY ON by default (no need to re-tap /vmode after updates); Purana Stock Mode is opt-in anytime via /vmode stock.
+2. Fast 2.0–2.5s Viral Pacing + Zero Photo/Video Repeats (app/make_video.py):
+   - Extended UniqueAssetGuard to BOTH photos AND videos (fixes repeated European train/stock footage), generates 2 distinct 35mm candid AI beats on longer lines (>3.8s Short / >6.0s Long), and tightens Short shot cap to 2.6s.
+3. Real Multi-Story Newspaper & News Portal Cards + Zero Mid-Word Cutoff (app/cine/doc_cards.py + app/make_video.py):
+   - Upgraded ALL news templates (Broadsheet, Portal, Broadcast) to show 2–3 authentic surrounding news columns/stories around your yellow-highlighted headline, with word-safe trimming (zero cut-off words).
+4. Universal Auto Full-Form / Term Callout Card (app/cine/doc_cards.py + app/make_video.py):
+   - Automatically detects "X यानी Y" / full-form lines (e.g., RAC -> Reservation Against Cancellation, TTE -> Traveling Ticket Examiner) and renders a crisp animated Full-Form card.
+5. Mobile-Readable AI Explainer + Zero Loop/Blink (app/cine/ai_explainer.py):
+   - Raised duration cap from 7s to 12s (fixes 0:28 restart blink on longer lines) and upgraded prompt for big mobile-first fonts, simple 2–3 step clarity, and zero text overflow.
+6. Hook Title Auto-Fit + Caption Corruption & 90% Stat Fix (app/hf_hook.py + app/translit.py + app/edit_style.py + app/cine/doc_cards.py):
+   - Auto-shrinks 0–3s hook headline to strictly fit within screen margins (zero left/right cutoff), syncs category badge with visual_brain, stops learn_name() from corrupting common Hindi words ("Ji Haan" -> "Indian Haan"), and normalizes "90 प्रतिशत" -> clean "90%".
+7. Includes ALL v4.19–v4.29 upgrades (0% touch to visual_brain.py / sources.py / aankh.py / social_visuals.py / visual_pick.py).
+
+--- Previous Release Notes ---
 THE VIRAL GYAAN VIDEOTOOL — v4.29 (Cumulative over v4.18)
 ==========================================================
 Included in this single ZIP (v4.19 through v4.29 — Viral Editing Engine Edition):

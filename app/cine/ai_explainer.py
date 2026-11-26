@@ -152,14 +152,17 @@ STRICT TECHNICAL REQUIREMENTS:
      window.renderAt = function(t) {{ ... }};
    where `t` is elapsed time in seconds from `0.0` to `{DUR:.2f}`.
    Every call to `window.renderAt(t)` MUST immediately redraw the entire {W}x{H} canvas/SVG for timestamp `t` (NO requestAnimationFrame dependency!). Also call `window.renderAt(0)` once on load.
-4. VISUAL QUALITY (VIRAL INDIAN DOCUMENTARY — DHRUV RATHEE / VOX / CUTTING-MAT LOOK):
-   - Rich tactile dark editorial background (#0d1117 -> #06090f) with subtle drafting grid or warm archival paper card contrast.
-   - Use proven viral documentary visual devices tailored SPECIFICALLY to this scene:
-     * For numbers/money/percentages: smooth rolling animated counters, crisp comparison tables with animated translucent YELLOW HIGHLIGHTER SWEEP (#FFE135), and red hand-drawn marker circle callouts around key peaks/drops.
-     * For science/tech/mechanisms: clear step-by-step animated cross-sections, flowing directional arrows, labeled components, and soft glowing highlights.
-     * For geography/comparisons: clean split-screen divider line with bold badges popping in with cubic ease-out.
-   - Keep ALL important elements safely inside central 82% margin (never clipped, never overlapping text!).
-   - Use crisp bold sans-serif English/digit labels (`system-ui, Arial, sans-serif`) sized appropriately for {W}x{H} (minimum 30px).
+4. VISUAL QUALITY (VIRAL MOBILE-FIRST EXPLAINER — CRYSTAL CLEAR IN 3 SECONDS):
+   - Clean high-contrast dark slate background (#0b1220 -> #070b14, NEVER muddy brown/red) with subtle soft grid and bright white/gold (#FACC15)/emerald (#22C55E) accents.
+   - SIMPLICITY FIRST (VIEWER IS WATCHING ON A PHONE):
+     * Break the concept into 2 or 3 super-clear visual stages (e.g., STEP 1 -> STEP 2 -> STEP 3, or BEFORE -> AFTER) with big bold icons/diagrams and short 2-5 word labels.
+     * ZERO dense paragraphs, ZERO technical jargon, ZERO tiny sub-captions! Every label must be immediately understandable to a common viewer.
+     * For numbers/money/percentages: smooth rolling counters, clean comparison cards with animated yellow highlighter sweep (#FFE135), and red circle callouts.
+     * For processes/rules/mechanisms: animated flowing arrows connecting 2-3 large clean cards/icons so the viewer immediately sees HOW it works.
+   - STRICT SAFE MARGINS & ANTI-CLIPPING:
+     * Keep ALL boxes and text safely inside the central 82% width and 14%-76% height (leave bottom 24% clear for subtitles!).
+     * Use BIG crisp bold sans-serif text (`system-ui, Arial, sans-serif`): Headline >= 46px, Card labels >= 34px, Secondary >= 28px. NEVER let text overflow or clip outside any box!
+     * Animate smoothly across the FULL `0.0` to `{DUR:.2f}` seconds so nothing abruptly restarts or freezes.
 5. Return ONLY raw HTML starting with `<!DOCTYPE html>` and ending with `</html>` (no markdown fences, no commentary)."""
 
 
@@ -221,7 +224,7 @@ def render_html_to_mp4(html_str, out_mp4, W, H, dur, style=None, fps=30):
         log("   (ai_explainer skip: Chrome/Chromium not installed)", show=False)
         return None
 
-    dur = max(2.0, min(7.0, float(dur or 3.8)))
+    dur = max(2.0, min(12.0, float(dur or 3.8)))  # v4.30: full line duration (zero loop/blink on 8-11s lines!)
     total_frames = max(20, int(round(dur * fps)))
     tmp_dir = Path(tempfile.mkdtemp(prefix="vg_aiexp_"))
     html_file = tmp_dir / "scene.html"

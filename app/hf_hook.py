@@ -81,6 +81,7 @@ def _load_font(size, prefer_hi=False):
 
 
 def _wrap_lines(draw, text, font, max_w, max_lines=2):
+    """v4.30: Strictly pixel-bounded word wrapping — NEVER overflows left/right edges!"""
     words = (text or "").split()
     if not words:
         return []
@@ -93,13 +94,24 @@ def _wrap_lines(draw, text, font, max_w, max_lines=2):
         else:
             lines.append(cur)
             cur = w
-            if len(lines) >= max_lines - 1:
+            if len(lines) >= max_lines:
                 break
-    if cur:
-        rem_idx = sum(len(l.split()) for l in lines)
-        rest = " ".join(words[rem_idx:])
-        lines.append(rest[:44] + ("…" if len(rest) > 44 else "") if len(lines) == max_lines - 1 and len(rest) > 45 else cur)
-    return lines[:max_lines]
+    if cur and len(lines) < max_lines:
+        lines.append(cur)
+    # Clamp every final line strictly within max_w (word-safe trim if still wider)
+    out = []
+    for idx, ln in enumerate(lines[:max_lines]):
+        if draw.textbbox((0, 0), ln, font=font)[2] <= max_w:
+            out.append(ln)
+            continue
+        wds = ln.split()
+        while len(wds) > 1 and draw.textbbox((0, 0), " ".join(wds), font=font)[2] > max_w:
+            wds.pop()
+        fitted = " ".join(wds)
+        while len(fitted) > 4 and draw.textbbox((0, 0), fitted, font=font)[2] > max_w:
+            fitted = fitted[:-1]
+        out.append(fitted.strip())
+    return [x for x in out if x]
 
 
 def render_hook_native(line1, line2, out, hl="", W=1080, H=1920, badge="", accent="#FACC15", fps=30, dur=2.55):
@@ -119,13 +131,24 @@ def render_hook_native(line1, line2, out, hl="", W=1080, H=1920, badge="", accen
     has_dev = bool(re.search(r"[\u0900-\u097F]", main_txt))
     acc_rgb = _hex_rgb(accent, (250, 204, 21))
 
-    f_pill = _load_font(max(24, int(W * (0.030 if is_short else 0.017))), prefer_hi=False)
-    f_main = _load_font(max(44, int(W * (0.062 if is_short else 0.038))), prefer_hi=has_dev)
-
+    f_pill = _load_font(max(24, int(W * (0.028 if is_short else 0.017))), prefer_hi=False)
     tmp_img = Image.new("RGBA", (W, H), (0, 0, 0, 0))
     dtmp = ImageDraw.Draw(tmp_img)
     max_tw = int(W * (0.84 if is_short else 0.68))
-    wrapped = _wrap_lines(dtmp, main_txt.upper() if not has_dev else main_txt, f_main, max_tw, max_lines=2)
+    disp_txt = main_txt.upper() if not has_dev else main_txt
+    # v4.30: Auto-shrink headline font until ALL words fit cleanly inside 2 lines & max_tw (zero horizontal cutoff!)
+    base_sz = max(44, int(W * (0.058 if is_short else 0.036)))
+    min_sz = max(32, int(W * (0.036 if is_short else 0.024)))
+    f_main = _load_font(base_sz, prefer_hi=has_dev)
+    wrapped = _wrap_lines(dtmp, disp_txt, f_main, max_tw, max_lines=2)
+    for sz in range(base_sz, min_sz - 1, -4):
+        f_try = _load_font(sz, prefer_hi=has_dev)
+        w_try = _wrap_lines(dtmp, disp_txt, f_try, max_tw, max_lines=2)
+        used_words = sum(len(x.split()) for x in w_try)
+        max_lw = max((dtmp.textbbox((0, 0), x, font=f_try)[2] for x in w_try), default=0)
+        f_main, wrapped = f_try, w_try
+        if used_words >= len(disp_txt.split()) and max_lw <= max_tw:
+            break
     if not wrapped:
         return None
 

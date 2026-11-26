@@ -24,7 +24,10 @@ FIX = {"है": "hai", "हैं": "hain", "मैं": "main", "में": "
        "फैक्ट्स": "facts", "केमिकल": "chemical", "रोवर": "rover", "एस्ट्रोनॉट": "astronaut", "स्पेससूट": "spacesuit",
        "पर्सिवरेंस": "Perseverance", "नैनोमीटर": "nanometer", "परक्लोरेट": "perchlorate", "थायरॉइड": "thyroid",
        "बेस": "base", "लिए": "liye", "गई": "gayi", "नई": "nayi", "गए": "gaye", "हुई": "hui", "हुए": "hue",
-       "साइंटिस्ट": "scientist", "प्लैनेट": "planet", "स्पेस": "space", "वीडियो": "video", "फोन": "phone"}
+       "साइंटिस्ट": "scientist", "प्लैनेट": "planet", "स्पेस": "space", "वीडियो": "video", "फोन": "phone",
+       "जी": "Ji", "हाँ": "Haan", "हां": "Haan", "प्रतिशत": "pratishat", "मामलों": "maamlon",
+       "रेलवे": "railway", "ट्रेन": "train", "पैसेंजर": "passenger", "टिकट": "ticket", "बर्थ": "berth",
+       "सीट": "seat", "कंफर्म": "confirm", "अपग्रेड": "upgrade", "आरएसी": "RAC", "टीटीई": "TTE"}
 
 
 # v3.1: English se aaye shabd English spelling me (pehle "गेमिंग" -> "geming", "करियर" -> "kariyar" aata tha)
@@ -152,13 +155,35 @@ def learn_name(line, label):
             r = difflib.SequenceMatcher(None, _phon("".join(word(g) for g in grp)), key).ratio()
             if r > best[0]: best = (r, i, n)
     r, i, n = best
-    if r < 0.72 or i is None: return 0
+    if r < 0.78 or i is None: return 0
     grp = toks[i:i + n]
+    # v4.30 FIX: NEVER let learn_name overwrite common Hindi stop-words / FIX / LOAN words
+    # (fixes "जी हाँ" -> "Indian Haan" and "कि ट्रेन" -> "Indian Railways" caption corruption!)
+    _PROTECTED_HI = {
+        "जी", "हाँ", "हां", "कि", "की", "के", "का", "को", "से", "पर", "में", "है", "हैं", "था", "थी", "थे",
+        "यह", "वह", "ये", "वो", "इस", "उस", "इन", "उन", "और", "या", "लेकिन", "मगर", "अगर", "तो", "भी",
+        "नहीं", "ना", "क्या", "क्यों", "कब", "कैसे", "जब", "तब", "अब", "फिर", "सिर्फ", "बहुत", "सब",
+        "एक", "दो", "तीन", "चार", "पांच", "ट्रेन", "रेलवे", "भारत", "भारतीय", "नियम", "काम", "लोग", "बात",
+        "दुनिया", "देश", "शहर", "साल", "दिन", "रात", "समय", "जगह", "नाम", "तरीका", "असली", "अनोखे",
+    }
+    def _is_safe(g):
+        return (g not in _PROTECTED_HI) and (g not in FIX) and (g not in LOAN) and len(g) >= 2
     if n == len(parts):
-        for g, p in zip(grp, parts): OVERRIDE[g] = p
+        # Require EVERY paired word to individually match phonetically (prevents mismatched 2-word overrides)
+        for g, p in zip(grp, parts):
+            if not _is_safe(g):
+                return 0
+            if difflib.SequenceMatcher(None, _phon(word(g)), _phon(p)).ratio() < 0.58:
+                return 0
+        for g, p in zip(grp, parts):
+            OVERRIDE[g] = p
     elif n == 1:
+        if not _is_safe(grp[0]):
+            return 0
         OVERRIDE[grp[0]] = "".join(parts) if len(parts) <= 2 else " ".join(parts)
     else:                                    # 2 Hindi shabd, 1 label (CarryMinati): pehla = poora naam ka aadha
+        if not all(_is_safe(g) for g in grp):
+            return 0
         cut = max(1, round(len(parts) * 1 / n))
         OVERRIDE[grp[0]] = "".join(parts[:cut]) or label
         OVERRIDE[grp[-1]] = "".join(parts[cut:]) or ""

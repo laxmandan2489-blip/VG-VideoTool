@@ -366,7 +366,10 @@ class PolaroidArchivalCard:
 class StatCounterProCard:
     def __init__(self, value, label, W, H, pal, dur, sub="", stamp="", trend=""):
         self.W, self.H, self.pal, self.dur = W, H, pal, max(0.8, dur)
-        self.value = latin(value or "").upper()
+        _raw_v = re.sub(r"\s*(?:प्रतिशत|प्रतीशत|percent|per\s*cent|pratisht|pratishat)\b", "%", str(value or ""), flags=re.I)
+        _raw_v = re.sub(r"\s+%", "%", _raw_v).strip()
+        self.value = latin(_raw_v).upper()
+        self.value = re.sub(r"\s*(?:PRATISHT|PRATISHAT|PERCENT)\b", "%", self.value).replace(" %", "%")
         self.label = latin(label or "").upper()
         self.sub = latin(sub or "")
         self.stamp = latin(stamp or "").upper()
@@ -610,7 +613,7 @@ class RealisticNewsProofCard:
         self.motes = [(self.rng.uniform(0, W), self.rng.uniform(0, H), self.rng.uniform(1.5, 3.8),
                        self.rng.uniform(-10, 10), self.rng.uniform(-16, -4)) for _ in range(24)]
 
-        if variant == "broadsheet":
+        if variant in ("broadsheet", "broadcast"):
             self._prep_broadsheet()
 
     def _prep_broadsheet(self):
@@ -686,7 +689,7 @@ class RealisticNewsProofCard:
         self.page_base = page
         self.f_pg_hi = _dc_font("NotoSansDevanagari-Bold.ttf", 40)
         self.f_pg_en = _dc_font("Poppins-ExtraBold.ttf", 38)
-        self.hl_lines = _wrap_mixed(self.headline, self.f_pg_hi, self.f_pg_en, PW - 140)[:3]
+        self.hl_lines = _wrap_mixed(self.headline, self.f_pg_hi, self.f_pg_en, PW - 140)[:4]
 
     def frame(self, i, fps):
         W, H = self.W, self.H
@@ -735,62 +738,86 @@ class RealisticNewsProofCard:
             return frame
 
         if self.variant == "portal":
-            # Style 2: Modern Dark Digital News Portal (BBC / Reuters Dark Mode)
+            # Style 2 (v4.30): Modern Dark Digital News Portal with 2-3 surrounding stories + highlighted lead story
             frame = Image.new("RGBA", (W, H), (10, 14, 22, 255))
             ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
             d = ImageDraw.Draw(ov)
-            cw = int(W * 0.88); ch = int(H * 0.56)
-            cx0 = (W - cw) // 2; cy0 = int(H * 0.22 + (1 - ent) * 80 - t * 14)
+            cw = int(W * 0.90); ch = int(H * 0.68 if H > W else H * 0.78)
+            cx0 = (W - cw) // 2; cy0 = int((H - ch) * 0.44 + (1 - ent) * 70 - t * 12)
             d.rounded_rectangle([cx0, cy0, cx0 + cw, cy0 + ch], radius=22,
-                                fill=(18, 24, 36, 245), outline=(85, 110, 145, 125), width=2)
-            d.rounded_rectangle([cx0, cy0, cx0 + cw, cy0 + 62], radius=22, fill=(26, 34, 48, 255))
+                                fill=(16, 22, 34, 248), outline=(85, 110, 145, 125), width=2)
+            d.rounded_rectangle([cx0, cy0, cx0 + cw, cy0 + 58], radius=22, fill=(24, 32, 48, 255))
             for ki, kc in enumerate(((235, 75, 68), (240, 185, 65), (75, 200, 115))):
-                d.ellipse([cx0 + 24 + ki * 22, cy0 + 23, cx0 + 38 + ki * 22, cy0 + 37], fill=(*kc, 255))
-            d.text((cx0 + 106, cy0 + 20), f"verified-report / {self.source.lower()[:20]}", fill=(160, 178, 200, 210), font=self.f_sm)
-            d.rectangle([cx0 + 30, cy0 + 96, cx0 + 240, cy0 + 134], fill=(205, 36, 36, 255))
-            d.text((cx0 + 135, cy0 + 115), "VERIFIED REPORT", fill=(255, 255, 255, 255), font=self.f_sm, anchor="mm")
-            d.text((cx0 + 30, cy0 + 158), self.source, fill=(155, 185, 215, 225), font=self.f_sm)
-            lines = _wrap_text(self.headline, self.f_hi, cw - 68)[:3]
+                d.ellipse([cx0 + 22 + ki * 22, cy0 + 21, cx0 + 36 + ki * 22, cy0 + 35], fill=(*kc, 255))
+            _src_clean = self.source.rsplit(" ", 1)[0] if len(self.source) > 22 else self.source
+            d.text((cx0 + 102, cy0 + 18), f"DAILY BRIEF  •  NATIONAL & POLICY DESK", fill=(160, 178, 200, 215), font=self.f_sm)
+
+            # Top muted surrounding ticker story (gives authentic multi-story news portal look)
+            ty_top = cy0 + 74
+            d.rounded_rectangle([cx0 + 24, ty_top, cx0 + cw - 24, ty_top + 66], radius=10, fill=(255, 255, 255, 10))
+            d.text((cx0 + 40, ty_top + 12), "ALSO TODAY  •  MARKETS & INFRASTRUCTURE", fill=(130, 148, 172, 180), font=self.f_sm)
+            d.text((cx0 + 40, ty_top + 38), "Regional transit networks update quarterly schedules across major hubs.", fill=(165, 178, 198, 150), font=self.f_sm)
+
+            # Highlighted Main Lead Story Box
+            my0 = ty_top + 84
+            d.rectangle([cx0 + 28, my0, cx0 + 236, my0 + 36], fill=(205, 36, 36, 255))
+            d.text((cx0 + 132, my0 + 18), "KEY REPORT", fill=(255, 255, 255, 255), font=self.f_sm, anchor="mm")
+            d.text((cx0 + 252, my0 + 8), _src_clean, fill=(245, 204, 95, 235), font=self.f_sm)
+            lines = _wrap_mixed(self.headline, self.f_hi, self.f_sans, cw - 72)[:4]
+            ly_end = my0 + 56
             for li, ln in enumerate(lines):
-                ly = cy0 + 220 + li * int(self.f_hi.size * 1.45)
+                ly = my0 + 54 + li * int(self.f_hi.size * 1.44)
+                ly_end = ly + int(self.f_hi.size * 1.44)
                 if hl > 0.01:
                     hw = int((cw - 64) * min(1.0, max(0.0, hl * len(lines) - li)))
                     if hw > 8:
-                        d.rounded_rectangle([cx0 + 28, ly - 8, cx0 + 28 + hw, ly + int(self.f_hi.size * 1.18)], radius=8, fill=(235, 175, 55, 65))
-                        d.rectangle([cx0 + 28, ly + int(self.f_hi.size * 1.14), cx0 + 28 + hw, ly + int(self.f_hi.size * 1.19)], fill=(245, 195, 75, 240))
-                _draw_mixed_text(d, (cx0 + 36, ly), ln, self.f_hi, self.f_sans, fill=(250, 246, 232, 255))
-            d.rounded_rectangle([cx0 + 30, cy0 + ch - 95, cx0 + cw - 30, cy0 + ch - 28], radius=12, fill=(255, 255, 255, 14))
-            d.text((cx0 + 50, cy0 + ch - 72), f"SOURCE: {self.source} • {self.date_str}", fill=(140, 195, 255, 230), font=self.f_sm)
+                        d.rounded_rectangle([cx0 + 26, ly - 6, cx0 + 26 + hw, ly + int(self.f_hi.size * 1.18)], radius=8, fill=(250, 204, 21, 72))
+                        d.rectangle([cx0 + 26, ly + int(self.f_hi.size * 1.14), cx0 + 26 + hw, ly + int(self.f_hi.size * 1.20)], fill=(250, 204, 21, 240))
+                _draw_mixed_text(d, (cx0 + 34, ly), ln, self.f_hi, self.f_sans, fill=(250, 246, 234, 255))
+
+            # Bottom 2 surrounding news cards (never an empty box!)
+            by_grid = max(ly_end + 24, cy0 + ch - 210)
+            if by_grid + 110 < cy0 + ch - 20:
+                col_w = (cw - 64) // 2
+                cards_bg = [
+                    ("PUBLIC POLICY", "Parliamentary review panels issue new guidelines on consumer rights."),
+                    ("SPECIAL DESK", "Data analysts compare annual trends across key national sectors."),
+                ]
+                for ci, (ctag, ctxt) in enumerate(cards_bg):
+                    bx = cx0 + 24 + ci * (col_w + 16)
+                    d.rounded_rectangle([bx, by_grid, bx + col_w, by_grid + 126], radius=12,
+                                        fill=(255, 255, 255, 11), outline=(95, 115, 145, 70), width=1)
+                    d.text((bx + 16, by_grid + 14), ctag, fill=(140, 175, 215, 195), font=self.f_sm)
+                    for wi, wl in enumerate(_wrap_text(ctxt, self.f_sm, col_w - 32)[:3]):
+                        d.text((bx + 16, by_grid + 44 + wi * 26), wl, fill=(175, 188, 206, 165), font=self.f_sm)
+
+            d.rounded_rectangle([cx0 + 24, cy0 + ch - 62, cx0 + cw - 24, cy0 + ch - 16], radius=10, fill=(255, 255, 255, 14))
+            d.text((cx0 + 42, cy0 + ch - 48), f"{self.date_str}  •  VERIFIED ARCHIVE", fill=(140, 195, 255, 230), font=self.f_sm)
             return Image.alpha_composite(frame, ov).convert("RGB")
 
-        # Style 3: 3D Paper-Cutout Headline Clipping + Breaking Broadcast Lower-Third Glass Bar
-        frame = Image.new("RGBA", (W, H), (11, 14, 21, 255))
-        ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
-        d = ImageDraw.Draw(ov)
-        # Subtle dark studio spotlight
-        cw = int(W * 0.86); ch = int(H * 0.34)
-        cx0 = (W - cw) // 2; cy0 = int(H * 0.28 + (1 - ent) * 70 - t * 12)
-        # Lifted crisp paper headline clipping with soft drop shadow
-        d.rounded_rectangle([cx0 + 12, cy0 + 18, cx0 + cw + 12, cy0 + ch + 18], radius=10, fill=(0, 0, 0, 165))
-        d.rounded_rectangle([cx0, cy0, cx0 + cw, cy0 + ch], radius=10, fill=(242, 237, 226, 255), outline=(210, 200, 182, 255), width=2)
-        d.rectangle([cx0, cy0, cx0 + cw, cy0 + 14], fill=(195, 36, 32, 245))
-        lines = _wrap_text(self.headline, self.f_hi, cw - 72)[:3]
-        for li, ln in enumerate(lines):
-            ly = cy0 + 56 + li * int(self.f_hi.size * 1.48)
-            if hl > 0.01:
-                hw = int((cw - 68) * min(1.0, max(0.0, hl * len(lines) - li)))
-                if hw > 8:
-                    d.rectangle([cx0 + 32, ly - 4, cx0 + 32 + hw, ly + int(self.f_hi.size * 1.15)], fill=(245, 200, 75, 165))
-            d.text((cx0 + 38, ly), ln, fill=(20, 18, 16, 255), font=self.f_hi)
-        # Sleek Breaking Broadcast Lower-Third Glass Ticker below the clipping
-        by0 = cy0 + ch + 46
-        d.rounded_rectangle([cx0, by0, cx0 + cw, by0 + 110], radius=14,
-                            fill=(18, 24, 38, int(235 * ent)), outline=(235, 185, 85, int(195 * ent)), width=2)
-        d.rectangle([cx0 + 20, by0 + 20, cx0 + 165, by0 + 54], fill=(205, 36, 36, int(250 * ent)))
-        d.text((cx0 + 92, by0 + 37), "FACT CHECK", fill=(255, 255, 255, 255), font=self.f_sm, anchor="mm")
-        d.text((cx0 + 184, by0 + 26), self.source[:22], fill=(248, 210, 115, 245), font=self.f_sm)
-        d.text((cx0 + 20, by0 + 68), f"{self.date_str}  •  VERIFIED DOCUMENTARY PROOF", fill=(195, 210, 228, 225), font=self.f_sm)
-        return Image.alpha_composite(frame, ov).convert("RGB")
+        # Style 3 (v4.30): Full Multi-Column Broadsheet Front-Page (never a bare single-headline box!)
+        pg = self.page_base.copy()
+        if hl > 0.01:
+            arr = np.asarray(pg, dtype=np.float32)
+            for li, ln in enumerate(self.hl_lines):
+                y0 = 490 + li * 82
+                xe = int(62 + (self.PW - 124) * min(1.0, max(0.0, hl * len(self.hl_lines) - li)))
+                if xe > 68:
+                    arr[y0:y0 + 68, 62:xe, 0] *= 0.99
+                    arr[y0:y0 + 68, 62:xe, 1] *= 0.85
+                    arr[y0:y0 + 68, 62:xe, 2] *= 0.34
+            pg = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+        dp = ImageDraw.Draw(pg, "RGBA")
+        for li, ln in enumerate(self.hl_lines):
+            _draw_mixed_text(dp, (74, 500 + li * 82), ln, self.f_pg_hi, self.f_pg_en, fill=(18, 16, 14, 252))
+        z = 0.90 + 0.12 * ent + 0.06 * t
+        pws = int(W * 0.94 * z); phs = int(pws * (self.PH / self.PW))
+        scaled = pg.resize((max(10, pws), max(10, phs)), Image.LANCZOS).convert("RGBA")
+        frame = Image.new("RGBA", (W, H), (14, 15, 20, 255))
+        px0 = (W - pws) // 2
+        py0 = int((H - phs) // 2 + (1 - ent) * 80 - t * 14)
+        frame.alpha_composite(scaled, (px0, py0))
+        return frame.convert("RGB")
 
 
 class ComparisonVSCard:
@@ -1338,3 +1365,107 @@ def render_year_reveal(year_str, subtitle, dur, out, W, H, style, pal, stamp="",
             pass
         return None
     return out if (out.exists() and out.stat().st_size > 8000) else None
+
+
+# ==============================================================================
+# v4.30: KINETIC FULL-FORM / TERM CALLOUT CARD (e.g. RAC -> Reservation Against Cancellation)
+# ==============================================================================
+def render_fullform_card(acronym, full_form, context, dur, out, W, H, style, pal, fps=30):
+    """Render a crisp, high-impact animated Full-Form / Term Callout card (Shorts 9:16 & Longs 16:9)."""
+    import fx
+    is_short = H > W
+    acr = str(acronym or "INFO").strip().upper()[:14]
+    ff = str(full_form or "").strip()
+    ctx = str(context or "").strip()
+    if not ff:
+        return None
+
+    has_dev_ff = bool(re.search(r"[\u0900-\u097F]", ff))
+    f_badge = _dc_font("Poppins-ExtraBold.ttf", max(24, int(W * (0.028 if is_short else 0.017))))
+    f_acr = _dc_font("Poppins-ExtraBold.ttf", max(74, int(W * (0.125 if is_short else 0.075))))
+    f_ff_hi = _dc_font("NotoSansDevanagari-Bold.ttf", max(44, int(W * (0.052 if is_short else 0.034))))
+    f_ff_en = _dc_font("Poppins-ExtraBold.ttf", max(44, int(W * (0.054 if is_short else 0.035))))
+    f_ctx_hi = _dc_font("NotoSansDevanagari-Bold.ttf", max(28, int(W * (0.032 if is_short else 0.020))))
+    f_ctx_en = _dc_font("Poppins-SemiBold.ttf", max(26, int(W * (0.030 if is_short else 0.019))))
+
+    # Shrink acronym if too wide
+    while f_acr.size > 46 and ImageDraw.Draw(Image.new("RGBA", (10, 10))).textlength(acr, font=f_acr) > W * 0.72:
+        f_acr = _dc_font("Poppins-ExtraBold.ttf", f_acr.size - 8)
+
+    max_cw = int(W * (0.82 if is_short else 0.68))
+    ff_lines = _wrap_mixed(ff, f_ff_hi, f_ff_en, max_cw)[:3]
+    ctx_lines = _wrap_mixed(ctx, f_ctx_hi, f_ctx_en, max_cw)[:2] if ctx else []
+
+    bg = _grunge_bg(W, H, pal, seed=abs(hash(acr + ff)) % 997, grid=True)
+    acc = tuple(pal.get("accent", (250, 204, 21)))
+    if len(acc) < 3:
+        acc = (250, 204, 21)
+
+    n = max(2, int(round(dur * fps)))
+
+    def _frame(i):
+        t = min(1.0, max(0.0, i / max(1.0, n - 1)))
+        ent = _ease_back(min(1.0, t / 0.22))
+        ent2 = _ease_out(max(0.0, min(1.0, (t - 0.16) / 0.24)))
+        hl = _ease_out(max(0.0, min(1.0, (t - 0.28) / 0.40)))
+
+        base = bg.copy().convert("RGBA")
+        ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+        d = ImageDraw.Draw(ov)
+
+        # Clean center editorial card
+        cw = int(W * (0.88 if is_short else 0.74))
+        ch = int(H * (0.46 if is_short else 0.60))
+        cx0 = (W - cw) // 2
+        cy0 = int(H * (0.23 if is_short else 0.18) + (1.0 - min(1.0, ent)) * 55)
+
+        d.rounded_rectangle([cx0 + 10, cy0 + 14, cx0 + cw + 10, cy0 + ch + 14], radius=26, fill=(0, 0, 0, 145))
+        d.rounded_rectangle([cx0, cy0, cx0 + cw, cy0 + ch], radius=26,
+                            fill=(14, 20, 32, 245), outline=(*acc[:3], 170), width=3)
+
+        # Top "FULL FORM" pill badge
+        pill = "FULL FORM"
+        pw = int(d.textlength(pill, font=f_badge)) + 44
+        ph = int(f_badge.size * 1.55)
+        px0 = (W - pw) // 2
+        py0 = cy0 + 34
+        d.rounded_rectangle([px0, py0, px0 + pw, py0 + ph], radius=ph // 2, fill=(*acc[:3], 255))
+        d.text((W // 2, py0 + ph // 2), pill, font=f_badge, fill=(14, 18, 26, 255), anchor="mm")
+
+        # Giant Acronym slam
+        ay = py0 + ph + int(f_acr.size * 0.72)
+        d.text((W // 2 + 4, ay + 5), acr, font=f_acr, fill=(0, 0, 0, 185), anchor="mm")
+        d.text((W // 2, ay), acr, font=f_acr, fill=(255, 255, 255, 255), anchor="mm")
+
+        # Animated accent divider bar
+        div_y = ay + int(f_acr.size * 0.56)
+        div_w = int((cw * 0.68) * ent2)
+        if div_w > 6:
+            d.rounded_rectangle([W // 2 - div_w // 2, div_y, W // 2 + div_w // 2, div_y + 7],
+                                radius=4, fill=(*acc[:3], 245))
+
+        # Full Form lines with animated yellow highlighter sweep
+        fy0 = div_y + 34
+        lh = int((f_ff_hi.size if has_dev_ff else f_ff_en.size) * 1.40)
+        for li, ln in enumerate(ff_lines):
+            ly = fy0 + li * lh
+            lw = _mixed_width(ln, f_ff_hi, f_ff_en) if "_mixed_width" in globals() else d.textlength(ln, font=f_ff_hi if has_dev_ff else f_ff_en)
+            lx = int((W - lw) // 2)
+            if hl > 0.01:
+                hw = int((lw + 24) * min(1.0, max(0.0, hl * len(ff_lines) - li)))
+                if hw > 6:
+                    d.rounded_rectangle([lx - 12, ly - 6, lx - 12 + hw, ly + int(lh * 0.82)],
+                                        radius=8, fill=(250, 204, 21, 68))
+            _draw_mixed_text(d, (lx, ly), ln, f_ff_hi, f_ff_en, fill=(252, 248, 236, int(255 * ent2)))
+
+        # Optional short context line at bottom of card
+        if ctx_lines and ent2 > 0.2:
+            cy_ctx = fy0 + len(ff_lines) * lh + 24
+            for ci, cln in enumerate(ctx_lines):
+                clw = d.textlength(cln, font=f_ctx_hi if re.search(r"[\u0900-\u097F]", cln) else f_ctx_en)
+                _draw_mixed_text(d, (int((W - clw) // 2), cy_ctx + ci * int(f_ctx_hi.size * 1.35)),
+                                 cln, f_ctx_hi, f_ctx_en, fill=(175, 194, 218, int(220 * ent2)))
+
+        return Image.alpha_composite(base, ov).convert("RGB")
+
+    return fx._pipe_frames(_frame, n, W, H, out, style, fps)

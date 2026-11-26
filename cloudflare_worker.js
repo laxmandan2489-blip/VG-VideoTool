@@ -2561,21 +2561,23 @@ async function handleVfilterCallback(env, cq) {
   await setVfilterState(env, chatId, enable);
 }
 
-// v4.27: /vmode AI CINEMATIC DOCUMENTARY MODE vs STOCK SEARCH SWITCH
+// v4.30: /vmode AI CINEMATIC DOCUMENTARY MODE (DEFAULT ON) vs STOCK SEARCH SWITCH
 async function getVmodeAiEnabled(env) {
   const cur = await readGhJson(env, SETTINGS_PATH, []);
   const arr = Array.isArray(cur.data) ? cur.data : [];
-  return { enabled: arr.includes("vmode_ai"), arr, sha: cur.sha };
+  // Default ON unless user explicitly selected Purana Stock Mode ("vmode_stock")
+  return { enabled: !arr.includes("vmode_stock"), arr, sha: cur.sha };
 }
 
 async function setVmodeState(env, chatId, enableAi) {
   const st = await getVmodeAiEnabled(env);
-  const next = st.arr.filter(x => x !== "vmode_ai");
+  const next = st.arr.filter(x => x !== "vmode_ai" && x !== "vmode_stock");
   if (enableAi) next.push("vmode_ai");
+  else next.push("vmode_stock");
   await writeGhJson(env, SETTINGS_PATH, next, st.sha, `vmode ${enableAi ? "ai" : "stock"}`);
   const msg = enableAi
-    ? "🎬 Visual Mode: AI CINEMATIC DOCUMENTARY ON ⭐\n\nAb Pixabay/YouTube random search BAND rahega — har line par script ke exact hisaab se ultra-realistic 35mm AI scenes (3D depth zoom/pan) + 30fps AI Explainer + real Wikimedia portraits (celebrities ke liye) banenge!\n(Wapas jaane ke liye kabhi bhi /vmode stock dabaein.)"
-    : "🔎 Visual Mode: PURANA STOCK SEARCH ON\n\nAb Pixabay + YouTube + Wikimedia stock search chalega (AI fallback backup ke saath).\n(AI Cinematic Mode ke liye kabhi bhi /vmode ai dabaein.)";
+    ? "🎬 Visual Mode: AI CINEMATIC DOCUMENTARY ON ⭐ (Default)\n\nAb har video mein automatic ultra-realistic 35mm AI scenes + fast 2-2.5s cuts + 30fps AI Explainer + real Wikimedia portraits (celebrities ke liye) banenge!\n(Stock mode chahiye ho toh kabhi bhi /vmode stock dabaein.)"
+    : "🔎 Visual Mode: PURANA STOCK SEARCH ON\n\nAb Pixabay + YouTube + Wikimedia stock search chalega (AI fallback backup ke saath).\n(Wapas AI Cinematic Mode ke liye kabhi bhi /vmode ai dabaein.)";
   await tgReply(env.TG_TOKEN, chatId, msg, true);
 }
 
@@ -2583,10 +2585,10 @@ async function showVmodeMenu(env, chatId) {
   const st = await getVmodeAiEnabled(env);
   await tgApi(env, "sendMessage", {
     chat_id: chatId,
-    text: `🎬 Visual Mode abhi: ${st.enabled ? "✨ AI CINEMATIC DOCUMENTARY (100% Script-Matched, Zero Random Stock)" : "🔎 PURANA STOCK SEARCH (Pixabay + YouTube)"}\n\nKaunsa mode chalu rakhna hai?`,
+    text: `🎬 Visual Mode abhi: ${st.enabled ? "✨ AI CINEMATIC DOCUMENTARY (Default ON ⭐)" : "🔎 PURANA STOCK SEARCH (Pixabay + YouTube)"}\n\nKaunsa mode chalu rakhna hai?`,
     reply_markup: {
       inline_keyboard: [[
-        { text: "✨ AI Cinematic Mode ⭐", callback_data: "vm:ai" },
+        { text: "✨ AI Cinematic Mode (Default ⭐)", callback_data: "vm:ai" },
         { text: "🔎 Purana Stock Mode", callback_data: "vm:stock" },
       ]],
     },

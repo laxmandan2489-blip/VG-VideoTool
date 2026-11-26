@@ -1010,9 +1010,25 @@ def main():
                         topic=_clean_title(title, ""), W=W, H=H, keys=keys
                     )
                     if _ai_path and Path(_ai_path).exists():
-                        log(f"   🎬 line {i+1}: AI Cinematic scene ready ✓")
-                        return ([{"kind": "image", "path": Path(_ai_path), "credit": "",
-                                  "src": "cloud flux (AI Cinematic)", "fullbleed": True, "score": 0.35}], [])
+                        _ai_list = [{"kind": "image", "path": Path(_ai_path), "credit": "",
+                                     "src": "cloud flux (AI Cinematic)", "fullbleed": True, "score": 0.35}]
+                        # v4.30 FAST VIRAL PACING: if line is >3.8s (Short) or >6.0s (Long), generate a 2nd distinct
+                        # close-up / emotional reaction AI beat so visuals change every ~2-2.5s (never static!)
+                        _line_dur = max(0.0, float(sents[i]["end"]) - float(sents[i]["start"])) if i < len(sents) else 0.0
+                        if _line_dur >= (6.0 if LONG else 3.8):
+                            _beat2_prompt = f"close-up candid emotional reaction shot, {_scene_prompt}, different camera angle, human expression and authentic Indian setting"
+                            try:
+                                _ai_path2 = _cv_ai.generate_scene_image(
+                                    _beat2_prompt, work / "ai_visuals",
+                                    topic=_clean_title(title, ""), W=W, H=H, keys=keys
+                                )
+                                if _ai_path2 and Path(_ai_path2).exists() and str(_ai_path2) != str(_ai_path):
+                                    _ai_list.append({"kind": "image", "path": Path(_ai_path2), "credit": "",
+                                                     "src": "cloud flux (AI Cinematic)", "fullbleed": True, "score": 0.35})
+                            except Exception:
+                                pass
+                        log(f"   🎬 line {i+1}: AI Cinematic scene ready ({len(_ai_list)} beat) ✓")
+                        return (_ai_list, [])
                 except Exception as _vme:
                     log(f"   (vmode ai fallback to stock on line {i+1}: {str(_vme)[:60]})", show=False)
         return job(i)
@@ -1045,17 +1061,29 @@ def main():
         return True
     import fx
     PRO = yes(style.get("pro_effects", "haan"))
-    # v4.27: Check /vmode ai toggle in seekha/aapki_settings.json (Zero Random Stock -> 100% Cinematic AI + 30fps Explainer!)
-    VMODE_AI = False
+    def _safe_trim(txt, limit):
+        t_s = re.sub(r"\s+", " ", str(txt or "")).strip()
+        if len(t_s) <= limit:
+            return t_s
+        cut = t_s[:limit].rsplit(" ", 1)[0].strip(" ,.;:-—|")
+        return cut if len(cut) >= max(8, limit // 2) else t_s[:limit].strip()
+
+    # v4.30: AI Cinematic Documentary Mode is DEFAULT ON! (Only switches to Stock Mode if user tapped /vmode stock -> "vmode_stock")
+    VMODE_AI = True
     try:
         _sf = Path(__file__).resolve().parent.parent / "seekha" / "aapki_settings.json"
         if _sf.exists():
             _sd = json.loads(_sf.read_text(encoding="utf-8", errors="ignore") or "[]")
-            VMODE_AI = ("vmode_ai" in _sd) if isinstance(_sd, list) else bool(isinstance(_sd, dict) and _sd.get("vmode_ai"))
+            if isinstance(_sd, list):
+                VMODE_AI = ("vmode_stock" not in _sd)
+            elif isinstance(_sd, dict):
+                VMODE_AI = not bool(_sd.get("vmode_stock"))
     except Exception:
-        VMODE_AI = False
+        VMODE_AI = True
     if VMODE_AI:
-        log("   🎬 Visual Mode: AI Cinematic Documentary (v4.27 — Zero Random Stock, 100% Script-Matched!)")
+        log("   🎬 Visual Mode: AI Cinematic Documentary (v4.30 Default ON — 100% Script-Matched 35mm AI + Fast Cuts!)")
+    else:
+        log("   🔎 Visual Mode: Purana Stock Search (/vmode stock active)")
     _fx_map_lock = _th.Lock()
     _fx_map_state = {"count": 0, "places": set(), "last_i": -99}
     try:
@@ -1344,7 +1372,7 @@ def main():
                 # v3.16 PRO NIYAM (log 16 Nov: ek hi clip ad98a.. line 1 me 3 baar kaat ke = 'jump cut', amateur
                 # lagta hai): jitne ALAG visual hain utne hi cut. Ek clip ho to ek lamba shot (camera move ke saath),
                 # sirf tab tukde jab shot 4.2 sec se lamba ho jaaye.
-                k_new = max(_nd, int(-(-d // 4.2)), 1)
+                k_new = max(_nd, int(-(-d // (2.6 if not LONG else 4.2))), 1)  # v4.30: 2-2.6s fast Short cuts
                 if k_new < k:
                     log(f"   line {i+1}: {_nd} alag visual – {k} ki jagah {k_new} shot (jump cut nahi)", show=False)
                     k = k_new
@@ -1368,7 +1396,7 @@ def main():
                 from unique_guard import UniqueAssetGuard
                 _UG = UniqueAssetGuard()
             if "_DOC_BEATS" not in locals():
-                _DOC_BEATS = {"stat": 0, "year": 0, "news": 0, "parallax": 0, "last_line": -9}
+                _DOC_BEATS = {"stat": 0, "year": 0, "news": 0, "parallax": 0, "fullform": 0, "last_line": -9}
             for j in range(k):
                 # v4.29 VIRAL DOCUMENTARY DIRECTOR (Shorts + Longs): high-impact proof beats
                 # (StatCounterPro, Giant YearReveal + Red Stamp, NewsHighlight yellow sweep, 2.5D CutoutParallax)
@@ -1376,7 +1404,42 @@ def main():
                 _doc_forced = None
                 _has_whole_tag = bool(items and items[0].get("whole"))
                 _min_beat_gap = 3 if LONG else 2
-                if (yes(style.get("documentary_mode", "haan")) and not _has_whole_tag and j == 0
+                # v4.30: Universal Auto Full-Form Callout (e.g. "आरएसी यानी रिजर्वेशन अगेंस्ट कैंसिलेशन" / "TTE यानी...")
+                _ltxt_ff = str(s.get("script") or s["text"] or "")
+                _ff_m = re.search(
+                    r"(?:^|[\s,।])([A-Z]{2,6}|आरएसी|टीटीई|आईआरसीटीसी|पीएनआर|जीडीपी|यूपीआई|नासा|इसरो|एआई|डीएनए|जीएसटी|आरबीआई|सेबी|सीबीआई|एनसीईआरटी|एटीएम|ओटीपी)\s*(?:यानी|मतलब|का\s+मतलब|का\s+फुल\s+फॉर्म|stands\s+for|full\s+form\s+hai)\s+([^।,!?]{6,68})",
+                    _ltxt_ff, re.I
+                )
+                if (_ff_m and yes(style.get("documentary_mode", "haan")) and not _has_whole_tag
+                        and _DOC_BEATS["fullform"] < (3 if LONG else 2)
+                        and ((i == 0 and j == k - 1 and k >= 2) or (i >= 1 and j == 0))
+                        and not _DOC_BEATS.get(f"ff_line_{i}")):
+                    try:
+                        from cine import doc_cards as _dc_ff, bible as _bib_ff
+                        from translit import word as _tw_ff
+                        _ACR_MAP = {"आरएसी": "RAC", "टीटीई": "TTE", "आईआरसीटीसी": "IRCTC", "पीएनआर": "PNR",
+                                    "जीडीपी": "GDP", "यूपीआई": "UPI", "नासा": "NASA", "इसरो": "ISRO", "एआई": "AI",
+                                    "डीएनए": "DNA", "जीएसटी": "GST", "आरबीआई": "RBI", "सेबी": "SEBI", "सीबीआई": "CBI",
+                                    "एटीएम": "ATM", "ओटीपी": "OTP", "एनसीईआरटी": "NCERT"}
+                        _raw_acr = _ff_m.group(1).strip()
+                        _acr = _ACR_MAP.get(_raw_acr, _raw_acr.upper())
+                        _ff_raw = _ff_m.group(2).strip()
+                        _ff_clean = _safe_trim(" ".join(_tw_ff(w_) for w_ in _ff_raw.split()), 48).title()
+                        _bc_ff = work / "shots" / f"doc_ff_{i:02d}_{j}.mp4"
+                        if not _bc_ff.exists():
+                            _pal_ff = _bib_ff.build(lines, eng, style)["palette"]
+                            _dc_ff.render_fullform_card(_acr, _ff_clean, _safe_trim(_ltxt_ff, 64),
+                                                        max(1.8, pts[j + 1] - pts[j] + 0.15),
+                                                        _bc_ff, W, H, style, _pal_ff, fps=render.FPS)
+                        if _bc_ff.exists() and _bc_ff.stat().st_size > 6000:
+                            _doc_forced = {"kind": "video", "path": _bc_ff, "credit": "", "src": "kinetic card", "ss": 0.0, "beat_sfx": "ding"}
+                            _DOC_BEATS["fullform"] += 1
+                            _DOC_BEATS[f"ff_line_{i}"] = True
+                            _DOC_BEATS["last_line"] = i
+                    except Exception as _ffe:
+                        log(f"   (fullform beat skip: {_ffe})", show=False)
+
+                if (_doc_forced is None and yes(style.get("documentary_mode", "haan")) and not _has_whole_tag and j == 0
                         and 1 <= i <= len(sents) - 2 and (i - _DOC_BEATS["last_line"]) >= _min_beat_gap):
                     _ltxt = str(s.get("script") or s["text"] or "")
                     _kw_i = str(sources.KEYW.get(i) or "")
@@ -1394,7 +1457,8 @@ def main():
                         # Beat A: Big number / money / percent -> StatCounterProCard
                         if _DOC_BEATS["stat"] < _stat_cap and re.search(_stat_pat, _ltxt, re.I):
                             _mnum = re.search(_stat_pat, _ltxt, re.I)
-                            _val_s = (_kw_i if re.search(r"\d", _kw_i) else (_mnum.group(1) if _mnum else _kw_i)).strip()
+                            _val_s = (_kw_i if re.search(r"\d", _kw_i) else (_mnum.group(0) if _mnum else _kw_i)).strip()
+                            _val_s = re.sub(r"\s*(?:प्रतिशत|प्रतीशत|percent|pratisht|pratishat)\b", "%", _val_s, flags=re.I).replace(" %", "%")
                             if _val_s:
                                 _bc = work / "shots" / f"doc_stat_{i:02d}.mp4"
                                 if not _bc.exists():
@@ -1404,9 +1468,9 @@ def main():
                                     _sub_clean = _ltxt[:56].rsplit(" ", 1)[0] if len(_ltxt) > 56 else _ltxt
                                     if yes(style.get("remotion_beats", "haan")):
                                         from cine import remotion_bridge as _rb
-                                        _rem_ok = _rb.render_beat("stat_slam", {"value": _val_s[:18], "label": _t_clean[:26], "sub": _sub_clean, "stamp": _stmp}, _dur_b, _bc, W, H, render.FPS)
+                                        _rem_ok = _rb.render_beat("stat_slam", {"value": _val_s[:18], "label": _safe_trim(_t_clean, 26), "sub": _sub_clean, "stamp": _stmp}, _dur_b, _bc, W, H, render.FPS)
                                     if not _rem_ok:
-                                        _dc.render_stat_pro(_val_s[:18], _t_clean[:26], _dur_b, _bc, W, H, style, _pal_b,
+                                        _dc.render_stat_pro(_val_s[:18], _safe_trim(_t_clean, 26), _dur_b, _bc, W, H, style, _pal_b,
                                                             sub=_sub_clean, stamp=_stmp, trend="up", fps=render.FPS)
                                 _doc_forced = {"kind": "video", "path": _bc, "credit": "", "src": "kinetic card", "ss": 0.0}
                                 _DOC_BEATS["stat"] += 1; _DOC_BEATS["last_line"] = i
@@ -1442,9 +1506,9 @@ def main():
                                 _t_clean = _clean_title(title, "FACT BRIEF")
                                 if yes(style.get("remotion_beats", "haan")):
                                     from cine import remotion_bridge as _rb
-                                    _rem_ok = _rb.render_beat("news_highlight", {"source": _t_clean[:28], "headline": _ltxt[:115], "highlight": _hl, "dateStr": _dtag}, _dur_b, _bc, W, H, render.FPS)
+                                    _rem_ok = _rb.render_beat("news_highlight", {"source": _safe_trim(_t_clean, 28), "headline": _safe_trim(_ltxt, 115), "highlight": _hl, "dateStr": _dtag}, _dur_b, _bc, W, H, render.FPS)
                                 if not _rem_ok:
-                                    _dc.render_news_highlight(_t_clean[:28], _ltxt[:115],
+                                    _dc.render_news_highlight(_safe_trim(_t_clean, 28), _safe_trim(_ltxt, 115),
                                                               _hl, _dur_b, _bc, W, H, style, _pal_b, date_str=_dtag, fps=render.FPS)
                             _doc_forced = {"kind": "video", "path": _bc, "credit": "", "src": "kinetic card", "ss": 0.0}
                             _DOC_BEATS["news"] += 1; _DOC_BEATS["last_line"] = i
@@ -1478,28 +1542,40 @@ def main():
                     pass
                 elif j < len(items):
                     cand_it = items[j]
-                    # v3.21 NO-REPEAT GUARD: if this source video was already used in an earlier scene, pick unused or doc card
-                    if cand_it.get("kind") == "video" and not str(cand_it.get("src", "")).startswith(("kinetic", "map", "blender")):
-                        if _UG.is_duplicate(cand_it) and not (i == len(sents) - 1 and is_follow):
+                    # v4.30 UNIVERSAL NO-REPEAT GUARD (BOTH videos AND photos!): never repeat the same photo/clip across scenes!
+                    if cand_it.get("kind") in ("video", "image") and not str(cand_it.get("src", "")).startswith(("kinetic", "map", "blender", "cloud flux")):
+                        if _UG.is_duplicate(cand_it):
                             alt_unused = [x for x in items[j + 1:] if not _UG.is_duplicate(x)]
                             if alt_unused:
                                 cand_it = alt_unused[0]
                             else:
-                                # v3.39 CRASH FIX: NEVER leave it=None (caused AttributeError -> SAFE MODE!).
-                                # Build a clean Documentary card instead of repeating or crashing.
-                                try:
-                                    from cine import doc_cards as _dcd, bible as _bibd
-                                    _dup_mp4 = work / "shots" / f"doc_uniq_{i:02d}_{j}.mp4"
-                                    if not _dup_mp4.exists():
-                                        _pal_d = _bibd.build(lines, eng, style)["palette"]
-                                        _lt = str(s.get("script") or s["text"] or "")
-                                        _kw_d = str(sources.KEYW.get(i) or "")
-                                        _dcd.render_news_highlight(_clean_title(title, "FACT BRIEF")[:28], _lt[:110],
-                                                                   _kw_d, max(1.0, pts[j + 1] - pts[j] + 0.15),
-                                                                   _dup_mp4, W, H, style, _pal_d, fps=render.FPS)
-                                    cand_it = {"kind": "video", "path": _dup_mp4, "credit": "", "src": "kinetic card", "ss": 0.0}
-                                except Exception:
-                                    cand_it = items[j]  # guaranteed non-None safe fallback
+                                # v4.30: Generate a fresh 35mm candid AI scene instead of repeating the same stock photo/video!
+                                _dup_replaced = False
+                                if yes(style.get("ai_visual_auto", "haan")):
+                                    try:
+                                        import cloud_visuals as _cv_dup
+                                        _q_dup = str(sources.SHOW.get(i) or (eng[i] if i < len(eng) and eng[i] else s.get("script") or s["text"]))
+                                        _ai_dup = _cv_dup.generate_scene_image(f"candid documentary shot, {_q_dup}, shot {j+1}", work / "ai_visuals",
+                                                                               topic=_clean_title(title, ""), W=W, H=H, keys=keys)
+                                        if _ai_dup and Path(_ai_dup).exists():
+                                            cand_it = {"kind": "image", "path": Path(_ai_dup), "credit": "", "src": "cloud flux (unique)", "fullbleed": True}
+                                            _dup_replaced = True
+                                    except Exception:
+                                        pass
+                                if not _dup_replaced:
+                                    try:
+                                        from cine import doc_cards as _dcd, bible as _bibd
+                                        _dup_mp4 = work / "shots" / f"doc_uniq_{i:02d}_{j}.mp4"
+                                        if not _dup_mp4.exists():
+                                            _pal_d = _bibd.build(lines, eng, style)["palette"]
+                                            _lt = str(s.get("script") or s["text"] or "")
+                                            _kw_d = str(sources.KEYW.get(i) or "")
+                                            _dcd.render_news_highlight(_safe_trim(_clean_title(title, "FACT BRIEF"), 28), _safe_trim(_lt, 110),
+                                                                       _kw_d, max(1.0, pts[j + 1] - pts[j] + 0.15),
+                                                                       _dup_mp4, W, H, style, _pal_d, fps=render.FPS)
+                                        cand_it = {"kind": "video", "path": _dup_mp4, "credit": "", "src": "kinetic card", "ss": 0.0}
+                                    except Exception:
+                                        cand_it = items[j]  # guaranteed non-None safe fallback
                     it = cand_it if cand_it is not None else items[j]
                     # v3.34 EXACT-SCENE UPGRADE: if stock clip has weak relevance (<0.23) and Cloud Flux is ON,
                     # generate the EXACT scene demanded by the script line instead of showing generic trees/flags!
@@ -1547,10 +1623,23 @@ def main():
                     if it is not None:
                         _UG.register(it)
                 elif items:
-                    vids = [x for x in items if x["kind"] == "video"] or items
-                    it = dict(vids[j % len(vids)])     # video ka alag hissa (photo nahi)
-                    if it.get("hero"):                 # v3.1: wahi photo isi line me dobara -> alag crop
-                        it["crop_v"] = int(it.get("crop_v") or 0) + j
+                    _beat_ai_done = False
+                    if (VMODE_AI or yes(style.get("ai_visual_auto", "haan"))) and j >= 1 and (i not in face_lines):
+                        try:
+                            import cloud_visuals as _cv_b2
+                            _q_b2 = str(sources.SHOW.get(i) or (eng[i] if i < len(eng) and eng[i] else s.get("script") or s["text"]))
+                            _ai_b2 = _cv_b2.generate_scene_image(f"close-up emotional reaction angle, {_q_b2}, beat {j+1}",
+                                                                 work / "ai_visuals", topic=_clean_title(title, ""), W=W, H=H, keys=keys)
+                            if _ai_b2 and Path(_ai_b2).exists():
+                                it = {"kind": "image", "path": Path(_ai_b2), "credit": "", "src": "cloud flux (beat)", "fullbleed": True}
+                                _beat_ai_done = True
+                        except Exception:
+                            pass
+                    if not _beat_ai_done:
+                        vids = [x for x in items if x["kind"] == "video"] or items
+                        it = dict(vids[j % len(vids)])     # video ka alag hissa (photo nahi)
+                        if it.get("hero"):                 # v3.1: wahi photo isi line me dobara -> alag crop
+                            it["crop_v"] = int(it.get("crop_v") or 0) + j
                 else:
                     # v3.1: static Hindi text card NAHI (upar faltu Hindi likha aata tha) -> chalta kinetic keyword card
                     it = None

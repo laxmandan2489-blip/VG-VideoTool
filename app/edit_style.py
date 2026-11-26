@@ -117,7 +117,8 @@ KW = {
     "mystery":  r"(रहस्य|रहस्यमय|डरावना|हत्या|अपराध|भूत|गायब|खौफ|साजिश|जेल|mystery|mysterious|murder|crime|ghost|disappear|haunted|conspiracy)",
     "army":     r"(सेना|फौज|आर्मी|मिसाइल|टैंक|फाइटर जेट|बॉर्डर|कमांडो|डिफेंस|सर्जिकल|army|military|missile|fighter jet|soldier|defence|commando|navy|air force)",
     "business": r"(बिज़नेस|बिजनेस|कंपनी|स्टार्टअप|अरबपति|करोड़|कमाई|शेयर|बाज़ार|ब्रांड|मुनाफा|दुकान|फैक्ट्री|मार्केट|सीईओ|रुपये|"
-                r"business|company|startup|billionaire|profit|revenue|valuation|ipo|brand|market|crore|turnover|ceo|kirana)",
+                r"रेलवे|ट्रेन|टिकट|यात्री|पैसेंजर|बैंक|लोन|ग्राहक|अर्थव्यवस्था|नियम|business|company|startup|billionaire|"
+                r"profit|revenue|valuation|ipo|brand|market|crore|turnover|ceo|kirana|railway|ticket|passenger|bank|economy)",
     "sports":   r"(क्रिकेट|फुटबॉल|ओलंपिक|मैच|वर्ल्ड कप|खिलाड़ी|शतक|विकेट|गोल|आईपीएल|cricket|football|olympics|world cup|century|wicket|athlete|ipl)",
     "geography": r"(राज्य|नदी|पहाड़|सीमा|नक्शा|मैप|भाषा|जनसंख्या|उत्तर भारत|दक्षिण भारत|राजधानी|देशों|महाद्वीप|"
                  r"state|river|mountain|border|map|language|population|north india|south india|continent|geography|capital|region)",
@@ -147,6 +148,9 @@ def detect(lines_hi, lines_en, lock=None, scenes=None):
         sc["person"] = 2.5
     if mt == "brand":
         sc["business"] += 1.5
+    cat_l = str((lock or {}).get("category") or "").strip().lower()
+    if cat_l in PRESETS and cat_l != "general":
+        sc[cat_l] = sc.get(cat_l, 0) + 2.5
     best = max(sc.items(), key=lambda kv: kv[1]) if sc else ("general", 0)
     if best[1] < 1.5:
         return "general", "koi saaf vishay nahi"
