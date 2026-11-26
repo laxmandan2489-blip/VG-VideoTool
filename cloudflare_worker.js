@@ -146,7 +146,7 @@ export default {
       if (u.pathname === "/media/proxy") {
         return handleProxyMediaBridge(u.searchParams.get("u") || "", u.searchParams.get("t") || "mp4", request.method === "HEAD");
       }
-      return new Response("VideoTool Cloud Bridge v4.22 Auto-Pilot is LIVE!", { status: 200 });
+      return new Response("VideoTool Cloud Bridge v4.23 Auto-Pilot is LIVE!", { status: 200 });
     }
     if (request.method !== "POST") {
       return new Response("Method Not Allowed", { status: 405 });
@@ -1636,10 +1636,13 @@ function inspectVisualHints(rawText) {
       weakCount++;
     }
   }
+  const explainCount = spoken.filter(l => /\[explain:/i.test(l)).length;
+  const hasExplainableLine = spoken.some(l => /(कैसे|काम करता|सिस्टम|सर्वर|डेटा|तकनीक|सेंसर|कानून|नियम|ग्लिच|प्रोसेस|नेटवर्क|सॉफ्टवेयर|फॉरेंसिक|बैलिस्टिक|स्कैनर|सर्जरी|ट्यूमर|ट्रैक|फिंगरप्रिंट|स्याही|how|works|system|server|data|process|forensic|scanner|surgery|brain|law|rule)/i.test(l));
+  const missingExplain = (explainCount === 0 && hasExplainableLine && spoken.length >= 6);
   const missingRatio = 1 - (withHint / spoken.length);
   const weakRatio = weakCount / spoken.length;
-  const needsRepair = (missingRatio > 0.30) || (weakCount >= 2 && weakRatio >= 0.22);
-  return { total: spoken.length, withHint, weakCount, needsRepair };
+  const needsRepair = (missingRatio > 0.30) || (weakCount >= 2 && weakRatio >= 0.22) || missingExplain;
+  return { total: spoken.length, withHint, weakCount, explainCount, missingExplain, needsRepair };
 }
 
 function hasEnoughVisualHints(rawText) {
@@ -1671,7 +1674,7 @@ ${String(rawText || "").slice(0, 6500)}`;
     const rep = await callGroqTrendScript(env, repairPrompt, true, [], deadlineMs);
     if (rep && rep.text) {
       const repAudit = inspectVisualHints(rep.text);
-      if (repAudit.weakCount < audit.weakCount || !repAudit.needsRepair) {
+      if (repAudit.weakCount < audit.weakCount || (audit.missingExplain && repAudit.explainCount > 0) || !repAudit.needsRepair) {
         const origIdx = String(rawText || "").indexOf("SCRIPT:");
         const origRefs = origIdx > 0 ? String(rawText || "").slice(0, origIdx).trim() : "";
         const repBody = rep.text.includes("SCRIPT:") ? rep.text.slice(rep.text.indexOf("SCRIPT:")).trim() : ("SCRIPT:\n" + rep.text.trim());

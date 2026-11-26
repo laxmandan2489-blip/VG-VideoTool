@@ -164,7 +164,8 @@ class PhotoHero:
         # usi photo ka blur) + camera dheere subject (CLIP) ki taraf. photo_poora = nahi -> purana (sirf 2:1+ pe card).
         ar = im.width / im.height; ar_out = W / H
         # chaukor (1:1) se chaudi photo -> poori; lagbhag khadi (4:5) -> poori screen, subject ki taraf crop
-        self.fit_whole = (ar > 2.0) if whole is False else (ar / ar_out > 1.6 if whole else ar > 2.0)
+        # v4.23 FULL-SCREEN 9:16 SHORTS: fill vertical frame with CLIP smart_x tracking for normal 16:9 photos (ar <= 2.2), only letterbox extreme panoramas
+        self.fit_whole = (ar > 2.2) if (W < H) else ((ar > 2.0) if whole is False else (ar / ar_out > 1.6 if whole else ar > 2.0))
         self.fx = focus_x(im, focus_text or name) if (focus_text or name) else 0.5
         self.how = "flat"
         base = _cover(im, W, H, 1.03, self.fx)

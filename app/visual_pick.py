@@ -83,6 +83,21 @@ GARBAGE_YT_WORDS = re.compile(r"\b(interview\s+questions?|mock\s+interview|job\s
                               r"how\s+to\s+crack|tips\s+and\s+tricks|pdf\s+notes|ppt\s+presentation|"
                               r"growing\s+professional|what\s+is\s+the\s+capital|gk\s+question|"
                               r"general\s+knowledge|quiz\s+time|trivia\s+quiz|guess\s+the)\b", re.I)
+# v4.23 SMART CONTEXT-AWARE YT FILTER: keeps ALL real news/science/event footage ON,
+# blocks off-topic skits/lofi/DIY crafts, and blocks gaming clips ONLY when script is NOT about gaming!
+OFFTOPIC_YT_WORDS = re.compile(
+    r"\b(dhar\s+mann|instantly\s+regrets|poor\s+shames|lukrembo|lo-?fi\s+(beats|music|hip\s*hop)|"
+    r"how[-\s]+to\s+(make\s+cardboard|revive\s+a\s+sharpie)|mini\s+working\s+atm|coin\s+bank\s+makin|"
+    r"for\s+sale\s+at|lockup\s+torture|prank\s+on|type\s+beat|no\s+copyright\s+music)\b", re.I
+)
+GAMING_YT_WORDS = re.compile(
+    r"\b(gta\s*[456v]|gta\s*vi|grand\s+theft\s+auto|minecraft|fortnite|roblox|pubg|bgmi|free\s*fire|"
+    r"valorant|call\s+of\s+duty|gameplay|walkthrough|let'?s\s+play|speedrun|mod\s+showcase|gaming\s+setup)\b", re.I
+)
+GAMING_TOPIC_RE = re.compile(
+    r"\b(game|gaming|gamer|gta|minecraft|fortnite|roblox|pubg|bgmi|free\s*fire|valorant|esports|"
+    r"playstation|ps5|xbox|nintendo|steam|video\s*game|console)\b", re.I
+)
 HINT = {}                  # v3.18: line -> script me aapka '/' ya '||' hint (sabse pakka nirdesh)
 EXTRA_Q = {}               # v3.16: line -> Gemini / AI-plan ke aam search shabd (chaudi khoj ke liye)
 USE = {}                   # v3.15: file/url -> kitni LINES pe laga (ek hi stock clip 8 baar nahi – max 2 line)
@@ -282,6 +297,11 @@ def gather(i, parts_q, keys, main="", film="", existing=()):
             return                       # v3.18: topic film nahi -> trailer / movie scene / gameplay clips nahi
         if GARBAGE_YT_WORDS.search(_meta_txt):
             return                       # v3.85: interview Q&A / exam PPT / coaching talking-head videos block
+        if OFFTOPIC_YT_WORDS.search(_meta_txt):
+            return                       # v4.23: block Dhar Mann skits, lo-fi music covers, DIY cardboard crafts
+        _topic_ctx = f"{main} {q} " + " ".join(HINT.values())
+        if GAMING_YT_WORDS.search(_meta_txt) and not GAMING_TOPIC_RE.search(_topic_ctx):
+            return                       # v4.23: block GTA/Minecraft/gaming clips ONLY when script is NOT about gaming
         reused = False
         with sources._lock:
             if c.get("url") and c["url"] in sources._used:

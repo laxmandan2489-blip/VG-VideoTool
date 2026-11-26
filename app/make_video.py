@@ -921,16 +921,26 @@ def main():
             if its: return (its, [])
         if SB and i < len(SB) and SB[i].get("graphic") == "map" and SB[i].get("place") and i not in user_assign \
                 and i not in face_lines and yes(style.get("map", "haan")):
-            try:                                   # v3.1: jagah wali line -> 3D map animation (reference jaisa)
-                from cine import mapanim
-                mout = work / "shots" / f"cmap_{i:02d}.mp4"
-                dur_m = spans[i][1] - spans[i][0] + 0.3
-                mapanim.render(SB[i]["place"], dur_m, mout, W, H, style, BIBLE["palette"] if BIBLE else {}, fps=render.FPS)
-                log(f"   line {i+1}: 3D map – {SB[i]['place'].get('name')}")
-                return ([{"kind": "video", "path": mout, "credit": "Map data: OpenStreetMap / Natural Earth",
-                          "src": "map", "whole": True, "ss": 0.0}], [])
-            except Exception as e:
-                log(f"   (map line {i+1} skip: {e})", show=False)
+            _pl_name = str((SB[i]["place"] or {}).get("name") or "").strip().lower()
+            _can_cmap = False
+            with _fx_map_lock:
+                if _fx_map_state["count"] < _fx_map_max and (_pl_name not in _fx_map_state["places"]) and (i - _fx_map_state["last_i"]) >= 6:
+                    _can_cmap = True
+            if _can_cmap:
+                try:                               # v3.1 + v4.23: shares global map cap with [map:] (max 1 Short / 2 Long!)
+                    from cine import mapanim
+                    mout = work / "shots" / f"cmap_{i:02d}.mp4"
+                    dur_m = spans[i][1] - spans[i][0] + 0.3
+                    mapanim.render(SB[i]["place"], dur_m, mout, W, H, style, BIBLE["palette"] if BIBLE else {}, fps=render.FPS)
+                    with _fx_map_lock:
+                        _fx_map_state["count"] += 1
+                        if _pl_name: _fx_map_state["places"].add(_pl_name)
+                        _fx_map_state["last_i"] = i
+                    log(f"   line {i+1}: 3D map – {SB[i]['place'].get('name')}")
+                    return ([{"kind": "video", "path": mout, "credit": "Map data: OpenStreetMap / Natural Earth",
+                              "src": "map", "whole": True, "ss": 0.0}], [])
+                except Exception as e:
+                    log(f"   (map line {i+1} skip: {e})", show=False)
         if blender_first(i):
             log(f"   line {i+1}: 3D Blender scene pehle ({SCENES[i]['blender_template']}) – footage nahi dhoondh raha")
             return ([], [])
@@ -965,6 +975,7 @@ def main():
         return True
     import fx
     PRO = yes(style.get("pro_effects", "haan"))
+    _fx_map_lock = _th.Lock()
     _fx_map_state = {"count": 0, "places": set(), "last_i": -99}
     try:
         _fx_map_max = int(float(style.get("auto_map", 2 if LONG else 1) or (2 if LONG else 1)))
@@ -996,15 +1007,18 @@ def main():
             if name == "map" and val and yes(style.get("map", "haan")):
                 place, _, lab = val.partition("|")
                 _pk = place.split(",")[-1].strip().lower() or place.strip().lower()
-                if _fx_map_state["count"] >= _fx_map_max or _pk in _fx_map_state["places"] or (i - _fx_map_state["last_i"]) < 6:
+                with _fx_map_lock:
+                    _skip_fxm = (_fx_map_state["count"] >= _fx_map_max or _pk in _fx_map_state["places"] or (i - _fx_map_state["last_i"]) < 6)
+                if _skip_fxm:
                     log(f"   line {i+1}: map limit/repeat skip ({place.strip()}) -> asli footage chalegi", show=False)
                     continue
                 out = work / "shots" / f"map_{i:02d}.mp4"
                 log(f"   line {i+1}: map bana raha hoon – {place.strip()}")
                 if fx.map_clip(place.strip(), lab.strip() or place.split(",")[0].strip(), dur, out, W, H, style, work):
-                    _fx_map_state["count"] += 1
-                    _fx_map_state["places"].add(_pk)
-                    _fx_map_state["last_i"] = i
+                    with _fx_map_lock:
+                        _fx_map_state["count"] += 1
+                        _fx_map_state["places"].add(_pk)
+                        _fx_map_state["last_i"] = i
                     return ([{"kind": "video", "path": out, "credit": "", "src": "map", "whole": True, "ss": 0.0}], [])
             if name == "news" and val and yes(style.get("news_card", "haan")):
                 head, _, srcn = val.partition("|")

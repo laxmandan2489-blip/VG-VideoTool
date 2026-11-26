@@ -1,14 +1,17 @@
-THE VIRAL GYAAN VIDEOTOOL — v4.22 (Cumulative over v4.18)
+THE VIRAL GYAAN VIDEOTOOL — v4.23 (Cumulative over v4.18)
 ==========================================================
-Included in this single ZIP (v4.19 + v4.20 + v4.21 + v4.22):
-1. Universal Auto Hint Doctor (cloudflare_worker.js):
-   - Automatically audits EVERY script (both /trends AND pasted scripts from Gemini/ChatGPT) for missing, overly long (>6 words), or trap/unsearchable visual hints (mockup, warning screen, settings screen, graphic, subscribe button, bell icon, etc.).
-   - Automatically upgrades weak hints into sharp 3-5 word searchable scenes, [explain:] 30fps explainers, [news:] cards, or photorealistic '||' AI scenes — without changing a single word of the Hindi story.
-2. Zero-Blank Smart AI Fallback (app/make_video.py):
-   - When a line finds no matching stock/YouTube/Pinterest visual during render, automatically triggers a 30fps AI Explainer (for concept/mechanism/rule lines) or photorealistic AI Scene (even on lines with numbers), never faking living celebrities.
-3. Facebook & Instagram Publishing + Story + Cover Fix (v4.21 — cloudflare_worker.js):
-   - Meta status_code polling before IG Story & Reel publish (fixes 'Media ID is not available'), smart 'Complete IG Reel Publish' button, FB Page Photo Story + Cover + rupload fallback, and Media Bridge Accept-Ranges fix.
-4. Video Render Crash Fix (v4.20 — app/make_video.py) & 15-Day Breakout Trends + Social News Fix (v4.19 — cloudflare_worker.js).
+Included in this single ZIP (v4.19 + v4.20 + v4.21 + v4.22 + v4.23):
+1. Smart Context-Aware Off-Topic YouTube Filter (app/visual_pick.py):
+   - Keeps ALL real news, science, event, and celebrity YouTube footage 100% ON.
+   - Blocks off-topic skits/music/DIY crafts (Dhar Mann, lukrembo lo-fi, cardboard ATM DIY, etc.).
+   - Blocks gaming clips (GTA 6, Minecraft, PUBG, gameplay) ONLY when the script is NOT about gaming (gaming fact/review videos remain 100% allowed!).
+2. Strict Global 1-Map-Per-Short Lock (app/make_video.py):
+   - Auto-maps (cmap) and explicit [map:] now share ONE thread-safe global counter & place set (max 1 map per Short, max 2 per Long, zero duplicate city/country repeats).
+3. Full-Screen 9:16 Shorts Photo Framing (app/hero.py):
+   - Normal 16:9 photos (ar <= 2.2) now fill the full 9:16 Shorts screen with CLIP subject tracking + 3D parallax (eliminating ugly blurred top/bottom horizontal strips).
+4. Guaranteed 30fps AI Explainer (cloudflare_worker.js):
+   - Auto Hint Doctor now automatically detects scripts with 0 [explain:] tags on explainable science/tech/forensic/law lines and injects 1 [explain:] (Short) / 2 [explain:] (Long) without changing the Hindi story.
+5. Includes all v4.19–v4.22 upgrades: Zero-Blank Smart AI Fallback, Auto Hint Doctor, Meta FB/IG Reel+Story+Cover polling fix, LONG_MODE crash fix, and 15-Day Breakout Trends + Social News fix.
 
 --- Previous Release Notes ---
 THE VIRAL GYAAN VIDEOTOOL — v4.18 (Cumulative over v4.15)
