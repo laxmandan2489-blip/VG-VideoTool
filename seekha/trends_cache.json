@@ -1,52 +1,84 @@
 {
  "items": [
   {
-   "id": "DHzC4VVmolk",
-   "title": "Why America's healthcare is Broken? | How Wall Street Made Millions While Patients Paid the Price",
+   "id": "Clzax3wVBtg",
+   "title": "How Japan Became a SUPERPOWER? | World's Greatest Comeback | Dhruv Rathee",
+   "channel": "Dhruv Rathee",
+   "handle": "@dhruvrathee",
+   "catKey": "facts",
+   "fmt": "LONG",
+   "views": 27776094,
+   "dur": 1708,
+   "ageDays": 89,
+   "velScore": 41037.3041783408,
+   "url": "https://www.youtube.com/watch?v=Clzax3wVBtg",
+   "outlierMult": 2.1,
+   "viralRating": 7.8,
+   "score": 16.539423848715785
+  },
+  {
+   "id": "vaBagyuwRhk",
+   "title": "Untold Story of Major Mohit Sharma | Nitish Rajput",
+   "channel": "Nitish Rajput",
+   "handle": "@NitishRajput",
+   "catKey": "facts",
+   "fmt": "LONG",
+   "views": 16496876,
+   "dur": 2005,
+   "ageDays": 73,
+   "velScore": 28830.724911263773,
+   "url": "https://www.youtube.com/watch?v=vaBagyuwRhk",
+   "outlierMult": 2.1,
+   "viralRating": 7.8,
+   "score": 16.01866255828674
+  },
+  {
+   "id": "vzlK59IG5K4",
+   "title": "Why Are You ALWAYS Tired? | India's Vitamin D & B12 Crisis | Jaago Grahak Jaago | Dhruv Rathee",
+   "channel": "Dhruv Rathee",
+   "handle": "@dhruvrathee",
+   "catKey": "facts",
+   "fmt": "LONG",
+   "views": 26061360,
+   "dur": 1145,
+   "ageDays": 49,
+   "velScore": 63914.62915094672,
+   "url": "https://www.youtube.com/watch?v=vzlK59IG5K4",
+   "outlierMult": 2,
+   "viralRating": 7.6,
+   "score": 14.833392396239658
+  },
+  {
+   "id": "e1cwjeP5Ofs",
+   "title": "India's Biggest Economic Threat | Why Jaishankar Is Warning Every Indian About the 4F Crisis?",
    "channel": "Think School",
    "handle": "@ThinkSchool",
    "catKey": "facts",
    "fmt": "LONG",
-   "views": 604780,
-   "dur": 1125,
-   "ageDays": 27,
-   "velScore": 2458.1990445634146,
-   "url": "https://www.youtube.com/watch?v=DHzC4VVmolk",
-   "outlierMult": 0.4,
-   "viralRating": 5,
-   "score": 0.9363465773842969
+   "views": 2902901,
+   "dur": 996,
+   "ageDays": 45,
+   "velScore": 7636.977633313846,
+   "url": "https://www.youtube.com/watch?v=e1cwjeP5Ofs",
+   "outlierMult": 2.1,
+   "viralRating": 7.7,
+   "score": 13.926727831758994
   },
   {
-   "id": "hidRAm8JcFI",
-   "title": "Mastercard’s Invisible Empire | How One Tap Moves the World’s Money in Milliseconds",
-   "channel": "Think School",
-   "handle": "@ThinkSchool",
-   "catKey": "facts",
-   "fmt": "LONG",
-   "views": 396547,
-   "dur": 832,
-   "ageDays": 13,
-   "velScore": 2979.3753716733036,
-   "url": "https://www.youtube.com/watch?v=hidRAm8JcFI",
-   "outlierMult": 0.3,
-   "viralRating": 5,
-   "score": 0.6951549761684735
-  },
-  {
-   "id": "tS91zuKAYHw",
-   "title": "Ocean's Most Feared Giant Revealed",
+   "id": "dsENZKGmRTU",
+   "title": "Did We Found a Real Wormhole?",
    "channel": "अंतरिक्ष TV by Kaushik Bhattacharjee",
    "handle": "@AntarikshTV",
    "catKey": "facts",
    "fmt": "LONG",
-   "views": 3996,
-   "dur": 1067,
-   "ageDays": 0,
-   "velScore": 871.3585896520051,
-   "url": "https://www.youtube.com/watch?v=tS91zuKAYHw",
-   "outlierMult": 0.2,
-   "viralRating": 5,
-   "score": 0.316306455787923
+   "views": 862000,
+   "dur": 1203,
+   "ageDays": 79,
+   "velScore": 1409.6345053984667,
+   "url": "https://www.youtube.com/watch?v=dsENZKGmRTU",
+   "outlierMult": 2,
+   "viralRating": 7.6,
+   "score": 12.060267078242148
   }
  ],
  "catKey": "facts",
@@ -182,7 +214,12 @@
    "Y7xBrVl82rA",
    "DHzC4VVmolk",
    "hidRAm8JcFI",
-   "tS91zuKAYHw"
+   "tS91zuKAYHw",
+   "Clzax3wVBtg",
+   "vaBagyuwRhk",
+   "vzlK59IG5K4",
+   "e1cwjeP5Ofs",
+   "dsENZKGmRTU"
   ],
   "business_LONG": [
    "oyJ_p5hwSPo",
@@ -309,5 +346,5 @@
    "gn_qis8e6"
   ]
  },
- "ts": 1795712676495
+ "ts": 1795712694021
 }
