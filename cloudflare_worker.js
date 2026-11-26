@@ -146,7 +146,7 @@ export default {
       if (u.pathname === "/media/proxy") {
         return handleProxyMediaBridge(u.searchParams.get("u") || "", u.searchParams.get("t") || "mp4", request.method === "HEAD");
       }
-      return new Response("VideoTool Cloud Bridge v4.23 Auto-Pilot is LIVE!", { status: 200 });
+      return new Response("VideoTool Cloud Bridge v4.24 Auto-Pilot is LIVE!", { status: 200 });
     }
     if (request.method !== "POST") {
       return new Response("Method Not Allowed", { status: 405 });
@@ -1606,7 +1606,7 @@ TITLE: <45-60 char high-CTR Hindi SEO title> | <2-3 bold Hindi thumbnail words O
   return { text: "", error: (mergedErrs.length ? mergedErrs : errs.slice(0, 6)).join(" | ") };
 }
 
-const TRAP_VISUAL_HINT_RE = /\b(mockup|warning\s+screen|error\s+screen|settings\s+screen|scanning\s+code|code\s+graphic|graphic|animation\s+overlay|subscribe\s+button|bell\s+icon|infographic|diagram|cartoon|ui\s+screen|blocked\s+internet|shocked\s+face|question\s+mark|flag\s+waving|tv\s+screen|phone\s+in\s+hand|rock\s+concert|new\s+year|balloons|trophy|clipart|vector\s+icon)\b/i;
+const TRAP_VISUAL_HINT_RE = /\b(mockup|warning\s+screen|error\s+screen|settings\s+screen|scanning\s+code|code\s+graphic|graphic|animation\s+overlay|subscribe\s+button|bell\s+icon|infographic|diagram|cartoon|ui\s+screen|blocked\s+internet|shocked\s+face|question\s+mark|flag\s+waving|flag\s+tension|tension\s+visual|tv\s+screen|phone\s+in\s+hand|rock\s+concert|new\s+year|balloons|trophy|clipart|vector\s+icon|line\s+animation|rising\s+animation|flow\s+chart|falling\s+rain|deep\s+hole|world\s+map\s+showing|confused\s+man|calendar\s+page\s+flip|clock\s+ticking)\b/i;
 
 function inspectVisualHints(rawText) {
   const txt = String(rawText || "");
@@ -1663,7 +1663,7 @@ STRICT RULES:
 4) SMART AUTO ROUTING for hard-to-film scenes:
    - On ${isLongVideo ? "2-3" : "1-2"} lines explaining HOW a mechanism, surveillance, software, science, or rule works, put "[explain: clear 30fps animated diagram/mechanism]" BEFORE "||" (and a simple real-world fallback after "||").
    - On rare/dramatic non-celebrity scenes that stock libraries don't have (e.g., hidden microchip scanning phone, dark surveillance server room, rare wildlife/historical action — NEVER living celebrities!), use " || AI: <8-12 vivid photorealistic documentary words>".
-   - On breaking/ban/policy/proof lines, optionally add "[news: Short Headline | Credible Source]" or max ${isLongVideo ? "2" : "1"} "[map: Place, Country]" (no duplicate countries).
+   - On cross-country loan/debt/trade/flight/geopolitics lines, add "[route: CityA, CountryA -> CityB, CountryB | Short Stat]" (triggers 30fps dark satellite route map!). On breaking/ban/policy/proof lines, add "[news: Short Headline | Credible Source]" or max ${isLongVideo ? "2" : "1"} "[map: Place, Country]" (no duplicate countries).
    - On the closing CTA line, use a clean topic-hero closing scene (NEVER "subscribe button" or "bell icon").
 5) NEVER output Chinese/Bengali characters or ** bold markdown.
 Return ONLY the upgraded script starting with SCRIPT:
@@ -1718,6 +1718,16 @@ function parseTrendGeminiOutput(raw) {
     const parts = val.split("|").map(x => x.trim()).filter(x => x && !/^(\d+\s*शब्द|2-4\s*bold|bold\s*hindi)/i.test(x));
     return "TITLE: " + parts.slice(0, 2).join(" | ");
   });
+  // v4.24: fix accidental single-Devanagari + Latin fused LLM typos (e.g. 'मaturity' -> 'maturity') so TTS reads cleanly
+  const _DEV_TO_LAT = { "म": "m", "ब": "b", "प": "p", "क": "k", "स": "s", "र": "r", "त": "t", "ट": "t", "द": "d", "ड": "d", "न": "n", "ल": "l", "ग": "g", "फ": "f", "व": "v", "ह": "h", "ज": "j", "च": "c" };
+  script = script.split("\n").map(ln => {
+    const p = ln.split("||");
+    p[0] = p[0].replace(/(^|\s)([\u0905-\u0939])([a-z]{3,})\b/g, (m, sp, dv, lat) => {
+      const ch = _DEV_TO_LAT[dv];
+      return ch ? (sp + ch + lat) : m;
+    });
+    return p.join("||");
+  }).join("\n");
   return { refs, script };
 }
 
@@ -1817,17 +1827,31 @@ async function handleTrendCallback(env, cq) {
           : (gen.mode === "groq_topic"
             ? `⚡ Gemini busy (503) tha — Groq backup ne viral topic se script banayi (${gen.model})\n⚠️ Note: Is video ka transcript nahi mila tha (sirf title se bani) — publish se pehle facts zaroor check kar lein!`
             : `⚡ Viral topic se script banayi (${gen.model})\n⚠️ Note: Is video ka transcript nahi mila tha (sirf title se bani) — publish se pehle facts zaroor check kar lein!`)));
-    const preview = `${badge}\n\n${parsed.refs ? "🎬 Visual References:\n" + parsed.refs + "\n\n" : ""}📝 ORIGINAL SCRIPT (Padh kar approve karo):\n\n${parsed.script}`.slice(0, 3950);
+    const fullPreview = `${badge}\n\n${parsed.refs ? "🎬 Visual References:\n" + parsed.refs + "\n\n" : ""}📝 ORIGINAL SCRIPT (Padh kar approve karo):\n\n${parsed.script}`;
     const approveKb = {
       inline_keyboard: [
         [{ text: "✅ Haan, Video Banao", callback_data: "tr:go" }],
         [{ text: "✏️ Dobara Likho", callback_data: "tr:rw" }, { text: "❌ Cancel", callback_data: "tr:no" }],
       ],
     };
-    if (statusMsg) {
-      await tgApi(env, "editMessageText", { chat_id: chatId, message_id: statusMsg.message_id, text: preview, reply_markup: approveKb });
+    if (fullPreview.length <= 3850) {
+      if (statusMsg) {
+        await tgApi(env, "editMessageText", { chat_id: chatId, message_id: statusMsg.message_id, text: fullPreview, reply_markup: approveKb });
+      } else {
+        await tgApi(env, "sendMessage", { chat_id: chatId, text: fullPreview, reply_markup: approveKb });
+      }
     } else {
-      await tgApi(env, "sendMessage", { chat_id: chatId, text: preview, reply_markup: approveKb });
+      // v4.24: Split Long script cleanly into 2 Telegram messages at a newline so user reads the FULL 5-6 min script!
+      let cut = fullPreview.lastIndexOf("\n", 3700);
+      if (cut < 1800) cut = 3700;
+      const part1 = fullPreview.slice(0, cut).trim() + "\n\n⬇️ (Part 1/2 — baaki script neeche dekhein)";
+      const part2 = "📄 (Part 2/2 — Script continue)\n\n" + fullPreview.slice(cut).trim();
+      if (statusMsg) {
+        await tgApi(env, "editMessageText", { chat_id: chatId, message_id: statusMsg.message_id, text: part1.slice(0, 3950) });
+      } else {
+        await tgApi(env, "sendMessage", { chat_id: chatId, text: part1.slice(0, 3950) });
+      }
+      await tgApi(env, "sendMessage", { chat_id: chatId, text: part2.slice(0, 3950), reply_markup: approveKb });
     }
   } catch (err) {
     const errMsg = `❌ /trends error: ${String(err).slice(0, 220)}\n(Dobara 🔥 /trends try karo)`;
