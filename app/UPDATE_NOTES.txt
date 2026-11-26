@@ -1,11 +1,28 @@
-THE VIRAL GYAAN VIDEOTOOL — v4.27 (Cumulative over v4.18)
+THE VIRAL GYAAN VIDEOTOOL — v4.29 (Cumulative over v4.18)
 ==========================================================
-Included in this single ZIP (v4.19 through v4.27 — 100% FREE, Zero-Card Stack):
-1. NEW /vmode Switch — AI Cinematic Documentary Mode vs Stock Search (cloudflare_worker.js + app/make_video.py + app/cloud_visuals.py):
-   - /vmode ai: Bypasses random Pixabay/YouTube search completely! Generates consistent 35mm photorealistic documentary scenes (100% FREE Pollinations Flux with automatic retry + turbo fallback, rendered in full-screen 9:16/16:9 3D Depth Parallax) + 30fps AI Explainers + realistic [news:] cards + real Wikimedia HD portraits for living celebrities!
-   - /vmode stock: Instant 1-tap rollback to classic stock search mode anytime.
-   - Synced in Telegram BOT_COMMANDS, bottom KEYBOARD, and /guide.
-2. Includes ALL v4.19–v4.26 upgrades: Weak-Shot Auto-AI Upgrade, Smart 3-Bucket Visual Router, Never-Skip [explain:] Carry-Forward, Broken Hindi Newline Auto-Join, Monument/Fort Guard, 2-Part Long Script Preview, Mixed Typo Sanitizer, Smart Off-Topic/Gaming YouTube Filter, 1-Map-Per-Short Lock, Full-Screen 9:16 Shorts Photo Framing, Meta FB/IG Story+Cover+Reel Fix, LONG_MODE Crash Fix, and 15-Day Breakout Trends + Social News Fix.
+Included in this single ZIP (v4.19 through v4.29 — Viral Editing Engine Edition):
+1. Guaranteed 0–3s Viral Hook Title for Shorts & Longs (app/hf_hook.py + app/make_video.py + app/render.py):
+   - Fixed the GitHub Actions Node v20 skip bug with a 100% Python/Pillow + FFmpeg native 30fps transparent VP9 WebM viral hook renderer (category pill badge + kinetic slide-up headline + animated accent underline sweep + synced opening SFX). Works on BOTH 9:16 Shorts and 16:9 Longs even if script has no TITLE line.
+2. Category-Wise Viral Editing Presets for Shorts & Longs (app/edit_style.py + app/make_video.py):
+   - Added 'geography' category + upgraded all 12 categories with distinct color looks (warm 35mm Indian business look, archival history/news film look, cinematic science/tech teal, dark mystery documentary tone, natural geography map look), category hook badges, accent colors, SFX flavors, and Shorts vs Longs pacing.
+3. Giant Viral Year Reveal + Red Archival Stamp & Unlocked Long Documentary Beats (app/cine/doc_cards.py + app/make_video.py):
+   - New render_year_reveal() renders bold animated year slams (1972, 1975, 2015, 2020...) with timeline ruler ticks and auto red archival stamps (EMERGENCY, SCAM, BANNED, VERDICT, RECORD, LAUNCH).
+   - Fixed the bug where documentary beats (StatCounterPro, YearReveal, NewsHighlight yellow sweep, CutoutParallax) were skipped in 16:9 Long videos, and expanded stat detection for ₹ / $ / Cr / Lakh / Million / Billion.
+4. Long Video 15-Second "Fall-First" Hook Pacing & Sleek Chapter Bars (app/make_video.py + app/render.py):
+   - First 15 seconds of Long videos now use tighter 2.4–3.0s viral documentary pacing before settling into calm 4.2–5.0s flow, plus cleaner documentary chapter title bars.
+5. Includes ALL v4.19–v4.28 upgrades (zero touch to visual_brain.py / sources.py / aankh.py / social_visuals.py): Natural 35mm Kodak Portra AI prompts, [tweet:] White Proof Card with Yellow Highlighter, 30fps Explainer upgrades, /vmode ai vs stock switch, Weak-Shot Auto-AI Upgrade, Meta FB/IG Story+Cover+Reel Fix, LONG_MODE Fix, and 15-Day Breakout Trends.
+
+--- Previous Release Notes ---
+THE VIRAL GYAAN VIDEOTOOL — v4.28 (Cumulative over v4.18)
+==========================================================
+Included in this single ZIP (v4.19 through v4.28 — Viral Documentary Studio Edition):
+1. Natural Candid 35mm Documentary Look — Zero Plastic AI (app/cloud_visuals.py):
+   - Replaced dark glossy AI glow with authentic Kodak Portra 400 35mm candid documentary photography (natural daylight, organic film grain, real-world textures — matching viral Indian storytelling reels).
+2. Viral White Tweet/Post Proof Card with Yellow Highlighter Sweep (app/cine/doc_cards.py + app/make_video.py + cloudflare_worker.js):
+   - New [tweet: Author | @handle | Quote] tag renders a crisp white social media card with animated yellow highlighter sweep and gentle documentary zoom.
+3. Viral Documentary 30fps Explainer Upgrade (app/cine/ai_explainer.py):
+   - Upgraded HTML5/Canvas 30fps explainer grammar with rolling number counters, yellow highlighter comparison tables, red marker circle callouts on charts, and step-by-step science/tech diagrams.
+4. Includes ALL v4.19–v4.27 upgrades: /vmode ai vs /vmode stock Telegram switch (synced in BOT_COMMANDS & KEYBOARD), Weak-Shot Auto-AI Upgrade, Never-Skip [explain:] Carry-Forward, Broken Hindi Newline Auto-Join, Monument/Fort Guard, 2-Part Long Preview, Mixed Typo Sanitizer, Smart Off-Topic/Gaming YouTube Filter, 1-Map-Per-Short Lock, Full-Screen 9:16 Shorts Framing, Meta FB/IG Story+Cover+Reel Fix, LONG_MODE Crash Fix, and 15-Day Breakout Trends + Social News Fix.
 
 --- Previous Release Notes ---
 THE VIRAL GYAAN VIDEOTOOL — v4.18 (Cumulative over v4.15)

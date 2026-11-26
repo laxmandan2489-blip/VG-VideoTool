@@ -149,7 +149,7 @@ export default {
       if (u.pathname === "/media/proxy") {
         return handleProxyMediaBridge(u.searchParams.get("u") || "", u.searchParams.get("t") || "mp4", request.method === "HEAD");
       }
-      return new Response("VideoTool Cloud Bridge v4.27 Auto-Pilot is LIVE!", { status: 200 });
+      return new Response("VideoTool Cloud Bridge v4.28 Auto-Pilot is LIVE!", { status: 200 });
     }
     if (request.method !== "POST") {
       return new Response("Method Not Allowed", { status: 405 });
@@ -1680,7 +1680,7 @@ STRICT RULES:
 4) SMART AUTO ROUTING for hard-to-film scenes:
    - On ${isLongVideo ? "2-3" : "1-2"} lines explaining HOW a mechanism, surveillance, software, science, or rule works, put "[explain: clear 30fps animated diagram/mechanism]" BEFORE "||" (and a simple real-world fallback after "||").
    - On ${isLongVideo ? "3-5" : "1-2"} specific Indian/modern/rare non-celebrity scenes that free stock libraries like Pixabay do NOT have (e.g., Indian rooftop plastic water tank overflowing, electrician installing small water sensor on Indian roof, hidden microchip scanning phone, rare wildlife/historical action — NEVER living celebrities!), use " || AI: <8-12 vivid photorealistic documentary words>".
-   - On cross-country loan/debt/trade/flight/geopolitics lines, add "[route: CityA, CountryA -> CityB, CountryB | Short Stat]" (triggers 30fps dark satellite route map!). On breaking/ban/policy/proof lines, add "[news: Short Headline | Credible Source]" or max ${isLongVideo ? "2" : "1"} "[map: Place, Country]" (no duplicate countries).
+   - On cross-country loan/debt/trade/flight/geopolitics lines, add "[route: CityA, CountryA -> CityB, CountryB | Short Stat]" (30fps satellite map). On breaking/policy/court proof lines, add "[news: Short Headline | Credible Source]". On viral X/Twitter/social statement lines, add "[tweet: Name | @handle | Short quote]". Max ${isLongVideo ? "2" : "1"} "[map: Place, Country]" (no duplicates).
    - On the closing CTA line, use a clean topic-hero closing scene (NEVER "subscribe button" or "bell icon").
 5) NEVER output Chinese/Bengali characters or ** bold markdown.
 Return ONLY the upgraded script starting with SCRIPT:

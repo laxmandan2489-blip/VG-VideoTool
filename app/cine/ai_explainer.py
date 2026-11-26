@@ -152,11 +152,14 @@ STRICT TECHNICAL REQUIREMENTS:
      window.renderAt = function(t) {{ ... }};
    where `t` is elapsed time in seconds from `0.0` to `{DUR:.2f}`.
    Every call to `window.renderAt(t)` MUST immediately redraw the entire {W}x{H} canvas/SVG for timestamp `t` (NO requestAnimationFrame dependency!). Also call `window.renderAt(0)` once on load.
-4. VISUAL QUALITY (VOX / DOCUMENTARY CINEMA LOOK):
-   - Deep dark radial gradient background (#0c1424 -> #050810) + subtle glowing tactical grid.
-   - Rich multi-layered glowing Canvas 2D visuals: gradients, soft shadowBlur glow, smooth cubic easing, animated paths/arrows/particles/counters/cross-sections/icons tailored SPECIFICALLY to this scene (NO generic filler!).
+4. VISUAL QUALITY (VIRAL INDIAN DOCUMENTARY — DHRUV RATHEE / VOX / CUTTING-MAT LOOK):
+   - Rich tactile dark editorial background (#0d1117 -> #06090f) with subtle drafting grid or warm archival paper card contrast.
+   - Use proven viral documentary visual devices tailored SPECIFICALLY to this scene:
+     * For numbers/money/percentages: smooth rolling animated counters, crisp comparison tables with animated translucent YELLOW HIGHLIGHTER SWEEP (#FFE135), and red hand-drawn marker circle callouts around key peaks/drops.
+     * For science/tech/mechanisms: clear step-by-step animated cross-sections, flowing directional arrows, labeled components, and soft glowing highlights.
+     * For geography/comparisons: clean split-screen divider line with bold badges popping in with cubic ease-out.
    - Keep ALL important elements safely inside central 82% margin (never clipped, never overlapping text!).
-   - Use crisp bold sans-serif English/digit labels (`system-ui, Arial, sans-serif`) sized appropriately for {W}x{H} (minimum 28px).
+   - Use crisp bold sans-serif English/digit labels (`system-ui, Arial, sans-serif`) sized appropriately for {W}x{H} (minimum 30px).
 5. Return ONLY raw HTML starting with `<!DOCTYPE html>` and ending with `</html>` (no markdown fences, no commentary)."""
 
 

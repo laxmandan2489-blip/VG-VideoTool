@@ -1101,6 +1101,20 @@ def main():
                         _fx_map_state["places"].add(_pk)
                         _fx_map_state["last_i"] = i
                     return ([{"kind": "video", "path": out, "credit": "", "src": "map", "whole": True, "ss": 0.0}], [])
+            if name == "tweet" and val and yes(style.get("news_card", "haan")):
+                _tp = [x.strip() for x in val.split("|")]
+                _t_auth = _tp[0] if len(_tp) >= 1 and _tp[0] else "Official Post"
+                _t_hnd = _tp[1] if len(_tp) >= 3 else ("@" + re.sub(r"[^a-zA-Z0-9_]", "", _t_auth.lower())[:18])
+                _t_body = _tp[2] if len(_tp) >= 3 else (_tp[1] if len(_tp) == 2 else (lines[i] if i < len(lines) else val))
+                out = work / "shots" / f"tweet_{i:02d}.mp4"
+                log(f"   🐦 line {i+1}: viral social tweet proof card bana raha hoon")
+                try:
+                    from cine import doc_cards as _dc_tw
+                    _pal = (BIBLE.get("palette") if isinstance(BIBLE, dict) else None) or {}
+                    if _dc_tw.render_tweet_card(_t_auth, _t_hnd, _t_body, "", dur, out, W, H, style, _pal, fps=render.FPS):
+                        return ([{"kind": "video", "path": out, "credit": "", "src": "tweet card", "whole": True, "ss": 0.0}], [])
+                except Exception as _twe:
+                    log(f"   (tweet card fallback: {str(_twe)[:70]})", show=False)
             if name == "news" and val and yes(style.get("news_card", "haan")):
                 head, _, srcn = val.partition("|")
                 out = work / "shots" / f"news_{i:02d}.mp4"
@@ -1318,6 +1332,11 @@ def main():
             elif i == 0 and items and d >= 2.2 and yes(style.get("hook_tez_cut", "haan")):
                 k = max(k, min(int(style.get("_hook_cuts", "3") or 3), int(d // 1.1)))   # v3.6 HOOK (v3.16: genre se)
                 if imgs_only: k = max(1, min(k, len(items)))   # v3.15 FIX: hook ke chakkar me wahi photo 2 baar nahi
+            elif LONG and st < 15.0 and items and d >= 3.2 and yes(style.get("hook_tez_cut", "haan")):
+                # v4.29 LONG 15s FALL-FIRST HOOK PACING (MagnatesMedia / Fern style): fast cuts in first 15s
+                _lh_cut = float(style.get("_long_hook_cut", "2.6") or 2.6)
+                k = max(k, min(3, max(1, int(d // max(1.8, _lh_cut)))))
+                if imgs_only: k = max(1, min(k, len(items)))
             _nd = len({str(x.get("path") or x.get("url")) for x in items})
             if items and _nd < k and not (items[0].get("face") or items[0].get("whole") or
                                           (imgs_only and items[0].get("hero"))) and \
@@ -1349,31 +1368,32 @@ def main():
                 from unique_guard import UniqueAssetGuard
                 _UG = UniqueAssetGuard()
             if "_DOC_BEATS" not in locals():
-                _DOC_BEATS = {"stat": 0, "news": 0, "parallax": 0, "last_line": -9}
+                _DOC_BEATS = {"stat": 0, "year": 0, "news": 0, "parallax": 0, "last_line": -9}
             for j in range(k):
-                # v3.25 INTENTIONAL DOCUMENTARY DIRECTOR: insert up to 3 high-impact motion-graphics beats
-                # (StatCounterPro, NewsHighlight yellow sweep, 2.5D CutoutParallax) directly into the story timeline!
+                # v4.29 VIRAL DOCUMENTARY DIRECTOR (Shorts + Longs): high-impact proof beats
+                # (StatCounterPro, Giant YearReveal + Red Stamp, NewsHighlight yellow sweep, 2.5D CutoutParallax)
+                # NEVER overrides explicit whole-line tags ([explain:], [route:], [tweet:], [news:], map)
                 _doc_forced = None
-                if (yes(style.get("documentary_mode", "haan")) and W < H and j == 0
-                        and 1 <= i <= len(sents) - 2 and (i - _DOC_BEATS["last_line"]) >= 2):
+                _has_whole_tag = bool(items and items[0].get("whole"))
+                _min_beat_gap = 3 if LONG else 2
+                if (yes(style.get("documentary_mode", "haan")) and not _has_whole_tag and j == 0
+                        and 1 <= i <= len(sents) - 2 and (i - _DOC_BEATS["last_line"]) >= _min_beat_gap):
                     _ltxt = str(s.get("script") or s["text"] or "")
                     _kw_i = str(sources.KEYW.get(i) or "")
-                    _dur_b = max(1.4, pts[j + 1] - pts[j] + 0.15)
+                    _dur_b = max(1.6, pts[j + 1] - pts[j] + 0.15)
                     try:
                         from cine import doc_cards as _dc, bible as _bible
                         _pal_b = _bible.build(lines, eng, style)["palette"]
-                        # v3.62: In Shorts (or when real footage exists), NEVER black-out real footage with a dark Stat card —
-                        # let the real footage play full-screen with animated stat overlay on top! (Use Stat card only if no footage or LONG mode)
-                        # v3.86 (v3.35 Remotion DocumentaryBeat): Shorts me 1 crisp stat_slam beat on big-number lines
                         _stat_cap = 3 if LONG else 1
-                        # v3.85 (v3.35 Remotion DocumentaryBeat restored): Shorts me 1 crisp Remotion news_highlight beat
-                        # (sirf historical/fact line par, action/launch line par nahi); LONG me up to 3 beats.
+                        _year_cap = (2 if LONG else 1) if yes(style.get("_year_beat", "haan")) else 0
                         _is_action_line = bool(re.search(r"(लॉन्च|उड़ान|क्रैश|हमला|विस्फोट|launch|liftoff|crash|explosion|blast|attack)", _ltxt, re.I))
                         _news_cap = 3 if LONG else (0 if (_is_action_line and items) else 1)
                         _px_cap = 2 if LONG else 1
+                        _stat_pat = r"(?:[₹$€]\s*\d[\d,.]*\s*(?:करोड़|लाख|अरब|हजार|Cr|Crore|Lakh|Million|Billion|K|M|B)?|\d[\d,.]*\s*(?:%|प्रतिशत|लाख|करोड़|अरब|मिलियन|बिलियन|हजार|फीट|किलोमीटर|°C|डिग्री|Cr\b|Crore|Lakh|Million|Billion))"
+                        _yr_m = re.search(r"\b(19[4-9]\d|20[0-2]\d)\b", _ltxt)
                         # Beat A: Big number / money / percent -> StatCounterProCard
-                        if _DOC_BEATS["stat"] < _stat_cap and re.search(r"(\d[\d,.]*\s*(?:%|प्रतिशत|लाख|करोड़|अरब|मिलियन|बिलियन|हजार|फीट|किलोमीटर|°C|डिग्री))", _ltxt):
-                            _mnum = re.search(r"(-?\d[\d,.]*\s*(?:%|प्रतिशत|लाख|करोड़|अरब|मिलियन|बिलियन|हजार|फीट|किलोमीटर|°C|डिग्री)?)", _ltxt)
+                        if _DOC_BEATS["stat"] < _stat_cap and re.search(_stat_pat, _ltxt, re.I):
+                            _mnum = re.search(_stat_pat, _ltxt, re.I)
                             _val_s = (_kw_i if re.search(r"\d", _kw_i) else (_mnum.group(1) if _mnum else _kw_i)).strip()
                             if _val_s:
                                 _bc = work / "shots" / f"doc_stat_{i:02d}.mp4"
@@ -1390,7 +1410,24 @@ def main():
                                                             sub=_sub_clean, stamp=_stmp, trend="up", fps=render.FPS)
                                 _doc_forced = {"kind": "video", "path": _bc, "credit": "", "src": "kinetic card", "ss": 0.0}
                                 _DOC_BEATS["stat"] += 1; _DOC_BEATS["last_line"] = i
-                        # Beat B: Historical year OR breaking news/report/court/survey proof -> NewsHighlightCard (yellow highlighter sweep!)
+                        # Beat Y (v4.29): Giant Viral Year Reveal + Optional Red Archival Stamp (1972, 1975, 2015, 2020...)
+                        elif _DOC_BEATS["year"] < _year_cap and _yr_m and not (_is_action_line and items):
+                            _yr_s = _yr_m.group(1)
+                            _bc = work / "shots" / f"doc_year_{i:02d}.mp4"
+                            if not _bc.exists():
+                                _ystmp = ""
+                                if re.search(r"(आपातकाल|इमरजेंसी|emergency)", _ltxt, re.I): _ystmp = "EMERGENCY"
+                                elif re.search(r"(स्कैम|घोटाला|धोखा|scam|fraud)", _ltxt, re.I): _ystmp = "SCAM"
+                                elif re.search(r"(बैन|प्रतिबंध|रद्द|invalid|banned|illegal)", _ltxt, re.I): _ystmp = "BANNED"
+                                elif re.search(r"(फैसला|अदालत|कोर्ट|verdict|court)", _ltxt, re.I): _ystmp = "VERDICT"
+                                elif re.search(r"(रिकॉर्ड|इतिहास|पहली बार|record|historic)", _ltxt, re.I): _ystmp = "RECORD"
+                                elif re.search(r"(लॉन्च|शुरू|launch|founded)", _ltxt, re.I): _ystmp = "LAUNCH"
+                                _ysub = _ltxt[:76].rsplit(" ", 1)[0] if len(_ltxt) > 76 else _ltxt
+                                _dc.render_year_reveal(_yr_s, _ysub, _dur_b, _bc, W, H, style, _pal_b, stamp=_ystmp, fps=render.FPS)
+                            if _bc.exists() and _bc.stat().st_size > 8000:
+                                _doc_forced = {"kind": "video", "path": _bc, "credit": "", "src": "kinetic card", "ss": 0.0, "beat_sfx": "boom"}
+                                _DOC_BEATS["year"] += 1; _DOC_BEATS["last_line"] = i
+                        # Beat B: Breaking news/report/court/survey proof -> NewsHighlightCard (yellow highlighter sweep!)
                         elif _DOC_BEATS["news"] < _news_cap and (
                             re.search(r"\b(1[89]\d\d|20[0-2]\d)\b", _ltxt)
                             or (LONG and re.search(r"(रिपोर्ट|रिसर्च|सर्वे|अदालत|कोर्ट|सुप्रीम|सरकार|ब्रेकिंग|न्यूज़|खबर|वैज्ञानिक|अध्ययन|स्टडी|घोषणा|कानून|फैसला|report|study|survey|court|breaking|news|research|government|official|confirmed)", _ltxt, re.I))
@@ -1751,8 +1788,11 @@ def main():
                     effects = [e_ for e_ in effects if e_[2] is not trans]; trans = None
                 if rc and rc.get("sound") and yes(style.get("effect_sfx", "nahi")):
                     effects.append((t_cut, "mark", rc["sound"]))
-            # v3.42: Only script-motivated AI SFX (boom/riser/ding) when no transition is already firing
-            if n > 0 and new_line and not trans and AIPLAN.get(li_, {}).get("sfx") in ("impact", "boom", "riser", "ding") \
+            # v4.29: Documentary beat SFX (year slam / stat tick / news paper tear) + script-motivated AI SFX
+            _b_sfx = it.get("beat_sfx") or (style.get("_sfx_accent") if str(it.get("src", "")).startswith("kinetic card") else "")
+            if n > 0 and new_line and not trans and _b_sfx and not any(abs(e_[0] - t_cut) < 2.2 for e_ in effects):
+                effects.append((t_cut + 0.04, "sfx", (_b_sfx, 0.52)))
+            elif n > 0 and new_line and not trans and AIPLAN.get(li_, {}).get("sfx") in ("impact", "boom", "riser", "ding") \
                     and not any(abs(e_[0] - t_cut) < 2.2 for e_ in effects):
                 _sx = {"impact": "boom"}.get(AIPLAN[li_]["sfx"], AIPLAN[li_]["sfx"])
                 effects.append((t_cut, "sfx", (_sx, 0.48)))
@@ -1948,16 +1988,24 @@ def main():
         cards = sec_t if (LONG and yes(style.get("section_card", "haan"))) else []
         HFH = work / "hook_hf.webm"
         if HFH.exists(): HFH.unlink()
-        if title and not LONG and yes(style.get("hf_hook", "haan")) and W < H:   # v3.6: HyperFrames hook title
+        if yes(style.get("hf_hook", "haan")):   # v4.29: Guaranteed Viral 0-3s Hook Title (Shorts + Longs, Python-native fallback)
             try:
                 import hf_hook
                 from translit import word as _tw
-                _t1 = " ".join(_tw(x) for x in title[0].split())
-                _t2 = " ".join(_tw(x) for x in (title[1] if len(title) > 1 else title[0]).split())
-                if hf_hook.render_hook(_t1, _t2, HFH, hl=sources.KEYW.get(0, "")):
+                _badge_h = style.get("_hook_badge") or "VIRAL FACT"
+                _acc_h = style.get("_hook_accent") or "#FACC15"
+                if title:
+                    _t1 = " ".join(_tw(x) for x in title[0].split())
+                    _t2 = " ".join(_tw(x) for x in (title[1] if len(title) > 1 else title[0]).split())
+                else:
+                    _w0 = re.sub(r'[।,!?"\'“”]', "", lines[0]).split()
+                    _t1 = _badge_h
+                    _t2 = " ".join(_tw(x) for x in _w0[:7])
+                if hf_hook.render_hook(_t1, _t2, HFH, hl=sources.KEYW.get(0, ""), W=W, H=H, badge=_badge_h, accent=_acc_h):
                     hook = None                      # ASS wala upar ka text nahi (do title ek saath nahi)
+                    effects.append((0.08, "sfx", ("boom" if LONG else "whoosh", 0.42)))
             except Exception as _he:
-                log(f"   (HyperFrames hook skip: {_he})", show=False)
+                log(f"   (Viral hook skip: {_he})", show=False)
         cap_times = render.write_ass(sents, ass, style, total, events, hook, cards,
                                      endscreen=LONG and yes(style.get("end_screen", "haan")), extra=fx_ev)
         from common import copy_font

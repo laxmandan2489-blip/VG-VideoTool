@@ -26,11 +26,13 @@ def _doc_prompt(scene_desc, topic="", W=1080, H=1920):
         return ""
     orient = "widescreen 16:9 cinematic composition" if W > H else "vertical 9:16 composition"
     return (
-        f"Photorealistic 35mm documentary photograph of {clean}. "
-        f"{('Story context: ' + topic + '. ') if topic else ''}"
-        "Real-world authentic textures, natural cinematic lighting, dramatic depth of field, National Geographic and Netflix documentary cinematography, "
-        f"razor sharp focus, 8k raw photo, {orient}, "
-        "NO text, NO letters, NO watermark, NO captions, NO logos, NO UI, NO cartoon, NO anime, NO illustration."
+        f"Authentic candid 35mm documentary film photograph of {clean}. "
+        f"{('Real-world context: ' + topic + '. ') if topic else ''}"
+        "Shot on Kodak Portra 400 with 50mm prime lens, natural ambient daylight or realistic practical indoor lighting, "
+        "organic film grain, genuine real-life textures and slight imperfections, true-to-life natural colors, BBC and Netflix documentary still, "
+        f"{orient}, "
+        "NO plastic skin, NO glossy CGI, NO neon glow, NO oversaturated AI look, NO 3D render look, "
+        "NO text, NO letters, NO watermark, NO captions, NO logos, NO cartoon, NO anime."
     )
 
 

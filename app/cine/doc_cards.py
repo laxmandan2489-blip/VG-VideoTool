@@ -1113,3 +1113,228 @@ def render_timeline(title, milestones, active_idx, dur, out, W, H, style, pal, f
     import fx
     c = TimelineCard(title, milestones, active_idx, W, H, pal, dur)
     return fx._pipe_frames(lambda i: c.frame(i, fps), max(2, int(round(dur * fps))), W, H, out, style, fps)
+
+
+# =========================================================================
+# v4.28: VIRAL SOCIAL TWEET / POST PROOF CARD WITH ANIMATED YELLOW HIGHLIGHTER
+# =========================================================================
+def render_tweet_card(author, handle, body_text, highlight_phrase, dur, out, W, H, style, pal, fps=30):
+    """Render a crisp white social-media post/tweet proof card with animated yellow highlighter sweep."""
+    from PIL import Image, ImageDraw
+    import subprocess
+    author = str(author or "Verified Source").strip()[:38]
+    handle = str(handle or "@verified").strip()[:32]
+    if handle and not handle.startswith("@"):
+        handle = "@" + handle
+    body_text = str(body_text or "").strip()[:220]
+    hi_phrase = str(highlight_phrase or "").strip()
+    dur = max(2.2, min(7.0, float(dur or 3.5)))
+    total_frames = max(20, int(round(dur * fps)))
+
+    bg_base = _grunge_bg(W, H, pal or {}, seed=abs(hash(body_text)) % 97, grid=True).convert("RGBA")
+    cw = int(W * (0.86 if W < H else 0.62))
+    ch = int(H * (0.34 if W < H else 0.44))
+    cx0 = (W - cw) // 2
+    cy0 = (H - ch) // 2 - (int(H * 0.04) if W < H else 0)
+
+    f_auth = _dc_font("bold", max(26, int(cw * 0.042)))
+    f_hnd = _dc_font("reg", max(20, int(cw * 0.031)))
+    f_body_en = _dc_font("reg", max(26, int(cw * 0.040)))
+    f_body_hi = _dc_font("hi", max(26, int(cw * 0.040)))
+
+    pad_x = int(cw * 0.065)
+    pad_y = int(ch * 0.11)
+    av_r = max(28, int(cw * 0.048))
+    wrapped = _wrap_mixed(body_text, f_body_hi, f_body_en, cw - pad_x * 2)[:5]
+    line_h = int(max(26, int(cw * 0.040)) * 1.42)
+
+    # Pre-render static card base
+    card_bg = bg_base.copy()
+    _draw_shadow_box(card_bg, (cx0, cy0, cx0 + cw, cy0 + ch), radius=26, fill=(252, 252, 250, 255), shadow_alpha=145, blur=28)
+    d0 = ImageDraw.Draw(card_bg)
+    # Avatar circle with initial
+    ax = cx0 + pad_x + av_r
+    ay = cy0 + pad_y + av_r
+    d0.ellipse((ax - av_r, ay - av_r, ax + av_r, ay + av_r), fill=(26, 115, 232, 255))
+    init_ch = (author[0].upper() if author else "V")
+    d0.text((ax - av_r // 3, ay - av_r // 2), init_ch, font=f_auth, fill=(255, 255, 255, 255))
+    # Author + Verified blue check + handle
+    tx = ax + av_r + 18
+    d0.text((tx, cy0 + pad_y + 2), author, font=f_auth, fill=(18, 22, 28, 255))
+    d0.text((tx, cy0 + pad_y + int(av_r * 1.05)), handle, font=f_hnd, fill=(100, 112, 128, 255))
+    # Subtle divider
+    div_y = cy0 + pad_y + av_r * 2 + 18
+    d0.line((cx0 + pad_x, div_y, cx0 + cw - pad_x, div_y), fill=(228, 232, 238, 255), width=2)
+
+    body_y0 = div_y + 20
+    # Determine which line gets the yellow highlighter sweep
+    hi_line_idx = 0
+    if hi_phrase:
+        for idx_l, ln_t in enumerate(wrapped):
+            if hi_phrase.lower()[:12] in ln_t.lower():
+                hi_line_idx = idx_l
+                break
+
+    out = Path(out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        "ffmpeg", "-y", "-v", "error",
+        "-f", "rawvideo", "-vcodec", "rawvideo", "-pix_fmt", "rgb24",
+        "-s", f"{W}x{H}", "-r", str(fps), "-i", "-",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "19",
+        "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(out),
+    ]
+    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
+    try:
+        for f_idx in range(total_frames):
+            t_norm = f_idx / max(1, total_frames - 1)
+            # Highlighter sweeps smoothly from 15% to 55% of clip duration
+            hl_p = max(0.0, min(1.0, (t_norm - 0.15) / 0.40))
+            hl_e = _ease_out(hl_p)
+            frame = card_bg.copy()
+            ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+            dov = ImageDraw.Draw(ov)
+            if wrapped and hl_e > 0.01:
+                hy = body_y0 + hi_line_idx * line_h - 4
+                hw = int((cw - pad_x * 2) * 0.92 * hl_e)
+                dov.rounded_rectangle((cx0 + pad_x - 6, hy, cx0 + pad_x - 6 + hw, hy + line_h - 6), radius=8, fill=(255, 225, 53, 165))
+            frame = Image.alpha_composite(frame, ov)
+            df = ImageDraw.Draw(frame)
+            for idx_l, ln_t in enumerate(wrapped):
+                _draw_mixed_text(df, (cx0 + pad_x, body_y0 + idx_l * line_h), ln_t, f_body_hi, f_body_en, (22, 26, 32, 255))
+            # Gentle documentary zoom-in (1.00 -> 1.045)
+            sc = 1.0 + 0.045 * t_norm
+            nw, nh = int(W * sc), int(H * sc)
+            rgb = frame.convert("RGB").resize((nw, nh), Image.BILINEAR)
+            lx = (nw - W) // 2; ly = (nh - H) // 2
+            rgb = rgb.crop((lx, ly, lx + W, ly + H))
+            proc.stdin.write(rgb.tobytes())
+        proc.stdin.close()
+        proc.wait(timeout=60)
+    except Exception:
+        try: proc.kill()
+        except Exception: pass
+        return None
+    return str(out) if out.exists() and out.stat().st_size > 4000 else None
+
+
+# =========================================================================
+# v4.29: VIRAL GIANT YEAR REVEAL + OPTIONAL RED ARCHIVAL STAMP (Shorts & Longs)
+# =========================================================================
+def render_year_reveal(year_str, subtitle, dur, out, W, H, style, pal, stamp="", fps=30):
+    """Render a giant bold animated year slam (e.g. 1972, 1975, 2015) with timeline ticks & optional red stamp."""
+    from PIL import Image, ImageDraw
+    import subprocess
+    year_str = str(year_str or "").strip()[:10]
+    subtitle = str(subtitle or "").strip()[:90]
+    stamp = str(stamp or "").strip().upper()[:18]
+    if not year_str:
+        return None
+    dur = max(1.8, min(6.0, float(dur or 2.8)))
+    total_frames = max(18, int(round(dur * fps)))
+    is_short = H > W
+
+    bg_base = _grunge_bg(W, H, pal or {}, seed=abs(hash(year_str + subtitle)) % 97, grid=True).convert("RGBA")
+    # Pre-draw subtle horizontal documentary timeline ruler ticks
+    d_bg = ImageDraw.Draw(bg_base)
+    ty_top = int(H * (0.31 if is_short else 0.25))
+    ty_bot = int(H * (0.64 if is_short else 0.72))
+    d_bg.line((int(W * 0.08), ty_top, int(W * 0.92), ty_top), fill=(255, 255, 255, 42), width=2)
+    d_bg.line((int(W * 0.08), ty_bot, int(W * 0.92), ty_bot), fill=(255, 255, 255, 42), width=2)
+    step = max(24, W // 28)
+    for tx in range(int(W * 0.08), int(W * 0.92), step):
+        th = 16 if ((tx // step) % 5 == 0) else 8
+        d_bg.line((tx, ty_top - th, tx, ty_top), fill=(250, 204, 21, 90), width=2)
+        d_bg.line((tx, ty_bot, tx, ty_bot + th), fill=(250, 204, 21, 90), width=2)
+
+    f_year = _dc_font("bold", max(110, int(W * (0.23 if is_short else 0.145))))
+    f_sub_en = _dc_font("bold", max(28, int(W * (0.040 if is_short else 0.025))))
+    f_sub_hi = _dc_font("hi", max(28, int(W * (0.040 if is_short else 0.025))))
+    f_stamp = _dc_font("bold", max(32, int(W * (0.046 if is_short else 0.028))))
+    sub_lines = _wrap_mixed(subtitle, f_sub_hi, f_sub_en, int(W * (0.82 if is_short else 0.66)))[:2] if subtitle else []
+
+    # Pre-render giant year text layer for clean scale slam
+    yb = ImageDraw.Draw(bg_base).textbbox((0, 0), year_str, font=f_year)
+    yw, yh = yb[2] - yb[0], yb[3] - yb[1]
+    pad = 40
+    yr_img = Image.new("RGBA", (yw + pad * 2, yh + pad * 2), (0, 0, 0, 0))
+    dy = ImageDraw.Draw(yr_img)
+    dy.text((pad - yb[0] + 6, pad - yb[1] + 8), year_str, font=f_year, fill=(0, 0, 0, 185))
+    dy.text((pad - yb[0], pad - yb[1]), year_str, font=f_year, fill=(250, 204, 21, 255), stroke_width=4, stroke_fill=(20, 16, 10, 220))
+
+    # Optional tilted red archival stamp layer
+    st_img = None
+    if stamp:
+        sb = ImageDraw.Draw(bg_base).textbbox((0, 0), stamp, font=f_stamp)
+        sw, sh = (sb[2] - sb[0]) + 44, (sb[3] - sb[1]) + 26
+        raw_st = Image.new("RGBA", (sw + 20, sh + 20), (0, 0, 0, 0))
+        ds = ImageDraw.Draw(raw_st)
+        ds.rounded_rectangle((10, 10, 10 + sw, 10 + sh), radius=10, outline=(239, 68, 68, 240), width=6, fill=(239, 68, 68, 36))
+        ds.text((10 + 22 - sb[0], 10 + 13 - sb[1]), stamp, font=f_stamp, fill=(248, 82, 82, 248))
+        st_img = raw_st.rotate(10, expand=True, resample=Image.BICUBIC)
+
+    out = Path(out)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    cmd = [
+        "ffmpeg", "-y", "-v", "error",
+        "-f", "rawvideo", "-vcodec", "rawvideo", "-pix_fmt", "rgb24",
+        "-s", f"{W}x{H}", "-r", str(fps), "-i", "-",
+        "-c:v", "libx264", "-preset", "veryfast", "-crf", "19",
+        "-pix_fmt", "yuv420p", "-movflags", "+faststart", str(out),
+    ]
+    proc = subprocess.Popen(cmd, stdin=subprocess.PIPE)
+    try:
+        for fi in range(total_frames):
+            t_norm = fi / max(1, total_frames - 1)
+            t_sec = fi / float(fps)
+            frame = bg_base.copy()
+
+            # Giant year slam-in (1.35x -> 1.00x in 0.35s)
+            p_yr = _ease_back(min(1.0, t_sec / 0.36))
+            sc_yr = 1.35 - 0.35 * min(1.06, p_yr)
+            nw_y = max(8, int(yr_img.width * sc_yr))
+            nh_y = max(8, int(yr_img.height * sc_yr))
+            y_res = yr_img.resize((nw_y, nh_y), Image.BILINEAR)
+            yx = (W - nw_y) // 2
+            yy = int(H * (0.43 if is_short else 0.42)) - nh_y // 2
+            frame.alpha_composite(y_res, (max(0, yx), max(0, yy)))
+
+            # Subtitle fade-in (0.22s - 0.55s)
+            sub_a = int(255 * _ease_out(max(0.0, min(1.0, (t_sec - 0.22) / 0.32))))
+            if sub_lines and sub_a > 5:
+                ov = Image.new("RGBA", (W, H), (0, 0, 0, 0))
+                do = ImageDraw.Draw(ov)
+                sy0 = int(H * (0.55 if is_short else 0.59))
+                lh = int(max(28, int(W * (0.040 if is_short else 0.025))) * 1.38)
+                for idx_s, ln_s in enumerate(sub_lines):
+                    lb = do.textbbox((0, 0), ln_s, font=f_sub_hi if any("\u0900" <= c <= "\u097F" for c in ln_s) else f_sub_en)
+                    lx = (W - (lb[2] - lb[0])) // 2
+                    _draw_mixed_text(do, (max(24, lx), sy0 + idx_s * lh), ln_s, f_sub_hi, f_sub_en, (242, 244, 248, sub_a))
+                frame = Image.alpha_composite(frame, ov)
+
+            # Red archival stamp slam at t=0.52s
+            if st_img is not None and t_sec >= 0.50:
+                sp = _ease_out(min(1.0, (t_sec - 0.50) / 0.22))
+                sc_s = 1.45 - 0.45 * sp
+                nsw, nsh = max(8, int(st_img.width * sc_s)), max(8, int(st_img.height * sc_s))
+                s_res = st_img.resize((nsw, nsh), Image.BILINEAR)
+                sx = int(W * (0.64 if is_short else 0.66)) - nsw // 2
+                sy = int(H * (0.34 if is_short else 0.30)) - nsh // 2
+                frame.alpha_composite(s_res, (max(0, min(W - nsw, sx)), max(0, min(H - nsh, sy))))
+
+            # Subtle documentary drift zoom (1.00 -> 1.04)
+            zsc = 1.0 + 0.04 * t_norm
+            zw, zh = int(W * zsc), int(H * zsc)
+            rgb = frame.convert("RGB").resize((zw, zh), Image.BILINEAR)
+            cx, cy = (zw - W) // 2, (zh - H) // 2
+            rgb = rgb.crop((cx, cy, cx + W, cy + H))
+            proc.stdin.write(rgb.tobytes())
+        proc.stdin.close()
+        proc.wait(timeout=60)
+    except Exception:
+        try:
+            proc.kill()
+        except Exception:
+            pass
+        return None
+    return out if (out.exists() and out.stat().st_size > 8000) else None

@@ -646,9 +646,11 @@ Format: Layer, Start, End, Style, Name, MarginL, MarginR, MarginV, Effect, Text
             from translit import word as cw
             ctext = " ".join(cw(x) for x in ctext.split())
         if yes(style.get("caption_capital", "haan")): ctext = ctext.upper()
-        ev.append(f"Dialogue: 3,{ass_time(ct + 0.15)},{ass_time(min(total, ct + 2.4))},Card,,0,0,0,,"
-                  "{\\an5\\pos(" + f"{W//2},{int(H*0.5)}" + ")\\fad(250,300)\\fscx85\\fscy85\\t(0,300,\\fscx100\\fscy100)}"
-                  + ctext)
+        # v4.29: Clean documentary chapter bar (lower-upper third, bold accent + smooth scale-in)
+        _ch_y = int(H * (0.46 if W < H else 0.78))
+        ev.append(f"Dialogue: 3,{ass_time(ct + 0.12)},{ass_time(min(total, ct + 2.6))},Card,,0,0,0,,"
+                  "{\\an5\\pos(" + f"{W//2},{_ch_y}" + ")\\fad(220,300)\\fscx88\\fscy88\\t(0,260,\\fscx100\\fscy100)}"
+                  "{\\c&H0015CCFA&}▎ {\\c&H00FFFFFF&}" + ctext)
     if events and yes(style.get("bada_number", "nahi")):     # v2.17: beech ka bada "important" text band (sirf 1 caption)
         from motion import number_ass_events
         hwf = None
@@ -1481,7 +1483,7 @@ def _final_mux(joined, overlay, ass, audio, out, style, total, work, events=()):
         except Exception as e:
             log(f"   (loop ending skip: {e})", show=False)
     hk = Path(work) / "hook_hf.webm"                  # v3.6: HyperFrames hook title (transparent) – shuru me
-    if hk.exists() and hk.stat().st_size > 5000 and W < H:
+    if hk.exists() and hk.stat().st_size > 5000:       # v4.29: Shorts (9:16) + Longs (16:9) dono me hook title
         hi_ = 4 + m_in.count("-i") + extra_in.count("-i")
         extra_in = extra_in + ["-c:v", "libvpx-vp9", "-i", hk.name]
         chain += (f";[{hi_}:v]format=yuva420p,setpts=PTS+0.10/TB[hkv];"
