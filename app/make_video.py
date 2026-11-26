@@ -769,9 +769,11 @@ def main():
     for i, s in enumerate(sents):
         st = s["start"] if i else 0.0
         en = sents[i + 1]["start"] if i + 1 < len(sents) else total
-        k = max(1, int(round((en - st) / cut)))
-        if i == 0 and en - st >= 2.2: k = max(k, 2)   # v3.77: hook – shuru ke 3 sec me kam se kam 2 visual
-        spans.append((st, en, min(k, int(num(style, "line_max_clips", 1, 6)))))   # v2.7: ek line pe max 3 clips
+        _eff_cut = min(float(cut or 2.0), 2.0) if not LONG else (2.4 if st < 15.0 else min(float(cut or 4.0), 4.0))
+        k = max(1, int(-(-(en - st) // _eff_cut)))
+        if i == 0 and en - st >= 2.0: k = max(k, 2)   # v4.31: hook + strict 2.0s Short pacing (BOTH AI & Stock!)
+        _max_c = max(4, int(num(style, "line_max_clips", 1, 6))) if not LONG else int(num(style, "line_max_clips", 1, 6))
+        spans.append((st, en, min(k, _max_c)))
 
     # v2: 4 lines ek saath dhoondhta hai (pehle se ~3-4 guna tez)
     sources.PHOTO_MODE["v"] = style.get("photo", "kam")
@@ -980,54 +982,44 @@ def main():
         if r:
             return r
         if VMODE_AI:
-            # v4.27 AI CINEMATIC DOCUMENTARY MODE:
-            # - Named living celebrities (i in face_lines or allow_ai_fill=False) STILL get real Wikimedia HD photos via job(i)!
-            # - Every other line skips random Pixabay/YouTube search -> generates exact 9:16/16:9 35mm realistic AI scene!
-            _can_vmode_ai = (i not in face_lines)
-            if _can_vmode_ai:
-                try:
-                    import visual_brain as _vbm
-                    _can_vmode_ai = _vbm.allow_ai_fill(i, style)
-                except Exception:
-                    _can_vmode_ai = True
-            if _can_vmode_ai:
+            # v4.31 UNLOCKED AI CINEMATIC DOCUMENTARY MODE (Default ON):
+            # - ONLY named real celebrities/people (face_lines or explicit person in RAW_PLAN) use real Wikimedia portraits.
+            # - EVERY other line (including real:true factual lines!) generates ultra-realistic 35mm AI beats every ~2.0s!
+            _rp_m = (sources.RAW_PLAN.get(i) or {})
+            _has_named_person = (i in face_lines) or bool(str(_rp_m.get("person") or "").strip())
+            if not _has_named_person:
                 try:
                     import cloud_visuals as _cv_ai
                     _h_clean = re.sub(r"^AI\s*:\s*", "", str(hints[i] if i < len(hints) else "") or "", flags=re.I).strip()
-                    _u_desc = ""
-                    try:
-                        _rp_m = (sources.RAW_PLAN.get(i) or {})
-                        _u_parts = [str(_rp_m.get(k_) or "").strip() for k_ in ("subject", "action", "place") if _rp_m.get(k_)]
-                        _u_desc = ", ".join(_u_parts)
-                    except Exception:
-                        _u_desc = ""
+                    _u_parts = [str(_rp_m.get(k_) or "").strip() for k_ in ("subject", "action", "place") if _rp_m.get(k_)]
+                    _u_desc = ", ".join(_u_parts)
                     _en_line = str(eng[i] if i < len(eng) and eng[i] else "")
                     _scene_prompt = _h_clean or _u_desc or _en_line or str(lines[i] if i < len(lines) else "")
                     if _u_desc and _h_clean and len(_h_clean.split()) <= 6:
                         _scene_prompt = f"{_h_clean}, {_u_desc}"
-                    _ai_path = _cv_ai.generate_scene_image(
-                        _scene_prompt, work / "ai_visuals",
-                        topic=_clean_title(title, ""), W=W, H=H, keys=keys
-                    )
-                    if _ai_path and Path(_ai_path).exists():
-                        _ai_list = [{"kind": "image", "path": Path(_ai_path), "credit": "",
-                                     "src": "cloud flux (AI Cinematic)", "fullbleed": True, "score": 0.35}]
-                        # v4.30 FAST VIRAL PACING: if line is >3.8s (Short) or >6.0s (Long), generate a 2nd distinct
-                        # close-up / emotional reaction AI beat so visuals change every ~2-2.5s (never static!)
-                        _line_dur = max(0.0, float(sents[i]["end"]) - float(sents[i]["start"])) if i < len(sents) else 0.0
-                        if _line_dur >= (6.0 if LONG else 3.8):
-                            _beat2_prompt = f"close-up candid emotional reaction shot, {_scene_prompt}, different camera angle, human expression and authentic Indian setting"
-                            try:
-                                _ai_path2 = _cv_ai.generate_scene_image(
-                                    _beat2_prompt, work / "ai_visuals",
-                                    topic=_clean_title(title, ""), W=W, H=H, keys=keys
-                                )
-                                if _ai_path2 and Path(_ai_path2).exists() and str(_ai_path2) != str(_ai_path):
-                                    _ai_list.append({"kind": "image", "path": Path(_ai_path2), "credit": "",
-                                                     "src": "cloud flux (AI Cinematic)", "fullbleed": True, "score": 0.35})
-                            except Exception:
-                                pass
-                        log(f"   🎬 line {i+1}: AI Cinematic scene ready ({len(_ai_list)} beat) ✓")
+                    _line_st = float(sents[i]["start"]) if i < len(sents) else 0.0
+                    _line_dur = max(0.0, float(sents[i]["end"]) - _line_st) if i < len(sents) else 0.0
+                    _beat_step = 2.0 if not LONG else (2.4 if _line_st < 15.0 else 4.0)
+                    _need_beats = max(1, min(4 if not LONG else 2, int(-(-_line_dur // _beat_step)))) if _line_dur > 0 else 1
+                    _angles = [
+                        f"wide candid documentary shot, {_scene_prompt}",
+                        f"medium close-up focusing on action and human detail, {_scene_prompt}",
+                        f"emotional close-up perspective showing authentic real-life expression, {_scene_prompt}",
+                        f"cinematic side-angle documentary detail shot, {_scene_prompt}",
+                    ]
+                    _ai_list = []
+                    for _bi in range(_need_beats):
+                        _ap = _cv_ai.generate_scene_image(
+                            _angles[_bi % len(_angles)], work / "ai_visuals",
+                            topic=_clean_title(title, ""), W=W, H=H, keys=keys
+                        )
+                        if _ap and Path(_ap).exists():
+                            _ai_list.append({"kind": "image", "path": Path(_ap), "credit": "",
+                                             "src": "cloud flux (AI Cinematic)", "fullbleed": True, "score": 0.36})
+                        else:
+                            break  # If first beat fails (engine unavailable), don't waste time retrying 4x
+                    if _ai_list:
+                        log(f"   🎬 line {i+1}: AI Cinematic 35mm ready ({len(_ai_list)} shots, ~{_beat_step:.1f}s pace) ✓")
                         return (_ai_list, [])
                 except Exception as _vme:
                     log(f"   (vmode ai fallback to stock on line {i+1}: {str(_vme)[:60]})", show=False)
@@ -1315,9 +1307,12 @@ def main():
             items = fresh
             imgs_only = items and all(x["kind"] == "image" for x in items)
             if imgs_only and len(items) < k:
-                k = max(1, len(items))                    # photo dohraane ki jagah kam (lambe) shot
-                if len(items) == 1 and items[0].get("hero") and d > 3.6:
-                    k = 2                                 # v3.17 (NVIDIA video: ek photo 5-7 sec khadi) – alag crop + move
+                if not LONG and d > 2.2:
+                    k = max(len(items), min(4, int(-(-d // 2.0))))  # v4.31: Shorts mein har ~2.0s par naya shot/angle!
+                else:
+                    k = max(1, len(items))
+                    if len(items) == 1 and items[0].get("hero") and d > 3.6:
+                        k = 2
             if any(x.get("part") == 1 for x in items) and d >= 2.4:
                 k = max(k, 2)                             # v3.13: line 2 hisse me -> kam se kam 2 shot
             is_follow = (i == len(sents) - 1 and i > 0 and
@@ -1372,7 +1367,7 @@ def main():
                 # v3.16 PRO NIYAM (log 16 Nov: ek hi clip ad98a.. line 1 me 3 baar kaat ke = 'jump cut', amateur
                 # lagta hai): jitne ALAG visual hain utne hi cut. Ek clip ho to ek lamba shot (camera move ke saath),
                 # sirf tab tukde jab shot 4.2 sec se lamba ho jaaye.
-                k_new = max(_nd, int(-(-d // (2.6 if not LONG else 4.2))), 1)  # v4.30: 2-2.6s fast Short cuts
+                k_new = max(_nd, int(-(-d // (2.0 if not LONG else 4.0))), 1)  # v4.31: strict 2.0s Short cuts (AI + Stock!)
                 if k_new < k:
                     log(f"   line {i+1}: {_nd} alag visual – {k} ki jagah {k_new} shot (jump cut nahi)", show=False)
                     k = k_new

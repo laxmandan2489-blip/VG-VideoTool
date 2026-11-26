@@ -1,3 +1,15 @@
+THE VIRAL GYAAN VIDEOTOOL — v4.31 (Cumulative over v4.18)
+==========================================================
+Included in this single ZIP (v4.19 through v4.31 — Unlocked Realistic FLUX AI + Strict 2.0s Viral Pacing):
+1. Unlocked AI Cinematic Mode on ALL Non-Celebrity Lines (app/make_video.py):
+   - Fixed the root cause where visual_brain.allow_ai_fill() blocked AI on 70-90% of factual lines (real:true) even when AI Mode was ON. Now ONLY named real celebrities/people use Wikimedia portraits; every other line gets ultra-realistic 35mm AI scenes.
+2. 100% FREE Cloudflare Workers AI FLUX.1-schnell Engine (app/cloud_visuals.py + cloudflare_worker.js):
+   - Replaced blocked keyless Pollinations with 100% FREE Cloudflare Workers AI FLUX.1-schnell (10,000 Neurons/day free, zero card) via direct CF_API_TOKEN or vg-bots /ai-image Worker proxy, plus clear diagnostic logging so AI never silently falls back to Stock.
+3. Strict 2.0-Second Max Clip Pacing in Shorts — BOTH AI Mode & Stock Mode (app/make_video.py + app/edit_style.py):
+   - Shorts now change visual every <= 2.0s across ALL categories (generating 2-4 distinct candid camera angles per line in AI Mode and preventing 5-7s static holds in Stock Mode). Longs use 2.4s first-15s hook pacing + 4.0s documentary flow.
+4. AI Cinematic Mode stays DEFAULT ON (Stock Mode opt-in via /vmode stock), plus ALL v4.19–v4.30 upgrades (0% touch to core visual search engine).
+
+--- Previous Release Notes ---
 THE VIRAL GYAAN VIDEOTOOL — v4.30 (Cumulative over v4.18)
 ==========================================================
 Included in this single ZIP (v4.19 through v4.30 — Live Audit Polish & Default AI Cinematic Edition):

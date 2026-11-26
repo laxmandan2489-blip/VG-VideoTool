@@ -141,6 +141,32 @@ const GUIDE_TEXT = `📖 VIRAL GYAAN CLOUD BOT (24×7)
 
 export default {
   async fetch(request, env, ctx) {
+    // v4.31: FREE Cloudflare Workers AI FLUX.1-schnell proxy route for GitHub Actions (authenticated by TG_TOKEN)
+    if (request.method === "POST" && new URL(request.url).pathname === "/ai-image") {
+      const auth = (request.headers.get("X-VG-Auth") || "").trim();
+      if (!env.TG_TOKEN || auth !== String(env.TG_TOKEN).trim()) {
+        return new Response("unauthorized", { status: 401 });
+      }
+      if (!env.AI) {
+        return new Response(JSON.stringify({ error: "Workers AI binding (AI) not attached" }), {
+          status: 503, headers: { "Content-Type": "application/json" },
+        });
+      }
+      try {
+        const body = await request.json();
+        const out = await env.AI.run("@cf/black-forest-labs/flux-1-schnell", {
+          prompt: String(body.prompt || "").slice(0, 1200),
+          steps: Math.min(8, Math.max(4, Number(body.steps || 6))),
+        });
+        return new Response(JSON.stringify({ image: out && out.image ? out.image : "" }), {
+          status: 200, headers: { "Content-Type": "application/json" },
+        });
+      } catch (e) {
+        return new Response(JSON.stringify({ error: String(e).slice(0, 160) }), {
+          status: 500, headers: { "Content-Type": "application/json" },
+        });
+      }
+    }
     if (request.method === "GET" || request.method === "HEAD") {
       const u = new URL(request.url);
       if (u.pathname.startsWith("/media/tg/")) {
