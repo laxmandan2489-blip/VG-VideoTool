@@ -26,11 +26,11 @@ def _doc_prompt(scene_desc, topic="", W=1080, H=1920):
         return ""
     orient = "widescreen 16:9 cinematic composition" if W > H else "vertical 9:16 composition"
     return (
-        f"Cinematic documentary photograph of {clean}. "
-        f"{('Context: ' + topic + '. ') if topic else ''}"
-        "Ultra realistic, dramatic moody lighting, shallow depth of field, MagnatesMedia and Fern documentary aesthetic, "
-        f"sharp high detail, {orient}, "
-        "NO text, NO watermark, NO captions, NO logos, NO cartoon, NO anime."
+        f"Photorealistic 35mm documentary photograph of {clean}. "
+        f"{('Story context: ' + topic + '. ') if topic else ''}"
+        "Real-world authentic textures, natural cinematic lighting, dramatic depth of field, National Geographic and Netflix documentary cinematography, "
+        f"razor sharp focus, 8k raw photo, {orient}, "
+        "NO text, NO letters, NO watermark, NO captions, NO logos, NO UI, NO cartoon, NO anime, NO illustration."
     )
 
 
@@ -84,25 +84,36 @@ def _try_comfyui(prompt, out_path, comfy_url, W=768, H=1344, timeout=120):
 
 
 def _try_pollinations(prompt, out_path, W=1080, H=1920, timeout=45):
-    """100% free cloud Flux image generation (zero API key, zero GPU load)."""
+    """100% free cloud Flux image generation with automatic retry + turbo fallback (zero API key, zero card)."""
     import requests
-    seed = int(hashlib.md5(prompt.encode("utf-8")).hexdigest()[:8], 16) % 999999
+    base_seed = int(hashlib.md5(prompt.encode("utf-8")).hexdigest()[:8], 16) % 999999
     q = urllib.parse.quote(prompt, safe="")
-    url = f"https://image.pollinations.ai/prompt/{q}?width={W}&height={H}&seed={seed}&nologo=true&model=flux"
-    r = requests.get(url, timeout=timeout, headers={"User-Agent": "VG-VideoTool/3.22"})
-    if r.status_code == 200 and r.headers.get("content-type", "").startswith("image/") and len(r.content) > 8000:
-        Path(out_path).write_bytes(r.content)
-        # v4.16: auto-trim bottom 7% & right 3% so pollinations.ai corner watermark never shows on screen
+    hdrs = {"User-Agent": "Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 Chrome/128.0.0.0 Safari/537.36"}
+    attempts = [
+        ("flux", base_seed),
+        ("flux", (base_seed + 137) % 999999),
+        ("turbo", (base_seed + 421) % 999999),
+    ]
+    for mdl, sd in attempts:
         try:
-            from PIL import Image
-            with Image.open(out_path) as _im:
-                _im = _im.convert("RGB")
-                _iw, _ih = _im.size
-                _im = _im.crop((0, 0, int(_iw * 0.97), int(_ih * 0.93))).resize((W, H), Image.LANCZOS)
-                _im.save(out_path, quality=93)
+            url = f"https://image.pollinations.ai/prompt/{q}?width={W}&height={H}&seed={sd}&nologo=true&enhance=false&model={mdl}"
+            r = requests.get(url, timeout=timeout, headers=hdrs)
+            if r.status_code == 200 and r.headers.get("content-type", "").startswith("image/") and len(r.content) > 12000:
+                Path(out_path).write_bytes(r.content)
+                # v4.16 + v4.27: auto-trim bottom 7% & right 3% so pollinations corner watermark never shows
+                try:
+                    from PIL import Image
+                    with Image.open(out_path) as _im:
+                        _im = _im.convert("RGB")
+                        _iw, _ih = _im.size
+                        if _iw >= 300 and _ih >= 300:
+                            _im = _im.crop((0, 0, int(_iw * 0.97), int(_ih * 0.93))).resize((W, H), Image.LANCZOS)
+                            _im.save(out_path, quality=93)
+                except Exception:
+                    pass
+                return str(out_path)
         except Exception:
-            pass
-        return str(out_path)
+            continue
     return None
 
 

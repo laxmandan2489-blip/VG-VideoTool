@@ -977,7 +977,45 @@ def main():
             log(f"   line {i+1}: 3D Blender scene pehle ({SCENES[i]['blender_template']}) – footage nahi dhoondh raha")
             return ([], [])
         r = fx_line(i)
-        return r if r else job(i)
+        if r:
+            return r
+        if VMODE_AI:
+            # v4.27 AI CINEMATIC DOCUMENTARY MODE:
+            # - Named living celebrities (i in face_lines or allow_ai_fill=False) STILL get real Wikimedia HD photos via job(i)!
+            # - Every other line skips random Pixabay/YouTube search -> generates exact 9:16/16:9 35mm realistic AI scene!
+            _can_vmode_ai = (i not in face_lines)
+            if _can_vmode_ai:
+                try:
+                    import visual_brain as _vbm
+                    _can_vmode_ai = _vbm.allow_ai_fill(i, style)
+                except Exception:
+                    _can_vmode_ai = True
+            if _can_vmode_ai:
+                try:
+                    import cloud_visuals as _cv_ai
+                    _h_clean = re.sub(r"^AI\s*:\s*", "", str(hints[i] if i < len(hints) else "") or "", flags=re.I).strip()
+                    _u_desc = ""
+                    try:
+                        _rp_m = (sources.RAW_PLAN.get(i) or {})
+                        _u_parts = [str(_rp_m.get(k_) or "").strip() for k_ in ("subject", "action", "place") if _rp_m.get(k_)]
+                        _u_desc = ", ".join(_u_parts)
+                    except Exception:
+                        _u_desc = ""
+                    _en_line = str(eng[i] if i < len(eng) and eng[i] else "")
+                    _scene_prompt = _h_clean or _u_desc or _en_line or str(lines[i] if i < len(lines) else "")
+                    if _u_desc and _h_clean and len(_h_clean.split()) <= 6:
+                        _scene_prompt = f"{_h_clean}, {_u_desc}"
+                    _ai_path = _cv_ai.generate_scene_image(
+                        _scene_prompt, work / "ai_visuals",
+                        topic=_clean_title(title, ""), W=W, H=H, keys=keys
+                    )
+                    if _ai_path and Path(_ai_path).exists():
+                        log(f"   🎬 line {i+1}: AI Cinematic scene ready ✓")
+                        return ([{"kind": "image", "path": Path(_ai_path), "credit": "",
+                                  "src": "cloud flux (AI Cinematic)", "fullbleed": True, "score": 0.35}], [])
+                except Exception as _vme:
+                    log(f"   (vmode ai fallback to stock on line {i+1}: {str(_vme)[:60]})", show=False)
+        return job(i)
     import threading as _th
     _BF = {"n": 0, "lock": _th.Lock()}
     try:
@@ -1007,6 +1045,17 @@ def main():
         return True
     import fx
     PRO = yes(style.get("pro_effects", "haan"))
+    # v4.27: Check /vmode ai toggle in seekha/aapki_settings.json (Zero Random Stock -> 100% Cinematic AI + 30fps Explainer!)
+    VMODE_AI = False
+    try:
+        _sf = Path(__file__).resolve().parent.parent / "seekha" / "aapki_settings.json"
+        if _sf.exists():
+            _sd = json.loads(_sf.read_text(encoding="utf-8", errors="ignore") or "[]")
+            VMODE_AI = ("vmode_ai" in _sd) if isinstance(_sd, list) else bool(isinstance(_sd, dict) and _sd.get("vmode_ai"))
+    except Exception:
+        VMODE_AI = False
+    if VMODE_AI:
+        log("   🎬 Visual Mode: AI Cinematic Documentary (v4.27 — Zero Random Stock, 100% Script-Matched!)")
     _fx_map_lock = _th.Lock()
     _fx_map_state = {"count": 0, "places": set(), "last_i": -99}
     try:

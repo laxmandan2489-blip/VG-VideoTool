@@ -1,11 +1,11 @@
-THE VIRAL GYAAN VIDEOTOOL — v4.26 (Cumulative over v4.18)
+THE VIRAL GYAAN VIDEOTOOL — v4.27 (Cumulative over v4.18)
 ==========================================================
-Included in this single ZIP (v4.19 through v4.26 — 100% FREE, Zero-Card Stack):
-1. Weak-Shot (<0.255) -> FREE Pollinations Flux Auto-AI Upgrade (app/make_video.py):
-   - When Pixabay/YouTube returns a genuinely weak visual match (score < 0.255) on a non-celebrity line (verified via visual_brain.allow_ai_fill), VideoTool now automatically upgrades that shot to a sharp 9:16 photorealistic AI scene via 100% FREE Pollinations Flux (max 3 per Short / 6 per Long, zero API key or card needed, never faking living people!).
-2. Smart Line-by-Line 3-Bucket Visual Router (cloudflare_worker.js):
-   - Routes every script line cleanly into: (a) Real Entity/Place footage, (b) Direct '||' AI photorealistic scenes for specific Indian/modern scenes Pixabay lacks (1-2 Short / 3-5 Long), or (c) [explain:] 30fps AI Explainer for concepts/mechanisms/processes.
-3. Includes all v4.19–v4.25 upgrades: Never-skip orphan [explain:] carry-forward, broken Hindi newline auto-join, monument/fort mismatch guard, 2-part full Long preview, mixed typo sanitizer, smart off-topic/gaming YouTube filter, 1-map-per-Short lock, full-screen 9:16 Shorts photo framing, Meta FB/IG Reel+Story+Cover polling fix, LONG_MODE crash fix, and 15-Day Breakout Trends + Social News fix.
+Included in this single ZIP (v4.19 through v4.27 — 100% FREE, Zero-Card Stack):
+1. NEW /vmode Switch — AI Cinematic Documentary Mode vs Stock Search (cloudflare_worker.js + app/make_video.py + app/cloud_visuals.py):
+   - /vmode ai: Bypasses random Pixabay/YouTube search completely! Generates consistent 35mm photorealistic documentary scenes (100% FREE Pollinations Flux with automatic retry + turbo fallback, rendered in full-screen 9:16/16:9 3D Depth Parallax) + 30fps AI Explainers + realistic [news:] cards + real Wikimedia HD portraits for living celebrities!
+   - /vmode stock: Instant 1-tap rollback to classic stock search mode anytime.
+   - Synced in Telegram BOT_COMMANDS, bottom KEYBOARD, and /guide.
+2. Includes ALL v4.19–v4.26 upgrades: Weak-Shot Auto-AI Upgrade, Smart 3-Bucket Visual Router, Never-Skip [explain:] Carry-Forward, Broken Hindi Newline Auto-Join, Monument/Fort Guard, 2-Part Long Script Preview, Mixed Typo Sanitizer, Smart Off-Topic/Gaming YouTube Filter, 1-Map-Per-Short Lock, Full-Screen 9:16 Shorts Photo Framing, Meta FB/IG Story+Cover+Reel Fix, LONG_MODE Crash Fix, and 15-Day Breakout Trends + Social News Fix.
 
 --- Previous Release Notes ---
 THE VIRAL GYAAN VIDEOTOOL — v4.18 (Cumulative over v4.15)

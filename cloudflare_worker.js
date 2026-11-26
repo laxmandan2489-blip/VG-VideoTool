@@ -11,7 +11,8 @@ const KEYBOARD = {
   keyboard: [
     [{ text: "🔥 /trends" }, { text: "📈 /planner" }],
     [{ text: "📂 /republish" }, { text: "📜 /log" }, { text: "📊 /status" }],
-    [{ text: "🎨 /vfilter" }, { text: "🛑 /rok" }, { text: "📖 /guide" }],
+    [{ text: "🎬 /vmode" }, { text: "🎨 /vfilter" }, { text: "🛑 /rok" }],
+    [{ text: "📖 /guide" }],
     [{ text: "▶️ Aaj shuru karo (5 Prompt)" }, { text: "🎬 Long Prompt" }],
   ],
   resize_keyboard: true,
@@ -24,6 +25,7 @@ const BOT_COMMANDS = [
   { command: "republish", description: "📂 Last 10 videos (Cover+Story) 1-tap Re-Upload" },
   { command: "publish", description: "📤 Purani 20-200MB video catbox link se publish" },
   { command: "log", description: "📜 Last video ki downloadable log + Visual Report" },
+  { command: "vmode", description: "🎬 Visual Mode: AI Cinematic vs Stock Search" },
   { command: "vfilter", description: "🎨 Visual Quality Filter ON / OFF" },
   { command: "status", description: "📊 Live cloud render progress" },
   { command: "rok", description: "🛑 Chal rahi video turant rokein" },
@@ -132,6 +134,7 @@ const GUIDE_TEXT = `📖 VIRAL GYAAN CLOUD BOT (24×7)
 • 📊 /status: Live progress | 📜 /log: Seedha downloadable log + Visual Report files.
 • 📂 /republish: Aakhri 10 videos (Cover+Story sahit) 1-tap dobara upload.
 • 📤 Video bhejo (<20MB) ya /publish <catbox_link> | <Title> (20-200MB).
+• 🎬 /vmode: AI Cinematic Mode (100% script-matched realistic visuals) vs Purana Stock Search.
 • 🎨 /vfilter: Visual Quality Filter ON/OFF.
 • 📦 Update: Koi bhi nayi .zip file caption "update" ke saath bhejo -> cloud 30 sec me update!
 • ⏪ /purana: Pichhle version par wapas jaane ke liye.`;
@@ -146,7 +149,7 @@ export default {
       if (u.pathname === "/media/proxy") {
         return handleProxyMediaBridge(u.searchParams.get("u") || "", u.searchParams.get("t") || "mp4", request.method === "HEAD");
       }
-      return new Response("VideoTool Cloud Bridge v4.26 Auto-Pilot is LIVE!", { status: 200 });
+      return new Response("VideoTool Cloud Bridge v4.27 Auto-Pilot is LIVE!", { status: 200 });
     }
     if (request.method !== "POST") {
       return new Response("Method Not Allowed", { status: 405 });
@@ -183,6 +186,8 @@ export default {
         if (ctx && ctx.waitUntil) ctx.waitUntil(p); else await p;
       } else if (cdata.startsWith("vf:")) {
         await handleVfilterCallback(env, update.callback_query);
+      } else if (cdata.startsWith("vm:")) {
+        await handleVmodeCallback(env, update.callback_query);
       } else if (cdata.startsWith("pl:")) {
         const p = handlePlannerCallback(env, update.callback_query);
         if (ctx && ctx.waitUntil) ctx.waitUntil(p); else await p;
@@ -323,6 +328,18 @@ export default {
       return new Response("ok", { status: 200 });
     }
 
+    // 5b.5) v4.27 Visual Mode Switch (/vmode ai | /vmode stock | /vmode)
+    if (tl === "/vmode" || tl.startsWith("/vmode ") || text.includes("/vmode")) {
+      const arg = tl.replace(/.*\/vmode/, "").trim();
+      if (arg === "ai" || arg === "cinematic" || arg === "on") {
+        await setVmodeState(env, chatId, true);
+      } else if (arg === "stock" || arg === "purana" || arg === "off") {
+        await setVmodeState(env, chatId, false);
+      } else {
+        await showVmodeMenu(env, chatId);
+      }
+      return new Response("ok", { status: 200 });
+    }
     // 5c) v4.02 Reversible Visual Quality Filter Toggle (/vfilter on | /vfilter off | /vfilter)
     if (tl === "/vfilter" || tl.startsWith("/vfilter ") || text.includes("/vfilter")) {
       const arg = tl.replace("/vfilter", "").trim();
@@ -2542,6 +2559,46 @@ async function handleVfilterCallback(env, cq) {
   if (env.ALLOWED_CHAT_ID && chatId !== String(env.ALLOWED_CHAT_ID).trim()) return;
   const enable = cq.data === "vf:on";
   await setVfilterState(env, chatId, enable);
+}
+
+// v4.27: /vmode AI CINEMATIC DOCUMENTARY MODE vs STOCK SEARCH SWITCH
+async function getVmodeAiEnabled(env) {
+  const cur = await readGhJson(env, SETTINGS_PATH, []);
+  const arr = Array.isArray(cur.data) ? cur.data : [];
+  return { enabled: arr.includes("vmode_ai"), arr, sha: cur.sha };
+}
+
+async function setVmodeState(env, chatId, enableAi) {
+  const st = await getVmodeAiEnabled(env);
+  const next = st.arr.filter(x => x !== "vmode_ai");
+  if (enableAi) next.push("vmode_ai");
+  await writeGhJson(env, SETTINGS_PATH, next, st.sha, `vmode ${enableAi ? "ai" : "stock"}`);
+  const msg = enableAi
+    ? "🎬 Visual Mode: AI CINEMATIC DOCUMENTARY ON ⭐\n\nAb Pixabay/YouTube random search BAND rahega — har line par script ke exact hisaab se ultra-realistic 35mm AI scenes (3D depth zoom/pan) + 30fps AI Explainer + real Wikimedia portraits (celebrities ke liye) banenge!\n(Wapas jaane ke liye kabhi bhi /vmode stock dabaein.)"
+    : "🔎 Visual Mode: PURANA STOCK SEARCH ON\n\nAb Pixabay + YouTube + Wikimedia stock search chalega (AI fallback backup ke saath).\n(AI Cinematic Mode ke liye kabhi bhi /vmode ai dabaein.)";
+  await tgReply(env.TG_TOKEN, chatId, msg, true);
+}
+
+async function showVmodeMenu(env, chatId) {
+  const st = await getVmodeAiEnabled(env);
+  await tgApi(env, "sendMessage", {
+    chat_id: chatId,
+    text: `🎬 Visual Mode abhi: ${st.enabled ? "✨ AI CINEMATIC DOCUMENTARY (100% Script-Matched, Zero Random Stock)" : "🔎 PURANA STOCK SEARCH (Pixabay + YouTube)"}\n\nKaunsa mode chalu rakhna hai?`,
+    reply_markup: {
+      inline_keyboard: [[
+        { text: "✨ AI Cinematic Mode ⭐", callback_data: "vm:ai" },
+        { text: "🔎 Purana Stock Mode", callback_data: "vm:stock" },
+      ]],
+    },
+  });
+}
+
+async function handleVmodeCallback(env, cq) {
+  const chatId = String(cq.message && cq.message.chat ? cq.message.chat.id : "");
+  await tgApi(env, "answerCallbackQuery", { callback_query_id: cq.id });
+  if (env.ALLOWED_CHAT_ID && chatId !== String(env.ALLOWED_CHAT_ID).trim()) return;
+  const enableAi = cq.data === "vm:ai";
+  await setVmodeState(env, chatId, enableAi);
 }
 
 
