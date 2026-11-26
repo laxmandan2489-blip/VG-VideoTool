@@ -146,7 +146,7 @@ export default {
       if (u.pathname === "/media/proxy") {
         return handleProxyMediaBridge(u.searchParams.get("u") || "", u.searchParams.get("t") || "mp4", request.method === "HEAD");
       }
-      return new Response("VideoTool Cloud Bridge v4.24 Auto-Pilot is LIVE!", { status: 200 });
+      return new Response("VideoTool Cloud Bridge v4.26 Auto-Pilot is LIVE!", { status: 200 });
     }
     if (request.method !== "POST") {
       return new Response("Method Not Allowed", { status: 405 });
@@ -1662,7 +1662,7 @@ STRICT RULES:
 3) REPLACE all weak, long (>6 words), or unsearchable hints (NEVER use "mockup", "warning screen", "settings screen", "graphic", "animation overlay", "subscribe button", "bell icon", "diagram", "cartoon", "shocked face", "flag waving", "tv screen", "phone in hand").
 4) SMART AUTO ROUTING for hard-to-film scenes:
    - On ${isLongVideo ? "2-3" : "1-2"} lines explaining HOW a mechanism, surveillance, software, science, or rule works, put "[explain: clear 30fps animated diagram/mechanism]" BEFORE "||" (and a simple real-world fallback after "||").
-   - On rare/dramatic non-celebrity scenes that stock libraries don't have (e.g., hidden microchip scanning phone, dark surveillance server room, rare wildlife/historical action — NEVER living celebrities!), use " || AI: <8-12 vivid photorealistic documentary words>".
+   - On ${isLongVideo ? "3-5" : "1-2"} specific Indian/modern/rare non-celebrity scenes that free stock libraries like Pixabay do NOT have (e.g., Indian rooftop plastic water tank overflowing, electrician installing small water sensor on Indian roof, hidden microchip scanning phone, rare wildlife/historical action — NEVER living celebrities!), use " || AI: <8-12 vivid photorealistic documentary words>".
    - On cross-country loan/debt/trade/flight/geopolitics lines, add "[route: CityA, CountryA -> CityB, CountryB | Short Stat]" (triggers 30fps dark satellite route map!). On breaking/ban/policy/proof lines, add "[news: Short Headline | Credible Source]" or max ${isLongVideo ? "2" : "1"} "[map: Place, Country]" (no duplicate countries).
    - On the closing CTA line, use a clean topic-hero closing scene (NEVER "subscribe button" or "bell icon").
 5) NEVER output Chinese/Bengali characters or ** bold markdown.
@@ -1709,6 +1709,8 @@ function parseTrendGeminiOutput(raw) {
   let clean = devanagariToEngDigits(String(raw || "")).replace(/```[a-z]*\n?/gi, "").replace(/```/g, "").trim();
   // v3.98 FIX: Join accidental newlines before punctuation or '||' (prevents empty '।' lines that trigger voice glitches!)
   clean = clean.replace(/\r\n/g, "\n").replace(/\n+\s*([।.!?]+\s*\|\||\|\|)/g, " $1");
+  // v4.25: Join accidental mid-sentence Hindi newlines (e.g., "हजारों\nलीटर पानी...")
+  clean = clean.replace(/([\u0900-\u097F])\n+\s*([\u0900-\u097F])/g, "$1 $2");
   const idx = clean.indexOf("SCRIPT:");
   if (idx === -1) return { refs: "", script: clean };
   const refs = clean.slice(0, idx).replace(/VISUAL_REFS:/i, "").trim();

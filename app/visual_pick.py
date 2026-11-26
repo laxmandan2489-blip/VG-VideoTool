@@ -98,6 +98,8 @@ GAMING_TOPIC_RE = re.compile(
     r"\b(game|gaming|gamer|gta|minecraft|fortnite|roblox|pubg|bgmi|free\s*fire|valorant|esports|"
     r"playstation|ps5|xbox|nintendo|steam|video\s*game|console)\b", re.I
 )
+MONUMENT_MISMATCH_RE = re.compile(r"\b(fort-top|fortress|mandir|temple|palace|qila|mosque|cathedral|monument|ashutosh-kaushik-history)\b", re.I)
+HISTORY_TOPIC_RE = re.compile(r"\b(fort|temple|mandir|palace|qila|history|historical|ancient|mughal|king|empire|monument|heritage|architecture|religion)\b", re.I)
 HINT = {}                  # v3.18: line -> script me aapka '/' ya '||' hint (sabse pakka nirdesh)
 EXTRA_Q = {}               # v3.16: line -> Gemini / AI-plan ke aam search shabd (chaudi khoj ke liye)
 USE = {}                   # v3.15: file/url -> kitni LINES pe laga (ek hi stock clip 8 baar nahi – max 2 line)
@@ -302,6 +304,8 @@ def gather(i, parts_q, keys, main="", film="", existing=()):
         _topic_ctx = f"{main} {q} " + " ".join(HINT.values())
         if GAMING_YT_WORDS.search(_meta_txt) and not GAMING_TOPIC_RE.search(_topic_ctx):
             return                       # v4.23: block GTA/Minecraft/gaming clips ONLY when script is NOT about gaming
+        if MONUMENT_MISMATCH_RE.search(_meta_txt) and not HISTORY_TOPIC_RE.search(_topic_ctx):
+            return                       # v4.25: block fort/temple stock photos on modern tech/gadget/home lines
         reused = False
         with sources._lock:
             if c.get("url") and c["url"] in sources._used:

@@ -115,7 +115,26 @@ def read_script(path):
     title = None; topic_kw = []; lines = []; hints = []
     SECTIONS.clear(); FORMAT["v"] = None; MARKS.clear(); FX.clear(); CONTENT_MODE["v"] = None
     import fx
-    for ln in raw.splitlines():
+    # v4.25: Pre-join accidental mid-sentence Hindi line breaks (e.g. "हजारों\nलीटर पानी... || hint")
+    _raw_lines = [ln.strip() for ln in raw.splitlines()]
+    _joined_lines = []
+    for _ln in _raw_lines:
+        if not _ln:
+            continue
+        if (_joined_lines
+                and "||" not in _joined_lines[-1]
+                and not re.match(r"^(LONG|SHORT|LAMBI|MODE:|TITLE:|TOPIC:|FORMAT:|#)", _joined_lines[-1], re.I)
+                and not re.match(r"^(LONG|SHORT|LAMBI|MODE:|TITLE:|TOPIC:|FORMAT:|#|\[)", _ln, re.I)
+                and not _joined_lines[-1].endswith(("।", ".", "?", "!", ":", "]"))
+                and re.search(r"[\u0900-\u097F]", _joined_lines[-1])
+                and re.search(r"[\u0900-\u097F]", _ln)):
+            _joined_lines[-1] = _joined_lines[-1] + " " + _ln
+        else:
+            _joined_lines.append(_ln)
+    _pending_fxl = []
+    _pending_marks = []
+    _pending_hint = ""
+    for ln in _joined_lines:
         s = ln.strip()
         if not s:
             continue
@@ -163,7 +182,20 @@ def read_script(path):
         if hint:
             hint, fx2, m2 = fx.parse_tags(hint); fxl += fx2; marks += m2
         if not s:
+            # v4.25: NEVER drop orphan [explain:] / [route:] / [news:] tags on tag-only lines — attach to next spoken line!
+            if fxl: _pending_fxl.extend(fxl)
+            if marks: _pending_marks.extend(marks)
+            if hint and not _pending_hint: _pending_hint = hint
             continue
+        if _pending_fxl:
+            fxl = _pending_fxl + fxl
+            _pending_fxl = []
+        if _pending_marks:
+            marks = _pending_marks + marks
+            _pending_marks = []
+        if _pending_hint and not hint:
+            hint = _pending_hint
+            _pending_hint = ""
         if marks: MARKS[len(lines)] = [m.lower() for m in marks]
         if fxl: FX[len(lines)] = fxl
         # v3.80 FIX: safe micro-beat split (never empty line, never double '।')
@@ -1398,6 +1430,17 @@ def main():
                         try:
                             import visual_brain as _vbr
                             _ai_ok = _vbr.allow_ai_override(i, it, _needs_ai, bool(USER_AI_HINT.get(i)), style)
+                            # v4.26 WEAK-SHOT AUTO-AI UPGRADE (100% FREE Pollinations Flux, zero card!):
+                            # If best stock/YT match is genuinely weak (<0.255) on a non-celebrity line (allow_ai_fill=True),
+                            # upgrade to exact 9:16 photorealistic AI scene instead of showing irrelevant stock!
+                            _sc_now = float(it.get("score") or 1.0) if it.get("score") is not None else 1.0
+                            _src_now = str(it.get("src", "")).lower()
+                            _auto_ai_cap = 6 if LONG else 3
+                            if (not _ai_ok and _sc_now < 0.255
+                                    and getattr(main, "_weak_ai_cnt", 0) < _auto_ai_cap
+                                    and not _src_now.startswith(("wikimedia", "thing:", "chehra", "kinetic", "map", "blender", "nasa", "cloud", "ai explainer"))
+                                    and _vbr.allow_ai_fill(i, style)):
+                                _ai_ok = True
                         except Exception:
                             _ai_ok = bool(USER_AI_HINT.get(i))
                     if (it is not None and yes(style.get("ai_visual_auto", "haan"))
@@ -1409,7 +1452,9 @@ def main():
                             _q_exact = str(USER_AI_HINT.get(i) or _rp_i.get("ai_prompt") or sources.SHOW.get(i) or (eng[i] if i < len(eng) and eng[i] else s.get("script") or s["text"]))
                             _ai_ex = _cv2.generate_scene_image(_q_exact, work / "ai_visuals", topic=_clean_title(title, ""), W=W, H=H, keys=keys)
                             if _ai_ex:
-                                # v3.59: Full-screen immersive AI scene (smooth Ken Burns, no repetitive dark box!)
+                                # v3.59 + v4.26: Full-screen immersive AI scene (smooth Ken Burns, no repetitive dark box!)
+                                if not USER_AI_HINT.get(i):
+                                    main._weak_ai_cnt = getattr(main, "_weak_ai_cnt", 0) + 1
                                 it = {"kind": "image", "path": _ai_ex, "credit": "", "src": "cloud flux", "fullbleed": True}
                         except Exception:
                             pass
