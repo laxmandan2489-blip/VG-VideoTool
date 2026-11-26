@@ -1426,14 +1426,36 @@ def main():
                                 _fill_ok = _vbf.allow_ai_fill(i, style)   # v3.66: asli insaan ki nakli photo nahi
                             except Exception:
                                 pass
-                            if _fill_ok and yes(style.get("ai_visual_auto", "haan")) and not re.search(r"\d", str(_kw)):
+                            # v4.22 ZERO-BLANK SMART AI FALLBACK: When no real photo/video matched a line,
+                            # auto-trigger 30fps AI Explainer (for mechanisms/processes/stats) or photorealistic AI Scene (even if line has numbers!)
+                            _auto_exp_done = False
+                            if _fill_ok and yes(style.get("ai_explainer", "haan")) and not hasattr(main, "_auto_exp_cnt"):
+                                main._auto_exp_cnt = 0
+                            _auto_exp_cap = 2 if LONG else 1
+                            _is_concept_line = bool(re.search(
+                                r"(कैसे|काम करता|सिस्टम|सर्वर|डेटा|तकनीक|सेंसर|कानून|नियम|ग्लिच|मैकेनिज्म|प्रोसेस|प्रक्रिया|नेटवर्क|सॉफ्टवेयर|ट्रैक|how|works|system|server|data|process|rule|network|law)",
+                                _txt_line, re.I
+                            ))
+                            if _fill_ok and yes(style.get("ai_explainer", "haan")) and _is_concept_line and getattr(main, "_auto_exp_cnt", 0) < _auto_exp_cap and _dur_k >= 2.2:
+                                try:
+                                    from cine import ai_explainer as _aiexp_fb
+                                    _exp_prompt = (eng[i] if i < len(eng) and eng[i] else _txt_line)
+                                    log(f"   ✨ line {i+1}: koi stock nahi mila -> auto 30fps AI Explainer bana raha hoon...")
+                                    if _aiexp_fb.render_explainer(str(_exp_prompt)[:160], _txt_line, _dur_k, kc, W, H, style, keys):
+                                        main._auto_exp_cnt = getattr(main, "_auto_exp_cnt", 0) + 1
+                                        _auto_exp_done = True
+                                except Exception as _aefb:
+                                    log(f"   (auto ai explainer fallback skip: {str(_aefb)[:70]})", show=False)
+                            if (not _auto_exp_done) and _fill_ok and yes(style.get("ai_visual_auto", "haan")):
                                 try:
                                     import cloud_visuals as _cv
                                     _q_desc = (eng[i] if i < len(eng) and eng[i] else _txt_line)
                                     _ai_img = _cv.generate_scene_image(_q_desc, work / "ai_visuals", topic=_clean_title(title, ""), W=W, H=H, keys=keys)
                                 except Exception as _cve:
                                     log(f"   (cloud visual skip: {_cve})", show=False)
-                            if _ai_img:
+                            if _auto_exp_done:
+                                pass
+                            elif _ai_img:
                                 _dc.render_cutout_parallax(_ai_img, str(_kw)[:14], _dur_k, kc, W, H, style, _pal, fps=render.FPS)
                             elif yes(style.get("documentary_mode", "haan")):
                                 if re.search(r"\d", str(_kw)):

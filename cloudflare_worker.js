@@ -146,7 +146,7 @@ export default {
       if (u.pathname === "/media/proxy") {
         return handleProxyMediaBridge(u.searchParams.get("u") || "", u.searchParams.get("t") || "mp4", request.method === "HEAD");
       }
-      return new Response("VideoTool Cloud Bridge v4.21 Auto-Pilot is LIVE!", { status: 200 });
+      return new Response("VideoTool Cloud Bridge v4.22 Auto-Pilot is LIVE!", { status: 200 });
     }
     if (request.method !== "POST") {
       return new Response("Method Not Allowed", { status: 405 });
@@ -460,7 +460,16 @@ async function handleChoice(env, cq) {
     return;
   }
   const vmode = mode === "L" ? "LONG" : "SHORT";
-  const items = splitScripts(orig).map(sc => ({ script: sc, mode: vmode, ts: Date.now() }));
+  const rawParts = splitScripts(orig);
+  let upgradedAny = false;
+  const items = [];
+  for (const sc of rawParts) {
+    // v4.22 Auto Hint Doctor: auto-upgrade weak/missing/trap '||' hints on pasted scripts too (fast 8.5s cap, silent fallback)
+    const opt = (rawParts.length === 1) ? await autoOptimizePastedScript(env, sc, mode === "L") : { script: sc, upgraded: false };
+    if (opt.upgraded) upgradedAny = true;
+    items.push({ script: opt.script, mode: vmode, ts: Date.now() });
+  }
+  const optNote = upgradedAny ? "\n🧠 Auto Hint Doctor: weak visual hints apne-aap upgrade kar diye ✓" : "";
   const res = await enqueueOrStart(env, items);
   if (res.started > 0 && res.queued > 0) {
     await edit(`🚀 1 ${vmode} video abhi shuru ho gayi + ${res.queued} videos line (queue) me lag gayi!\nEk ke baad ek apne aap banengi. /status se haal dekho, /rok se sab roko.`);
@@ -1597,43 +1606,96 @@ TITLE: <45-60 char high-CTR Hindi SEO title> | <2-3 bold Hindi thumbnail words O
   return { text: "", error: (mergedErrs.length ? mergedErrs : errs.slice(0, 6)).join(" | ") };
 }
 
-function hasEnoughVisualHints(rawText) {
+const TRAP_VISUAL_HINT_RE = /\b(mockup|warning\s+screen|error\s+screen|settings\s+screen|scanning\s+code|code\s+graphic|graphic|animation\s+overlay|subscribe\s+button|bell\s+icon|infographic|diagram|cartoon|ui\s+screen|blocked\s+internet|shocked\s+face|question\s+mark|flag\s+waving|tv\s+screen|phone\s+in\s+hand|rock\s+concert|new\s+year|balloons|trophy|clipart|vector\s+icon)\b/i;
+
+function inspectVisualHints(rawText) {
   const txt = String(rawText || "");
   const idx = txt.indexOf("SCRIPT:");
   const body = idx >= 0 ? txt.slice(idx + 7) : txt;
   const spoken = body.split(/\r?\n/).map(l => l.trim()).filter(l =>
     l && !/^(LONG|SHORT|MODE:|TITLE:|##|#|VISUAL_REFS:|-\s)/i.test(l)
   );
-  if (spoken.length < 4) return true;
-  const withHint = spoken.filter(l => /\|\|\s*[a-zA-Z0-9]{2,}/.test(l)).length;
-  return (withHint / spoken.length) >= 0.60;
+  if (spoken.length < 4) return { total: spoken.length, withHint: spoken.length, weakCount: 0, needsRepair: false };
+  let withHint = 0;
+  let weakCount = 0;
+  for (const line of spoken) {
+    const hasExplain = /\[explain:/i.test(line);
+    const hasNewsOrMap = /\[(news|map|route):/i.test(line);
+    const parts = line.split("||");
+    if (parts.length < 2 || !/[a-zA-Z0-9]{2,}/.test(parts[1])) {
+      if (!hasExplain && !hasNewsOrMap) weakCount++;
+      continue;
+    }
+    withHint++;
+    const hint = parts[1].trim();
+    if (/^AI\s*:/i.test(hint)) continue; // explicit photorealistic AI scene hint is valid
+    const words = hint.split(/\s+/).filter(Boolean);
+    const isTooLong = words.length > 6;
+    const isTrap = TRAP_VISUAL_HINT_RE.test(hint);
+    if ((isTooLong || isTrap) && !hasExplain && !hasNewsOrMap) {
+      weakCount++;
+    }
+  }
+  const missingRatio = 1 - (withHint / spoken.length);
+  const weakRatio = weakCount / spoken.length;
+  const needsRepair = (missingRatio > 0.30) || (weakCount >= 2 && weakRatio >= 0.22);
+  return { total: spoken.length, withHint, weakCount, needsRepair };
+}
+
+function hasEnoughVisualHints(rawText) {
+  return !inspectVisualHints(rawText).needsRepair;
 }
 
 async function repairMissingVisualHints(env, rawText, isLongVideo, deadlineMs) {
-  if (hasEnoughVisualHints(rawText)) return rawText;
-  if (Date.now() > deadlineMs - 3500) return rawText;
+  const audit = inspectVisualHints(rawText);
+  if (!audit.needsRepair) return rawText;
+  if (Date.now() > deadlineMs - 3200) return rawText;
   const groqKeys = getGroqKeys(env);
   if (!groqKeys.length) return rawText;
-  const repairPrompt = `You are a VideoTool script formatter. The Hindi script below is MISSING "|| <visual hint>" on its lines!
-TASK:
-1) Keep the exact same Hindi story, MODE:, TITLE: (max 2 parts separated by ONE '|'), and ${isLongVideo ? "LONG header" : "Short lines"}.
-2) Append " || <3-5 simple lowercase English country/person-anchored camera words>" to EVERY SINGLE spoken Hindi line (NEVER bare "flag waving", "tv screen", "phone in hand", "statue"; for rare wildlife/strength/historical non-celebrity action scenes use " || AI: <8-12 vivid photorealistic words>").
-3) Add ${isLongVideo ? "3-4" : "2"} tasteful tags BEFORE "||": max ${isLongVideo ? "2" : "1"} [map: Place, Country] (no duplicates), [route: PlaceA -> PlaceB | Stat], ${isLongVideo ? "2-3" : "1"} [explain: clear 30fps diagram/mechanism] on explanation lines (never real celebrities), [news: Short Headline | Source], [impact].
-4) NEVER output Chinese/Bengali characters or ** bold markdown.
-Return ONLY the repaired output starting with SCRIPT:
+  const repairPrompt = `You are a VideoTool Visual Hint Doctor. Audit and upgrade the "|| <visual hint>" hints in the Hindi script below so our automated stock/YouTube/AI visual engine finds 100% sharp, relatable visuals on EVERY line!
+STRICT RULES:
+1) KEEP THE EXACT SAME HINDI STORY word-for-word, plus MODE:, TITLE: (max 2 parts separated by ONE '|'), and ${isLongVideo ? "LONG header" : "Short lines"}. Do NOT alter Hindi facts or dialogue.
+2) Every spoken Hindi line MUST end with " || <3-5 simple lowercase real-world English camera words>" anchored to the exact country/city/person/object (searchable on YouTube/Pixabay/Pinterest).
+3) REPLACE all weak, long (>6 words), or unsearchable hints (NEVER use "mockup", "warning screen", "settings screen", "graphic", "animation overlay", "subscribe button", "bell icon", "diagram", "cartoon", "shocked face", "flag waving", "tv screen", "phone in hand").
+4) SMART AUTO ROUTING for hard-to-film scenes:
+   - On ${isLongVideo ? "2-3" : "1-2"} lines explaining HOW a mechanism, surveillance, software, science, or rule works, put "[explain: clear 30fps animated diagram/mechanism]" BEFORE "||" (and a simple real-world fallback after "||").
+   - On rare/dramatic non-celebrity scenes that stock libraries don't have (e.g., hidden microchip scanning phone, dark surveillance server room, rare wildlife/historical action — NEVER living celebrities!), use " || AI: <8-12 vivid photorealistic documentary words>".
+   - On breaking/ban/policy/proof lines, optionally add "[news: Short Headline | Credible Source]" or max ${isLongVideo ? "2" : "1"} "[map: Place, Country]" (no duplicate countries).
+   - On the closing CTA line, use a clean topic-hero closing scene (NEVER "subscribe button" or "bell icon").
+5) NEVER output Chinese/Bengali characters or ** bold markdown.
+Return ONLY the upgraded script starting with SCRIPT:
 
-INPUT TO REPAIR:
+INPUT SCRIPT:
 ${String(rawText || "").slice(0, 6500)}`;
   try {
     const rep = await callGroqTrendScript(env, repairPrompt, true, [], deadlineMs);
-    if (rep && rep.text && hasEnoughVisualHints(rep.text)) {
-      const origIdx = String(rawText || "").indexOf("SCRIPT:");
-      const origRefs = origIdx > 0 ? String(rawText || "").slice(0, origIdx).trim() : "";
-      const repBody = rep.text.includes("SCRIPT:") ? rep.text.slice(rep.text.indexOf("SCRIPT:")).trim() : ("SCRIPT:\n" + rep.text.trim());
-      return origRefs ? (origRefs + "\n\n" + repBody) : repBody;
+    if (rep && rep.text) {
+      const repAudit = inspectVisualHints(rep.text);
+      if (repAudit.weakCount < audit.weakCount || !repAudit.needsRepair) {
+        const origIdx = String(rawText || "").indexOf("SCRIPT:");
+        const origRefs = origIdx > 0 ? String(rawText || "").slice(0, origIdx).trim() : "";
+        const repBody = rep.text.includes("SCRIPT:") ? rep.text.slice(rep.text.indexOf("SCRIPT:")).trim() : ("SCRIPT:\n" + rep.text.trim());
+        return origRefs ? (origRefs + "\n\n" + repBody) : repBody;
+      }
     }
   } catch (e) {}
   return rawText;
+}
+
+async function autoOptimizePastedScript(env, rawScript, isLongVideo) {
+  try {
+    const audit = inspectVisualHints(rawScript);
+    if (!audit.needsRepair) return { script: rawScript, upgraded: false };
+    const wrapped = "SCRIPT:\n" + String(rawScript || "").trim();
+    const fixed = await repairMissingVisualHints(env, wrapped, isLongVideo, Date.now() + 8500);
+    if (fixed && fixed !== wrapped) {
+      const clean = fixed.includes("SCRIPT:") ? fixed.slice(fixed.indexOf("SCRIPT:") + 7).trim() : fixed.trim();
+      if (clean.length >= Math.max(40, String(rawScript || "").trim().length * 0.65)) {
+        return { script: clean, upgraded: true };
+      }
+    }
+  } catch (e) {}
+  return { script: rawScript, upgraded: false };
 }
 
 function devanagariToEngDigits(s) {

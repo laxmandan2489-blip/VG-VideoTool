@@ -1,15 +1,14 @@
-THE VIRAL GYAAN VIDEOTOOL — v4.21 (Cumulative over v4.18)
+THE VIRAL GYAAN VIDEOTOOL — v4.22 (Cumulative over v4.18)
 ==========================================================
-Included in this single ZIP (v4.19 + v4.20 + v4.21):
-1. Facebook & Instagram Publishing + Story + Cover Fix (cloudflare_worker.js):
-   - Instagram Story & Reel now poll Meta status_code until FINISHED before calling media_publish (fixes 'Media ID is not available' premature publish errors).
-   - Smart 'Complete IG Reel Publish' button now inspects Meta status_code first, showing clear IN_PROGRESS retry or exact Meta ERROR + 1-tap fresh IG Retry button.
-   - Facebook Page Publishing upgraded with: automatic rupload Telegram-bridge fallback, 2.5s ingestion settle delay, best-effort Reel Cover thumbnail upload, and official 2-step Facebook Page Photo Story publishing!
-   - Fixed Media Bridge Accept-Ranges header so Meta video/image crawlers download reliably without stalling.
-2. Critical Video Render Crash Fix (app/make_video.py):
-   - Fixed NameError ('LONG_MODE' -> 'LONG') on the global map cap line.
-3. Strict 15-Day Fresh + Breakout Viral Filter & X/IG/FB Viral News Fix (cloudflare_worker.js):
-   - Fixed Facts SHORT scanning bug, strict last-15-day 2x-10x+ breakout ranking, and parallel multi-source Indian trending RSS + YouTube Viral News backup.
+Included in this single ZIP (v4.19 + v4.20 + v4.21 + v4.22):
+1. Universal Auto Hint Doctor (cloudflare_worker.js):
+   - Automatically audits EVERY script (both /trends AND pasted scripts from Gemini/ChatGPT) for missing, overly long (>6 words), or trap/unsearchable visual hints (mockup, warning screen, settings screen, graphic, subscribe button, bell icon, etc.).
+   - Automatically upgrades weak hints into sharp 3-5 word searchable scenes, [explain:] 30fps explainers, [news:] cards, or photorealistic '||' AI scenes — without changing a single word of the Hindi story.
+2. Zero-Blank Smart AI Fallback (app/make_video.py):
+   - When a line finds no matching stock/YouTube/Pinterest visual during render, automatically triggers a 30fps AI Explainer (for concept/mechanism/rule lines) or photorealistic AI Scene (even on lines with numbers), never faking living celebrities.
+3. Facebook & Instagram Publishing + Story + Cover Fix (v4.21 — cloudflare_worker.js):
+   - Meta status_code polling before IG Story & Reel publish (fixes 'Media ID is not available'), smart 'Complete IG Reel Publish' button, FB Page Photo Story + Cover + rupload fallback, and Media Bridge Accept-Ranges fix.
+4. Video Render Crash Fix (v4.20 — app/make_video.py) & 15-Day Breakout Trends + Social News Fix (v4.19 — cloudflare_worker.js).
 
 --- Previous Release Notes ---
 THE VIRAL GYAAN VIDEOTOOL — v4.18 (Cumulative over v4.15)
