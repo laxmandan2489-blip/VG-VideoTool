@@ -1,14 +1,15 @@
-THE VIRAL GYAAN VIDEOTOOL — v4.20 (Cumulative over v4.18)
+THE VIRAL GYAAN VIDEOTOOL — v4.21 (Cumulative over v4.18)
 ==========================================================
-Included in this single ZIP (v4.19 + v4.20):
-1. Critical Video Render Crash Fix (app/make_video.py):
-   - Fixed NameError ('LONG_MODE' -> 'LONG') on the global map cap line so Shorts and Long videos render smoothly without stopping after visual planning.
-   - Added safe fallback parsing if 'auto_map' in style.txt is non-numeric.
-2. Strict 15-Day Fresh + Breakout Viral Filter (cloudflare_worker.js):
-   - Fixed hidden bug where Facts SHORT (and Daily 9 AM IST cron) accidentally scanned long-form channels instead of Shorts competitors.
-   - Scans last 35 uploads across up to 12 active Hindi viral channels (same YouTube API quota per channel) for accurate channel medians and selects strictly last-15-day breakout hits (2x-10x+), blocking 0.5x weak flops.
-3. X / IG / FB Viral News 100% Reliability Fix (cloudflare_worker.js):
-   - Upgraded to parallel multi-source fresh Indian trending RSS feeds (Google News India, NDTV Trending, Times of India Most Read, Hindustan Times Trending) with browser-standard headers and automatic YouTube Viral News fallback.
+Included in this single ZIP (v4.19 + v4.20 + v4.21):
+1. Facebook & Instagram Publishing + Story + Cover Fix (cloudflare_worker.js):
+   - Instagram Story & Reel now poll Meta status_code until FINISHED before calling media_publish (fixes 'Media ID is not available' premature publish errors).
+   - Smart 'Complete IG Reel Publish' button now inspects Meta status_code first, showing clear IN_PROGRESS retry or exact Meta ERROR + 1-tap fresh IG Retry button.
+   - Facebook Page Publishing upgraded with: automatic rupload Telegram-bridge fallback, 2.5s ingestion settle delay, best-effort Reel Cover thumbnail upload, and official 2-step Facebook Page Photo Story publishing!
+   - Fixed Media Bridge Accept-Ranges header so Meta video/image crawlers download reliably without stalling.
+2. Critical Video Render Crash Fix (app/make_video.py):
+   - Fixed NameError ('LONG_MODE' -> 'LONG') on the global map cap line.
+3. Strict 15-Day Fresh + Breakout Viral Filter & X/IG/FB Viral News Fix (cloudflare_worker.js):
+   - Fixed Facts SHORT scanning bug, strict last-15-day 2x-10x+ breakout ranking, and parallel multi-source Indian trending RSS + YouTube Viral News backup.
 
 --- Previous Release Notes ---
 THE VIRAL GYAAN VIDEOTOOL — v4.18 (Cumulative over v4.15)
