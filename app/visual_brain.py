@@ -145,7 +145,7 @@ def _llm_plan(lines, eng, keys, main=""):
             "never AI-generated); false for general/abstract statements\n"
             " exact_q: 2-3 search queries (2-6 words) to find REAL footage/photos of exactly this person/event "
             "(for YouTube / Wikimedia / news archives), e.g. 'Elon Musk Starship announcement 2025'. "
-            "CRITICAL: ALWAYS anchor ambiguous names to the main story domain (e.g. 'Chandrayaan 3 Shiv Shakti Point lunar landing site' NEVER bare 'Shiv Shakti'; 'ISRO Sriharikota launch pad' NEVER generic 'launch center')\n"
+            "CRITICAL: ALWAYS anchor EVERY exact_q AND stock_q to the EXACT country/city/person/domain of the line (e.g. 'Pakistan Karachi street protest', 'Asim Munir Pakistan army', 'Chandrayaan 3 Shiv Shakti Point lunar landing site' — NEVER bare 'protest flag', 'tv screen', 'phone in hand', 'statue', 'new year 2025'). If a REAL person is named, put their exact English name in 'person' and lead exact_q with their name!\n"
             " stock_q: 2 short generic stock-video queries that honestly ILLUSTRATE the line without pretending to "
             "be the real event (Pixabay/Pexels), anchored to this story world, never abstract trap words, never cartoon mascots or unrelated flags\n"
             " avoid: 2-3 things that would be WRONG/misleading to show (3d cartoon mascot, devotional deity poster, unrelated flag, wrong person/event/era)\n"
@@ -181,6 +181,15 @@ def _llm_plan(lines, eng, keys, main=""):
             sub_prompt = prompt.split("\n\nSCRIPT:\n")[0] + (f"\nContext main subject: {top_main}" if top_main else "") + "\n\nSCRIPT:\n" + sub_rows
             cd = ai.ask_json(key, [sub_prompt], temperature=0.2, timeout=75, budget=110)
             if isinstance(cd, list): cd = {"lines": cd}
+            # v4.18: Auto-retry once if a Long-video batch returns empty/truncated (fixes Batch-2 'Samjha: -' drop!)
+            if not (isinstance(cd, dict) and isinstance(cd.get("lines"), list) and len(cd["lines"]) >= max(1, int(len(sub_l) * 0.6))):
+                try:
+                    import time as _t_vb
+                    _t_vb.sleep(1.2)
+                    cd = ai.ask_json(key, [sub_prompt], temperature=0.15, timeout=80, budget=120)
+                    if isinstance(cd, list): cd = {"lines": cd}
+                except Exception:
+                    pass
             if isinstance(cd, dict) and isinstance(cd.get("lines"), list) and len(cd["lines"]) >= max(1, int(len(sub_l) * 0.6)):
                 if not top_cat and _s(cd.get("category"), 20): top_cat = _s(cd.get("category"), 20)
                 if not top_main and _s(cd.get("main"), 60): top_main = _s(cd.get("main"), 60)
@@ -209,7 +218,8 @@ def _ql(v, n=3):
 _TRAP_STOCK_RE = re.compile(
     r"\b(shocked\s*face|view\s*counter|subscribe\s*(button|icon|screen|animation)|"
     r"thank\s*you\s*for\s*watching|question\s*mark|locked\s*door|calendar\s*dates|"
-    r"clock\s*time\s*lapse|analytics\s*graph)\b",
+    r"clock\s*time\s*lapse|analytics\s*graph|new\s*year\s*balloons?|tv\s*screen\s*news?|"
+    r"person\s*holding\s*phone|hand\s*holding\s*phone|rock\s*concert|what\s*is\s*the\s*capital)\b",
     re.I,
 )
 

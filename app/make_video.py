@@ -380,14 +380,7 @@ def main():
                      "caption_jagah": "neeche", "caption_shabd": "5", "effect_har": "0", "shake": "nahi",
                      "documentary_mode": "haan"}.items():
             style[k] = v
-        # Auto-create clean chapter sections for long scripts (12+ lines) if user didn't add ## headings
-        if not SECTIONS and len(lines) >= 12:
-            _step = max(6, len(lines) // min(5, max(2, len(lines) // 6)))
-            SECTIONS.append((0, "शुरुआत"))
-            _pnum = 2
-            for _si in range(_step, len(lines) - 2, _step):
-                SECTIONS.append((_si, f"भाग {_pnum}"))
-                _pnum += 1
+        # v4.18: Never auto-insert unwanted 'भाग 2..6' popups; only show chapters if script explicitly has ## headings
         log(f"   LAMBI NEWS+FACT DOCUMENTARY mode ✓  (16:9, {len(SECTIONS)} chapters, calm 5s pacing)")
     FB = None
     if PREV and os.environ.get("VG_FEEDBACK"):
@@ -972,19 +965,57 @@ def main():
         return True
     import fx
     PRO = yes(style.get("pro_effects", "haan"))
+    _fx_map_state = {"count": 0, "places": set(), "last_i": -99}
+    _fx_map_max = int(float(style.get("auto_map", "2" if LONG_MODE else "1") or (2 if LONG_MODE else 1)))
     def fx_line(i):
-        """v2.15: [map: ..] / [news: ..] wali line -> poori line ek khaas graphic shot."""
+        """v2.15 + v4.18: [explain:] / [route:] / [map:] (hard capped) / [news:] (realistic broadsheet)."""
         if not PRO: return None
         for name, val in FX.get(i, []):
             dur = spans[i][1] - spans[i][0] + 0.4
+            if name == "explain" and val and yes(style.get("ai_explainer", "haan")):
+                try:
+                    from cine import ai_explainer as _aiexp
+                    out = work / "shots" / f"explain_{i:02d}.mp4"
+                    log(f"   ✨ line {i+1}: dynamic AI 30fps explainer bana raha hoon – {val.strip()[:55]}")
+                    if _aiexp.render_explainer(val.strip(), lines[i] if i < len(lines) else "", dur, out, W, H, style, keys):
+                        return ([{"kind": "video", "path": out, "credit": "", "src": "ai explainer", "whole": True, "ss": 0.0}], [])
+                except Exception as _ae:
+                    log(f"   (ai explainer fallback: {str(_ae)[:70]})", show=False)
+            if (name == "route" or (name == "map" and ("->" in val or "→" in val))) and val and yes(style.get("map", "haan")):
+                try:
+                    from cine import route_map as _rmap
+                    out = work / "shots" / f"route_{i:02d}.mp4"
+                    log(f"   line {i+1}: satellite route map bana raha hoon – {val.strip()[:55]}")
+                    if _rmap.render_route(val.strip(), dur, out, W, H, style, BIBLE["palette"] if BIBLE else {}):
+                        return ([{"kind": "video", "path": out, "credit": "", "src": "map", "whole": True, "ss": 0.0}], [])
+                except Exception as _re:
+                    log(f"   (route map fallback: {str(_re)[:70]})", show=False)
             if name == "map" and val and yes(style.get("map", "haan")):
                 place, _, lab = val.partition("|")
+                _pk = place.split(",")[-1].strip().lower() or place.strip().lower()
+                if _fx_map_state["count"] >= _fx_map_max or _pk in _fx_map_state["places"] or (i - _fx_map_state["last_i"]) < 6:
+                    log(f"   line {i+1}: map limit/repeat skip ({place.strip()}) -> asli footage chalegi", show=False)
+                    continue
                 out = work / "shots" / f"map_{i:02d}.mp4"
                 log(f"   line {i+1}: map bana raha hoon – {place.strip()}")
                 if fx.map_clip(place.strip(), lab.strip() or place.split(",")[0].strip(), dur, out, W, H, style, work):
+                    _fx_map_state["count"] += 1
+                    _fx_map_state["places"].add(_pk)
+                    _fx_map_state["last_i"] = i
                     return ([{"kind": "video", "path": out, "credit": "", "src": "map", "whole": True, "ss": 0.0}], [])
             if name == "news" and val and yes(style.get("news_card", "haan")):
                 head, _, srcn = val.partition("|")
+                out = work / "shots" / f"news_{i:02d}.mp4"
+                log(f"   line {i+1}: realistic news proof card bana raha hoon")
+                try:
+                    from cine import doc_cards as _dc_n
+                    _pal = (BIBLE.get("palette") if isinstance(BIBLE, dict) else None) or {}
+                    _hl_words = [w for w in head.strip().split() if len(w) > 3]
+                    _hl_phrase = " ".join(_hl_words[:4]) if _hl_words else head.strip()[:36]
+                    if _dc_n.render_news_highlight(srcn.strip() or "NEWS REPORT", head.strip(), _hl_phrase, dur, out, W, H, style, _pal):
+                        return ([{"kind": "video", "path": out, "credit": "", "src": "news card", "whole": True, "ss": 0.0}], [])
+                except Exception as _dce:
+                    log(f"   (realistic news card fallback: {str(_dce)[:80]})", show=False)
                 base = job(i)
                 photo = None
                 for it in (base[0] if base else []):
@@ -997,8 +1028,6 @@ def main():
                         photo = fp; break
                     except Exception:
                         continue
-                out = work / "shots" / f"news_{i:02d}.mp4"
-                log(f"   line {i+1}: news card bana raha hoon")
                 try:
                     fx.news_clip(head.strip(), srcn.strip(), photo, dur, out, W, H, style, work)
                     cr = [it for it in (base[0] if base else [])][:1]

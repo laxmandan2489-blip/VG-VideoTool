@@ -231,9 +231,9 @@ def build(lines, eng, keys=None, style=None, who=None, kinds=None, fx_tags=None,
         graphic = None
         # v3.18 (Rajasthan video: pehle SIKAR ka map, phir 6 sec RAJASTHAN ka map dobara): ek hi rajya / desh ka
         # map ek hi baar – doosri baar us line pe asli footage (aapka hint) chalega
-        pkey = place and (place.get("state") or place.get("country") or place.get("name") or "").lower()
-        explicit_map = any(nm == "map" for nm, _ in tags)
-        if place and (explicit_map or (maps < map_max and pkey not in MAPPED)) and i != 0 and role != "end":
+        # v4.18: Hard global map cap (max 2 Long / 1 Short) + never repeat same country/region even on explicit [map:]
+        pkey = place and (place.get("country") or place.get("state") or place.get("name") or "").lower()
+        if place and maps < map_max and pkey not in MAPPED and i != 0 and role != "end":
             graphic = "map"; maps += 1; MAPPED.add(pkey)
         elif kind == "number" and stats < stat_max and role in ("reveal", "turn", "explain", "section") \
                 and yes_(style.get("stat_card", "haan")):

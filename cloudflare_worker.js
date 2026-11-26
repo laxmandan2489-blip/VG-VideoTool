@@ -19,7 +19,7 @@ const KEYBOARD = {
 };
 
 const BOT_COMMANDS = [
-  { command: "trends", description: "🔥 Alag SHORT & LONG (5-6m) viral topics + Influencer/Nitish-Dhruv" },
+  { command: "trends", description: "🔥 SHORT & LONG viral topics (YouTube + X/IG/FB News + Influencer)" },
   { command: "planner", description: "📈 Auto-Pilot Winner Category & Views Tracker" },
   { command: "republish", description: "📂 Last 10 videos (Cover+Story) 1-tap Re-Upload" },
   { command: "publish", description: "📤 Purani 20-200MB video catbox link se publish" },
@@ -36,7 +36,7 @@ const SHORTS_PROMPT = `MERA TOPIC (1 se 5 topic likho, ya "AUTO" rehne do to 5 a
 <<< AUTO >>>
 
 You are India's #1 viral Hindi YouTube Shorts Director & Scriptwriter for "The Viral Gyaan" (science, army/defence, news, business, history, tech, crime/mystery, sports, influencers).
-My automated VideoTool reads EVERY line, applies the EXACT category editing style you choose via MODE:, triggers real pro editing effects from your [tags], and picks visuals STRICTLY from your "||" hints (verified by AI Vision Judge + CLIP!).
+My automated VideoTool reads EVERY line, applies the EXACT category editing style you choose via MODE:, triggers real pro editing effects from your [tags], renders 30fps AI explainers & realistic AI scenes, and picks visuals STRICTLY from your "||" hints (verified by AI Vision Judge + CLIP!).
 Write 5 complete, high-retention Hindi Shorts scripts separated by a line with only ==== (each video MUST feel unique and matched to its category!).
 
 1) CHOOSE CATEGORY EDITING MODE (line 1 of EACH script — controls colour grade, cut speed, film/particle layer, and SFX):
@@ -45,33 +45,35 @@ Write 5 complete, high-retention Hindi Shorts scripts separated by a line with o
 2) STRICT MICRO-BEAT SCRIPT RULES (40-55 sec, 14-18 SHORT lines, 5-9 words per line — ONE single visual idea/emotion per line):
    - NEVER mix 2 contrasting ideas in 1 line! Split into 2 short lines so each emotion/subject gets its OWN exact visual.
    - HOOK (Line 1): Shocking/curious hook in first 2s. NEVER start with "दोस्तों" or "क्या आप जानते हैं".
-   - Last line CTA (NO "||" on last line): ऐसे ही चौंकाने वाले फैक्ट्स के लिए अभी सब्सक्राइब करें और अगली वीडियो देखना मत भूलना।
+   - Write ALL numbers & years in ENGLISH digits (e.g., 1999, 2026, 15 Lakh — NEVER Hindi digits like १९९९, NEVER ** bold markdown, NEVER Chinese/Bengali characters!).
+   - Last line CTA MUST ALSO end with "|| <hero closing visual of main topic>" (NEVER "tv screen" or "phone in hand"!): ऐसे ही चौंकाने वाले फैक्ट्स के लिए अभी सब्सक्राइब करें और अगली वीडियो देखना मत भूलना। || <hero closing visual of main topic>
 
 3) PRO EDITING TAGS (put at END of Hindi line, right BEFORE "||" — use tastefully per category, max 4-5 tags per script):
-   - [map: Place, Country] -> animated 3D satellite map zoom (great for army/news/history/geography)
-   - [news: Short Headline | Source] -> yellow-highlighter newspaper/fact proof card (great for news/business/crime/history)
-   - [label: 2024 / 828m / ₹500 Cr] -> crisp red typewriter date/number badge (great for science/business/sports)
+   - [explain: <short mechanism/diagram/process to animate in 30fps>] -> dynamic 30fps HTML5/Canvas explainer (1-2 per Short on lines explaining HOW something works, comparisons, science/tech/finance/anatomy — NEVER on real living celebrities!)
+   - [route: PlaceA -> PlaceB | Stat] -> dark night-lights satellite route/flight/money-flow map!
+   - [map: Place, Country] -> animated 3D satellite map zoom (MAX 1 per Short — NEVER repeat the same country!)
+   - [news: Short Headline | Source] -> realistic newspaper proof card with yellow highlighter sweep (great for news/business/crime/history)
+   - [label: 2026 / 828m / ₹500 Cr] -> crisp red typewriter date/number badge (great for science/business/sports)
    - [ink] -> dramatic red ink-splash transition on the biggest twist line!
    - SFX tags (max 2-3 per script — NEVER write [riser], opening riser is automatic!): [impact] on shock/army/reveal, [whoosh] on fast jump, [ding] on stat/fact, [typing] on tech/news.
 
-4) VISUAL HINT RULES (MOST IMPORTANT — EVERY SINGLE LINE EXCEPT LAST CTA MUST HAVE "||"):
-   - KEEP HINTS SHORT & SIMPLE (STRICTLY 3-4 lowercase English words describing what the camera sees — NEVER 6-8 word essays!):
-     * Real people/events -> name + 2 words (e.g. "ISRO rocket launch", "Indian Army tank desert", "Ratan Tata Nano 2008"). NEVER use AI for real people/news!
-     * Clean B-roll / nature / history -> 3-4 simple lowercase words (e.g. "desert sand dunes aerial", "hippopotamus swimming river", "ancient stone arrowheads", "cargo ship port aerial").
-     * DO NOT capitalize non-person words (write "green grassland lake", NOT "Green Arabia Ancient Lake" — capitalized phrases trick person search!).
-   - CUSTOM AI SCENE (ONLY 1-3 lines where real footage DOES NOT EXIST — e.g. inside black hole, prehistoric dinosaur, microscopic cell):
-     * Format: || AI: <8-12 vivid realistic cinematic documentary words>
-   - STRICTLY BANNED in "||" hints: "reconstruction", "reenactment", "examination", "prehistoric", "cinematic", "footage", "growth", "economy", "crisis", "secret", "interview", "podcast", "chart", "slide", "[YT]", "[X]", emojis, hashtags, bold (**), or numbering.
+4) VISUAL HINT RULES (MOST IMPORTANT — EVERY SINGLE LINE INCLUDING LAST CTA MUST HAVE "||"):
+   - STRICT COUNTRY & PERSON ANCHOR: Every "||" hint MUST include the EXACT country/city/person/entity of that line (3-5 simple lowercase English camera words, e.g., "pakistan karachi street protest", "isro rocket launch sriharikota", "ratan tata nano 2008", "grey wolf pack snow"). NEVER use bare generic hints like "protest flag", "flag waving", "military statue", "tv screen", "phone in hand", "rock concert", "new year balloons", "shocked face", "question mark", "subscribe animation".
+   - SMART AUTO AI REALISTIC SCENES (1-4 lines where real stock footage fails or does not exist — e.g., wildlife emotion/action like "grey wolf lovingly nuzzling wolf cubs snow forest" or "wolf leaping across snowy mountain cliff", feats of strength like "giant muscular strongman lifting heavy man arena dramatic lighting", ancient history, space/deep-sea):
+     * Format: || AI: <8-14 vivid photorealistic documentary words>
+     * NEVER use "|| AI:" for real living politicians/celebrities/news people!
+   - STRICTLY BANNED in "||" hints: "reconstruction", "reenactment", "examination", "prehistoric", "cinematic", "footage", "growth", "economy", "crisis", "secret", "interview", "podcast", "chart", "slide", "tv screen", "phone in hand", "[YT]", "[X]", emojis, hashtags, bold (**), or numbering.
 
 OUTPUT EXACTLY THIS (copy-paste ready for Telegram Bot):
 MODE: <category>
-TITLE: <2-4 crisp words> | <2-4 hook words>
-<hook line> || <exact concrete visual hint>
+TITLE: <2-4 crisp words> | <2-4 hook words ONLY — NEVER add a 3rd pipe '|'>
+<hook line> [impact] || <exact country/entity-anchored visual hint>
 <line 2> [map: Place, Country] || <exact concrete visual hint>
-<line 3 with number> [label: 6400 KM] || <exact concrete visual hint>
+<explainer line> [explain: <mechanism/diagram to animate in 30fps>] || <fallback concrete visual hint>
+<wildlife/action line> || AI: <8-14 vivid photorealistic documentary words>
 <twist line> [ink] [impact] || <exact concrete visual hint>
 ...
-ऐसे ही चौंकाने वाले फैक्ट्स के लिए अभी सब्सक्राइब करें और अगली वीडियो देखना मत भूलना।
+ऐसे ही चौंकाने वाले फैक्ट्स के लिए अभी सब्सक्राइब करें और अगली वीडियो देखना मत भूलना। || <hero closing visual of main topic>
 ====
 MODE: <different category for Script 2>
 TITLE: <Script 2> | <hook>
@@ -81,36 +83,43 @@ const LONG_PROMPT = `MERA TOPIC (Long News + Fact Documentary Video):
 <<< yahan apna topic ya breaking news + fact likho >>>
 
 You are India's #1 Hindi Long-Form Documentary Director & Scriptwriter (Dhruv Rathee / Nitish Rajput / MagnatesMedia style) for "The Viral Gyaan".
-My automated VideoTool renders 16:9 documentary videos with calm 5-second pacing, chapters, category-matched colour grading, animated maps, yellow-marker News cards, red spotlight callouts, and pinpoint visuals from your "||" hints.
+My automated VideoTool renders 16:9 documentary videos with calm 5-second pacing, category-matched colour grading, dynamic 30fps AI explainers, glowing satellite route maps, realistic broadsheet news proof cards, and pinpoint country/person-anchored visuals from your "||" hints.
 
-STRUCTURE (3-6 min, 28-45 lines, 10-16 words per line, divided into 3-5 chapters using "## Chapter Name"):
+STRUCTURE (STRICTLY 5-6 min, 42-55 lines, ~750-880 Hindi words, 10-16 words per line):
 - Line 1: LONG
 - Line 2: MODE: news | army | science | business | history | mystery | sports | influencer | technology
-- Line 3: TITLE: <documentary title> | <hook subtitle>
-- Chapters: ## शुरुआत -> ## असली कहानी -> ## चौंकाने वाले आंकड़े -> ## बड़ा असर और निष्कर्ष
+- Line 3: TITLE: <45-60 char high-CTR Hindi title> | <2-3 bold Hindi thumbnail words ONLY — NEVER add a 3rd pipe '|'>
+- Cold Open Hook (0-25s) with high stakes -> Escalation with real numbers/dates/proof -> Big Reveal -> Short comment-question CTA.
+- Write ALL numbers & years in ENGLISH digits (e.g., 1999, 2026, 10 Billion — NEVER Hindi digits like १९९९, NEVER ** bold markdown, NEVER Chinese/Bengali characters!).
+- Only add "## Chapter Title" headings if you want clean named chapters (NEVER write "भाग 2" or generic numbers).
 
 PRO EDITING TAGS (put at END of Hindi line, right BEFORE "||"):
-- [map: City or Country] (1-2 geography lines)
-- [news: Short Headline | Official Source] (2-3 proof/report/court/date lines -> yellow highlighter sweep!)
-- [label: Year / Stat] (2-3 key timeline or number badges)
-- [ink] or [impact] on major chapter reveals (NEVER write [riser], opening riser is automatic!).
+- [explain: <clear mechanism/comparison/process to animate in 30fps>] -> dynamic 30fps HTML5/Canvas explainer (2-4 per Long script on lines explaining HOW something works, science/tech/finance/law/geopolitics/anatomy breakdowns — NEVER on real living celebrities!)
+- [route: PlaceA -> PlaceB | Stat] -> dark night-lights satellite route/flight/money-flow map (1-2 lines where movement/connection matters)
+- [map: Place, Country] -> MAX 2 times in the ENTIRE Long script (NEVER repeat the same country!)
+- [news: Short Headline | Official Source] -> realistic newspaper proof card with yellow highlighter sweep (2-3 proof/report/court/date lines)
+- [label: Year / Stat] -> 2-3 key timeline or number badges
+- [ink] or [impact] on major reveals (NEVER write [riser], opening riser is automatic!).
 
-VISUAL HINT RULES (EVERY LINE EXCEPT LAST CTA MUST HAVE "||"):
-- KEEP HINTS SHORT (STRICTLY 3-4 simple lowercase English words — NO 'reconstruction', 'reenactment', 'examination', or unnecessary Capital letters):
-  * Real events / news / defence / business / science -> add natural cues like "official footage", "launch", "press conference" (NEVER use AI for real people or real news!).
-  * Historical / timeline lines -> add "archival photo" or "vintage photo".
-  * Clean B-roll -> concrete physical scene + camera angle ("cargo ship port aerial view", "factory assembly line close up"), NEVER vague words ("economy", "growth", "crisis", "secret", "interview", "chart", "slide", or "[YT]"/"[X]" tags).
-- IMPOSSIBLE / EXPLAINER RECONSTRUCTION (max 20% lines): || AI: <8-14 vivid realistic documentary words>.
+VISUAL HINT RULES (EVERY SINGLE LINE INCLUDING LAST CTA MUST HAVE "||"):
+- STRICT COUNTRY & PERSON ANCHOR: Every "||" hint MUST include the EXACT country/city/person/entity of that line (3-5 simple lowercase English camera words, e.g., "pakistan karachi street protest crowd", "asim munir pakistan army general", "india parliament delhi exterior"). NEVER bare generic words like "protest flag", "flag waving", "military statue", "tv screen", "phone in hand", "rock concert", "new year 2025", "question mark", "subscribe animation", "economy", "growth", "crisis", "secret", "interview", "chart", "slide".
+- SMART AUTO AI REALISTIC SCENES (up to 25% of lines where real stock footage fails or does not exist — e.g., wildlife emotion/action like "grey wolf lovingly nuzzling wolf cubs snow forest" or "wolf leaping across snowy mountain cliff", feats of strength like "muscular strongman lifting heavy boulder arena dramatic lighting", ancient history, space/deep-sea):
+  * Format: || AI: <8-14 vivid photorealistic documentary words>
+  * NEVER use "|| AI:" for real living politicians/celebrities/news people!
+- Last CTA line MUST end with "|| <cinematic hero closing visual of main topic>" (NEVER "tv screen" or "phone in hand"!).
 - NO emojis, NO hashtags, NO bold (**), NO numbering, NO extra notes.
 
 OUTPUT EXACTLY:
 LONG
 MODE: <category>
-TITLE: <documentary title> | <hook subtitle>
-## शुरुआत
-<line 1> || <visual hint>
+TITLE: <documentary title> | <2-3 bold thumbnail words>
+<hook line> [impact] || <exact country/entity-anchored visual hint>
+<geography line> [map: Place, Country] || <exact concrete visual hint>
+<explainer line> [explain: <mechanism/diagram to animate in 30fps>] || <fallback concrete visual hint>
+<proof line> [news: Short Headline | Official Source] || <exact concrete visual hint>
+<wildlife/action line> || AI: <8-14 vivid photorealistic documentary words>
 ...
-ऐसे ही गहरे रिसर्च वाले न्यूज़ और फैक्ट वीडियो के लिए चैनल को सब्सक्राइब ज़रूर करें।`;
+इस पूरे मामले पर आपकी क्या राय है? कमेंट में ज़रूर बताएं और ऐसे ही रिसर्च वीडियो के लिए सब्सक्राइब करें। || <cinematic hero closing visual of main topic>`;
 
 const GUIDE_TEXT = `📖 VIRAL GYAAN CLOUD BOT (24×7)
 
@@ -137,7 +146,7 @@ export default {
       if (u.pathname === "/media/proxy") {
         return handleProxyMediaBridge(u.searchParams.get("u") || "", u.searchParams.get("t") || "mp4", request.method === "HEAD");
       }
-      return new Response("VideoTool Cloud Bridge v4.12 Auto-Pilot is LIVE!", { status: 200 });
+      return new Response("VideoTool Cloud Bridge v4.17 Auto-Pilot is LIVE!", { status: 200 });
     }
     if (request.method !== "POST") {
       return new Response("Method Not Allowed", { status: 405 });
@@ -252,7 +261,7 @@ export default {
     if (tl === "/start" || tl === "/menu") {
       await tgApi(env, "setMyCommands", { commands: BOT_COMMANDS });
       await tgReply(env.TG_TOKEN, chatId,
-        "☁️ VideoTool Cloud v4.15 Auto-Pilot LIVE hai!\n✅ Short/Long alag Trends, Influencer category, Full-Screen Shorts aur Realistic Newspaper sab active hain:", true);
+        "☁️ VideoTool Cloud v4.17 Auto-Pilot LIVE hai!\n✅ Short/Long alag Trends, Influencer category, Full-Screen Shorts aur Realistic Newspaper sab active hain:", true);
       return new Response("ok", { status: 200 });
     }
     if (tl === "/guide" || text.includes("/guide")) {
@@ -799,6 +808,14 @@ const TREND_CATEGORIES = {
     shortHandles: ["@ManojDey", "@CreatorSearch2", "@TechnicalYogi", "@DecodingYT", "@TechBurnerShorts", "@aiuncovered"],
     longHandles: ["@DecodingYT", "@ManojDey", "@TechnicalYogi", "@TechBurner", "@GyanTherapy", "@aiuncovered"],
   },
+  socialnews: {
+    label: "🌐 X / IG / FB Viral News",
+    modeHint: "news | influencer | business | technology",
+    visualRule: "CRITICAL FOR VIRAL SOCIAL NEWS: Use concrete real-world people, locations, official press/event scenes, and [news:] / [route:] cards — NEVER generic vlogs.",
+    shortHandles: [],
+    longHandles: [],
+    isSocialRss: true,
+  },
   mix: {
     label: "🌍 Mix All (Top Viral)",
     modeHint: "science | business | history | influencer | technology | mystery",
@@ -807,6 +824,87 @@ const TREND_CATEGORIES = {
     longHandles: ["@NitishRajput", "@dhruvrathee", "@ThinkSchool", "@GauravThakur-GSF", "@FactTechz", "@PJExplained", "@MohakMangal"],
   },
 };
+
+const BORING_VLOG_RE = /\b(daily\s*vlog|my\s*vlog|mini\s*vlog|unboxing|bought\s*(a\s*)?new\s*(car|bike|phone|house|iphone)|room\s*tour|house\s*tour|home\s*tour|morning\s*routine|night\s*routine|grwm|get\s*ready\s*with\s*me|shopping\s*haul|24\s*hours?\s*challenge|prank\s*on|q\s*&\s*a|meet\s*my\s*(gf|bf|family|wife|husband)|my\s*new\s*car|car\s*delivery|first\s*day\s*vlog)\b/i;
+
+function isBoringVlogTitle(title) {
+  return BORING_VLOG_RE.test(String(title || ""));
+}
+
+function parseGoogleNewsRss(xmlText, catKey, fmt) {
+  const items = [];
+  const itemRe = /<item>([\s\S]*?)<\/item>/gi;
+  let m;
+  while ((m = itemRe.exec(String(xmlText || ""))) !== null) {
+    const blk = m[1];
+    const getTag = (tag) => {
+      const r = new RegExp(`<${tag}[^>]*>([\\s\\S]*?)<\\/${tag}>`, "i").exec(blk);
+      return r ? r[1].replace(/<!\[CDATA\[([\s\S]*?)\]\]>/g, "$1").replace(/<[^>]+>/g, "").replace(/&amp;/g, "&").replace(/&quot;/g, '"').replace(/&#39;/g, "'").trim() : "";
+    };
+    const title = getTag("title");
+    const link = getTag("link");
+    const pubDate = getTag("pubDate");
+    const source = getTag("source") || "Google News India";
+    if (!title || isBoringVlogTitle(title)) continue;
+    const pubMs = Date.parse(pubDate || "") || Date.now();
+    const ageDays = Math.max(0, Math.round((Date.now() - pubMs) / 86400000));
+    if (ageDays > 14) continue;
+    let h = 0;
+    for (let i = 0; i < title.length; i++) h = ((h << 5) - h + title.charCodeAt(i)) | 0;
+    const id = "gn_" + Math.abs(h).toString(36);
+    items.push({
+      id,
+      title,
+      channel: source,
+      handle: "@GoogleNews",
+      catKey,
+      fmt,
+      views: 250000,
+      dur: fmt === "LONG" ? 360 : 50,
+      ageDays,
+      outlierMult: 3.5,
+      viralRating: 8.8,
+      score: 1000 / Math.max(1, ageDays + 1),
+      url: link || "https://news.google.com/?hl=en-IN&gl=IN&ceid=IN:en",
+    });
+  }
+  return items;
+}
+
+async function scanSocialNewsTrends(env, excludeIds = [], fmt = "SHORT") {
+  const isLongFmt = String(fmt || "SHORT").toUpperCase() === "LONG";
+  const fmtStr = isLongFmt ? "LONG" : "SHORT";
+  const seenSet = new Set((excludeIds || []).map(String));
+  const feeds = isLongFmt
+    ? [
+        "https://news.google.com/rss/search?q=India+viral+controversy+OR+influencer+OR+geopolitics+OR+business+when:7d&hl=en-IN&gl=IN&ceid=IN:en",
+        "https://news.google.com/rss/search?q=YouTuber+OR+Instagram+OR+Twitter+viral+news+India+when:7d&hl=en-IN&gl=IN&ceid=IN:en",
+      ]
+    : [
+        "https://news.google.com/rss/search?q=viral+on+Instagram+OR+Twitter+OR+X+India+when:3d&hl=en-IN&gl=IN&ceid=IN:en",
+        "https://news.google.com/rss/search?q=Indian+YouTuber+OR+influencer+news+controversy+donation+when:5d&hl=en-IN&gl=IN&ceid=IN:en",
+      ];
+  const all = [];
+  for (const url of feeds) {
+    try {
+      const r = await fetchWithTimeout(url, { headers: { "User-Agent": "VG-VideoTool/4.16" } }, 6000);
+      if (r.ok) {
+        const xml = await r.text();
+        all.push(...parseGoogleNewsRss(xml, "socialnews", fmtStr));
+      }
+    } catch (e) {}
+  }
+  const uniq = [];
+  const seenTitle = new Set();
+  for (const it of all) {
+    const key = it.title.toLowerCase().slice(0, 42);
+    if (!seenTitle.has(key)) { seenTitle.add(key); uniq.push(it); }
+  }
+  const fresh = uniq.filter(x => !seenSet.has(x.id));
+  const recycled = fresh.length < 3 && uniq.length > 0;
+  const pool = recycled ? uniq : fresh;
+  return { items: pool.slice(0, 5), recycled };
+}
 
 async function scanCompetitorTrends(env, catKey = "facts", excludeIds = [], fmt = "SHORT") {
   const ytKey = (env.YOUTUBE_KEY || "").trim();
@@ -873,6 +971,8 @@ async function scanCompetitorTrends(env, catKey = "facts", excludeIds = [], fmt 
     const ageDays = Math.round(ageH / 24);
     // Reject outdated > 18 months old videos so trends stay modern (2025-2026 style)
     if (ageDays > 540) continue;
+    const vTitle = (v.snippet && v.snippet.title) || "Untitled";
+    if (isBoringVlogTitle(vTitle)) continue;
     const views = Number((v.statistics && v.statistics.viewCount) || 0);
     if (views < 1000) continue;
     const meta = idMap.get(v.id) || {};
@@ -958,7 +1058,8 @@ async function showTrendCategoryMenu(env, chatId, editMsgId = null, fmt = "SHORT
       ],
       [{ text: "🧠 Facts & Science", callback_data: `tr:cat:facts:${modeTag}` }, { text: "💼 Business & History", callback_data: `tr:cat:business:${modeTag}` }],
       [{ text: "🔥 Influencer News", callback_data: `tr:cat:influencer:${modeTag}` }, { text: "📱 Tech & AI Updates", callback_data: `tr:cat:tech:${modeTag}` }],
-      [{ text: "🎬 Movies & Reviews", callback_data: `tr:cat:movies:${modeTag}` }, { text: "🌍 Mix All", callback_data: `tr:cat:mix:${modeTag}` }],
+      [{ text: "🎬 Movies & Reviews", callback_data: `tr:cat:movies:${modeTag}` }, { text: "🌐 X/IG/FB Viral News", callback_data: `tr:cat:socialnews:${modeTag}` }],
+      [{ text: "🌍 Mix All (Top Viral)", callback_data: `tr:cat:mix:${modeTag}` }],
     ],
   };
   if (editMsgId) {
@@ -989,7 +1090,9 @@ async function runTrendsForCategory(env, chatId, catKey = "facts", isRefresh = f
     ? prev.data.items.map(x => x.id).filter(Boolean) : [];
   const excludeIds = isRefresh ? Array.from(new Set([...prevSeen, ...prevIds])) : prevSeen;
 
-  const scan = await scanCompetitorTrends(env, catKey, excludeIds, isLongFmt ? "LONG" : "SHORT");
+  const scan = (catKey === "socialnews")
+    ? await scanSocialNewsTrends(env, excludeIds, isLongFmt ? "LONG" : "SHORT")
+    : await scanCompetitorTrends(env, catKey, excludeIds, isLongFmt ? "LONG" : "SHORT");
   const trends = scan.items || [];
   if (!trends.length) {
     const errTxt = `❌ [${fmtLabel}] ${cat.label} me abhi koi fresh trending video nahi mili (YOUTUBE_KEY quota ya doosri category try karein).`;
@@ -1246,9 +1349,10 @@ TASK:
    - Short engaging comment-question CTA at the end
 3) UNIVERSAL VISUAL HINT & DIGIT RULES (CRITICAL — FOLLOW FOR EVERY LINE):
    - STRICT LANGUAGE & FACT LOCK: Write ONLY in Hindi (Devanagari) + common English words — NEVER output Chinese/Bengali/Arabic/foreign script characters! NEVER invent fake people, fake spy names, or fake operations; use ONLY verified real facts from the reference video.\n   - CURRENT YEAR IS ${curYear}. NEVER refer to ${curYear - 2} as "this year" or outdated timelines. ALWAYS write ALL numbers & years in ENGLISH digits (e.g., 1999, ${curYear}, 10 Billion — NEVER Hindi digits like १९९९! NEVER use markdown ** bold asterisks!).
-   - Put 2-4 simple lowercase English CONCRETE PHYSICAL CAMERA words after "||" (Object + Action + Setting). STRICTLY FORBIDDEN: abstract words ("secret", "concerned", "question mark", "subscribe animation", "reconstruction", "interview", "chart") and fictional/unknown names.
-   - Last CTA line MUST end with "|| <cinematic hero closing visual of main topic>".
-   - Apply category-matched documentary editing tags ([map:], [news:], [impact], [ding], [ink] max 5 total).
+   - STRICT COUNTRY & PERSON ANCHOR (v4.18): Every single "||" hint MUST include the EXACT country/city/person/entity of that line (e.g., "pakistan karachi street protest crowd", "asim munir pakistan army general", NEVER bare "protest crowd", "flag waving", "military statue", "tv screen", "phone in hand", "new year 2025", "rock concert", "question mark", "subscribe animation").
+   - SMART AUTO AI REALISTIC SCENES (v4.18): Whenever a non-celebrity line describes a rare, dramatic, or impossible-to-film visual (wildlife emotion/action like "grey wolf lovingly nuzzling wolf cubs snow forest" or "wolf leaping across snowy mountain cliff", feats of strength like "muscular strongman lifting heavy boulder arena dramatic lighting", ancient history, space/deep-sea), use "|| AI: <8-14 vivid photorealistic documentary words>" (up to 25% of lines — NEVER use "|| AI:" for real living politicians/celebrities!).
+   - SMART AUTO 30FPS AI EXPLAINER (v4.18): Whenever a line explains HOW something works, a mechanism, process, anatomy, science/tech/finance/law/geopolitics breakdown, or comparison, add [explain: <clear visual mechanism/diagram to animate in 30fps>] BEFORE "||" (2-4 per Long script — NEVER on real living celebrities!).
+   - MAP & CTA LIMITS: Use [map: Place, Country] AT MOST 2 times in the entire Long script (never repeat the same country!), [route: PlaceA -> PlaceB | Stat] for paths/flights/money flows, [news: Short Headline | Source] max 2-3 times. Last CTA line MUST end with "|| <cinematic hero closing visual of main topic>" (NEVER "tv screen" or "phone in hand"!).
 ${catRule}
 
 OUTPUT FORMAT (strictly follow):
@@ -1278,10 +1382,10 @@ TASK:
    (NEVER copy/translate, and NEVER invent fake app features or fake stats${rewrite ? " — use a COMPLETELY DIFFERENT opening hook and angle than before" : ""}).
 3) UNIVERSAL VISUAL HINT & DIGIT RULES (CRITICAL — FOLLOW FOR EVERY LINE):
    - STRICT LANGUAGE & FACT LOCK: Write ONLY in Hindi (Devanagari) + common English words — NEVER output Chinese/Bengali/foreign characters! NEVER invent fake names or fake facts.\n   - CURRENT YEAR IS ${curYear}. NEVER use outdated years like ${curYear - 2} as current! ALWAYS write ALL numbers & years in ENGLISH digits (e.g., 1999, ${curYear}, 15 Lakh, 230°C — NEVER Hindi digits like १९९९! NEVER use markdown ** bold!).
-   - Put 2-4 simple lowercase English CONCRETE PHYSICAL CAMERA words after "||" (Object + Action + Setting, e.g., "grey wolf pack snow", "airplane cockpit night lights", "iphone 17 pro closeup").
-   - STRICTLY FORBIDDEN in "||" hints: abstract/unfilmable/garbage words ("shocked face", "view counter", "calendar", "locked door", "truth", "secret", "concerned", "question mark", "subscribe animation", "thank you for watching", "reconstruction", "reenactment", "interview", "chart") and fictional/unknown personal names (use concrete HD real-world scenes instead!).
-   - Last Subscribe CTA line MUST also end with "|| <hero closing visual of main topic>" (e.g., "|| wolf howling full moon").
-   - Match category editing DNA with tasteful tags (Science: counters+[ding]/[impact]; Business/History/Mystery: [map:]/[news:]/[ink]; Tech/Updates: [typing]/[whoosh]; Movies: [impact]/[ink]).
+   - STRICT COUNTRY & PERSON ANCHOR (v4.18): Every single "||" hint MUST include the EXACT country/city/person/entity of that line (e.g., "pakistan karachi street protest", "grey wolf pack snow", "iphone 17 pro closeup" — NEVER bare "flag waving", "tv screen", "phone in hand", "statue", "rock concert", "new year balloons", "shocked face", "question mark", "subscribe animation").
+   - SMART AUTO AI REALISTIC SCENES (v4.18): For rare/dramatic non-celebrity scenes where stock fails (wildlife emotion/action like "grey wolf lovingly nuzzling cubs snow forest" or "wolf leaping across mountain cliff", feats of strength like "giant muscular strongman lifting heavy man dramatic lighting", ancient/space/deep-sea scenes), use "|| AI: <8-14 vivid photorealistic words>" (NEVER for real living celebrities!).
+   - SMART AUTO 30FPS AI EXPLAINER (v4.18): On 1-2 lines that explain HOW something works, a mechanism, comparison, or step-by-step concept, add [explain: <short mechanism/diagram to animate in 30fps>] BEFORE "||" (NEVER on real living celebrities!).
+   - MAP & CTA LIMITS: Max 1 [map:] tag per Short (never repeat!), max 1-2 [news:]/[impact]/[ink] tags. Last Subscribe CTA line MUST end with "|| <hero closing visual of main topic>" (NEVER "tv screen" or "phone in hand"!).
 ${catRule}
 
 OUTPUT FORMAT (strictly follow):
@@ -1423,8 +1527,8 @@ async function repairMissingVisualHints(env, rawText, isLongVideo, deadlineMs) {
   const repairPrompt = `You are a VideoTool script formatter. The Hindi script below is MISSING "|| <visual hint>" on its lines!
 TASK:
 1) Keep the exact same Hindi story, MODE:, TITLE: (max 2 parts separated by ONE '|'), and ${isLongVideo ? "LONG header" : "Short lines"}.
-2) Append " || <3-4 simple lowercase English physical camera words>" to EVERY SINGLE spoken Hindi line (including last CTA).
-3) Add ${isLongVideo ? "3-4" : "2"} tasteful documentary tags BEFORE "||" on key lines: [map: Place, Country], [news: Short Headline | Source], [impact].
+2) Append " || <3-5 simple lowercase English country/person-anchored camera words>" to EVERY SINGLE spoken Hindi line (NEVER bare "flag waving", "tv screen", "phone in hand", "statue"; for rare wildlife/strength/historical non-celebrity action scenes use " || AI: <8-12 vivid photorealistic words>").
+3) Add ${isLongVideo ? "3-4" : "2"} tasteful tags BEFORE "||": max ${isLongVideo ? "2" : "1"} [map: Place, Country] (no duplicates), [route: PlaceA -> PlaceB | Stat], ${isLongVideo ? "2-3" : "1"} [explain: clear 30fps diagram/mechanism] on explanation lines (never real celebrities), [news: Short Headline | Source], [impact].
 4) NEVER output Chinese/Bengali characters or ** bold markdown.
 Return ONLY the repaired output starting with SCRIPT:
 

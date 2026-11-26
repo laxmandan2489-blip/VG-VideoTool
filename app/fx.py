@@ -16,7 +16,7 @@ from pathlib import Path
 from PIL import Image, ImageDraw, ImageFilter, ImageFont
 from common import log, run, yes, num, UA
 
-NAMES = {"map": "map", "naksha": "map", "nakshaa": "map",
+NAMES = {"map": "map", "naksha": "map", "nakshaa": "map", "route": "route", "flight": "route", "flow": "route", "explain": "explain", "anim": "explain", "diagram": "explain",
          "label": "label", "patti": "label", "tag": "label",
          "news": "news", "khabar": "news", "akhbaar": "news", "report": "news",
          "gola": "gola", "circle": "gola", "point": "gola",
@@ -392,7 +392,9 @@ def _pipe_frames(frames_fn, n, W, H, out, style, fps):
 def _cover(im, W, H):
     r = max(W / im.width, H / im.height)
     x = im.resize((max(W, int(im.width * r) + 1), max(H, int(im.height * r) + 1)), Image.LANCZOS)
-    l = (x.width - W) // 2; t = (x.height - H) // 2
+    l = (x.width - W) // 2
+    # v4.18: Top-weighted vertical crop (22%) so portraits/faces never get sliced off
+    t = int((x.height - H) * 0.22)
     return x.crop((l, t, l + W, t + H))
 
 
@@ -445,10 +447,11 @@ def news_clip(headline, source, photo, dur, out, W, H, style, work, fps=30):
     y += len(lines) * lh + int(pad * 0.6)
     if ph:
         pic = _cover(ph, cw - 2 * pad, ph_h); card.paste(pic, (pad, y)); y += ph_h + int(pad * 0.6)
-    for q in range(4):                                     # chhoti lines (article ka text)
-        ww = (cw - 2 * pad) * (0.95 if q < 3 else 0.6)
-        d.rounded_rectangle((pad, y + q * int(hs * 0.55), pad + ww, y + q * int(hs * 0.55) + int(hs * 0.22)), 4,
-                            fill=(170, 170, 170, 255))
+    # v4.18: Clean editorial hairline footer instead of grey dummy placeholder bars
+    d.rectangle((pad, y + int(hs * 0.2), cw - pad, y + int(hs * 0.2) + 2), fill=(195, 190, 180, 255))
+    foot = text_mask(f"VERIFIED REPORT  •  {src.title()}", int(hs * 0.40), work)
+    if foot is not None:
+        put_text(card, foot, (pad, y + int(hs * 0.6)), (95, 95, 95, 255))
     # page curl (neeche-daayein kona)
     cs = int(cw * 0.10)
     d.polygon([(cw - cs, ch), (cw, ch - cs), (cw, ch)], fill=(0, 0, 0, 0))

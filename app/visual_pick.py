@@ -81,7 +81,8 @@ GARBAGE_YT_WORDS = re.compile(r"\b(interview\s+questions?|mock\s+interview|job\s
                               r"questions?\s+and\s+answers?|q\s*&\s*a|mcq|syllabus|lecture\s+\d|full\s+course|"
                               r"tutorial\s+for\s+beginners|link\s+in\s+description|reaction\s+video|"
                               r"how\s+to\s+crack|tips\s+and\s+tricks|pdf\s+notes|ppt\s+presentation|"
-                              r"growing\s+professional)\b", re.I)
+                              r"growing\s+professional|what\s+is\s+the\s+capital|gk\s+question|"
+                              r"general\s+knowledge|quiz\s+time|trivia\s+quiz|guess\s+the)\b", re.I)
 HINT = {}                  # v3.18: line -> script me aapka '/' ya '||' hint (sabse pakka nirdesh)
 EXTRA_Q = {}               # v3.16: line -> Gemini / AI-plan ke aam search shabd (chaudi khoj ke liye)
 USE = {}                   # v3.15: file/url -> kitni LINES pe laga (ek hi stock clip 8 baar nahi – max 2 line)
@@ -741,6 +742,26 @@ def improve(i, found, eng, line, keys, need, lock=None, film=None, shot=None):
         if _kp: used.add(_kp)
     n_need = max(1, need - len(keep))
     slots = [min(len(parts) - 1, (s * len(parts)) // n_need) for s in range(n_need)]
+    # v4.18 STRICT PERSON LOCK (zero-regression): When a real person is named on this line,
+    # strongly prioritize verified/name-matched candidates (Wikimedia/exact-name) and penalize generic stock men.
+    _named_person = ""
+    try:
+        import visual_brain as _vb_pl
+        _named_person = str((_vb_pl.PLAN.get(i) or {}).get("person") or "").strip()
+    except Exception:
+        _named_person = ""
+    _p_tokens = [t.lower() for t in re.findall(r"[A-Za-z]{3,}", _named_person) if t.lower() not in ("the", "and", "general", "minister", "president", "chief", "leader")]
+    if _p_tokens:
+        for _plist in per_part:
+            for _c in _plist:
+                _blob = " ".join(str(_c.get(k) or "") for k in ("title", "tags", "credit", "url", "_src", "_q")).lower()
+                _src_l = str(_c.get("_src") or "").lower()
+                _hits = sum(1 for _tk in _p_tokens if _tk in _blob)
+                if _hits >= len(_p_tokens) or (_hits >= 1 and ("wikimedia" in _src_l or "wikipedia" in _src_l or _c.get("entity"))):
+                    _c["_final"] = round((_c.get("_final") or 0.0) + 0.12, 4)
+                    _c["_person_match"] = True
+                elif is_stock(_c) and _hits == 0:
+                    _c["_final"] = round((_c.get("_final") or 0.0) - 0.12, 4)
     trace_rows = []
     for s, pi in enumerate(slots):
         pc = sorted(per_part[pi], key=lambda c: -c["_final"])

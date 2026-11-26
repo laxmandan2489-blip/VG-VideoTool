@@ -92,6 +92,16 @@ def _try_pollinations(prompt, out_path, W=1080, H=1920, timeout=45):
     r = requests.get(url, timeout=timeout, headers={"User-Agent": "VG-VideoTool/3.22"})
     if r.status_code == 200 and r.headers.get("content-type", "").startswith("image/") and len(r.content) > 8000:
         Path(out_path).write_bytes(r.content)
+        # v4.16: auto-trim bottom 7% & right 3% so pollinations.ai corner watermark never shows on screen
+        try:
+            from PIL import Image
+            with Image.open(out_path) as _im:
+                _im = _im.convert("RGB")
+                _iw, _ih = _im.size
+                _im = _im.crop((0, 0, int(_iw * 0.97), int(_ih * 0.93))).resize((W, H), Image.LANCZOS)
+                _im.save(out_path, quality=93)
+        except Exception:
+            pass
         return str(out_path)
     return None
 
