@@ -1,83 +1,56 @@
 {
  "items": [
   {
-   "id": "gn_ynil42",
-   "title": "4 Men Thrash Friend Over Bike Theft In Bengaluru, Then Give Him ORS. He Dies",
-   "channel": "NDTV Trending",
-   "handle": "@ViralNews",
-   "catKey": "socialnews",
-   "fmt": "SHORT",
-   "views": 300000,
-   "dur": 50,
-   "ageDays": 0,
-   "outlierMult": 4,
-   "viralRating": 9,
-   "score": 1000,
-   "url": "https://www.ndtv.com/bangalore-news/4-men-thrash-friend-over-bike-theft-in-bengaluru-then-give-him-ors-he-dies-12378904"
+   "id": "DHzC4VVmolk",
+   "title": "Why America's healthcare is Broken? | How Wall Street Made Millions While Patients Paid the Price",
+   "channel": "Think School",
+   "handle": "@ThinkSchool",
+   "catKey": "facts",
+   "fmt": "LONG",
+   "views": 604780,
+   "dur": 1125,
+   "ageDays": 27,
+   "velScore": 2458.1990445634146,
+   "url": "https://www.youtube.com/watch?v=DHzC4VVmolk",
+   "outlierMult": 0.4,
+   "viralRating": 5,
+   "score": 0.9363465773842969
   },
   {
-   "id": "gn_m6ih1z",
-   "title": "Bigg Boss 20: Scout Makes Shocking Confession About Love Gill",
-   "channel": "NDTV Trending",
-   "handle": "@ViralNews",
-   "catKey": "socialnews",
-   "fmt": "SHORT",
-   "views": 300000,
-   "dur": 50,
-   "ageDays": 0,
-   "outlierMult": 4,
-   "viralRating": 9,
-   "score": 1000,
-   "url": "https://www.ndtv.com/entertainment/bigg-boss-20-s-scout-op-reveals-love-gill-washed-his-underwear-kitna-trauma-de-diya-12379670"
+   "id": "hidRAm8JcFI",
+   "title": "Mastercard’s Invisible Empire | How One Tap Moves the World’s Money in Milliseconds",
+   "channel": "Think School",
+   "handle": "@ThinkSchool",
+   "catKey": "facts",
+   "fmt": "LONG",
+   "views": 396547,
+   "dur": 832,
+   "ageDays": 13,
+   "velScore": 2979.3753716733036,
+   "url": "https://www.youtube.com/watch?v=hidRAm8JcFI",
+   "outlierMult": 0.3,
+   "viralRating": 5,
+   "score": 0.6951549761684735
   },
   {
-   "id": "gn_dr5fzv",
-   "title": "NFL Legend Brian Mitchell Defends Stefon Diggs' Sideline Outburst",
-   "channel": "NDTV Trending",
-   "handle": "@ViralNews",
-   "catKey": "socialnews",
-   "fmt": "SHORT",
-   "views": 300000,
-   "dur": 50,
+   "id": "tS91zuKAYHw",
+   "title": "Ocean's Most Feared Giant Revealed",
+   "channel": "अंतरिक्ष TV by Kaushik Bhattacharjee",
+   "handle": "@AntarikshTV",
+   "catKey": "facts",
+   "fmt": "LONG",
+   "views": 3996,
+   "dur": 1067,
    "ageDays": 0,
-   "outlierMult": 4,
-   "viralRating": 9,
-   "score": 1000,
-   "url": "https://sports.ndtv.com/us/nfl/washington-commanders-legend-gives-honest-take-on-stefon-diggs-sideline-outburst-12381046"
-  },
-  {
-   "id": "gn_7bpfbp",
-   "title": "8th Pay Commission: Govt Employees Could Get Rs 15,400 More A Month, JPMorgan Estimates",
-   "channel": "NDTV Trending",
-   "handle": "@ViralNews",
-   "catKey": "socialnews",
-   "fmt": "SHORT",
-   "views": 300000,
-   "dur": 50,
-   "ageDays": 0,
-   "outlierMult": 4,
-   "viralRating": 9,
-   "score": 1000,
-   "url": "https://www.ndtvprofit.com/economy/8th-pay-commission-govt-employees-could-get-rs-15-400-more-a-month-jpmorgan-estimates-12381863"
-  },
-  {
-   "id": "gn_qis8e6",
-   "title": "Rs 11 Lakh Fine On Blinkit, Zepto Licence Suspended: Maharashtra FDA's Big Crackdown",
-   "channel": "NDTV Trending",
-   "handle": "@ViralNews",
-   "catKey": "socialnews",
-   "fmt": "SHORT",
-   "views": 300000,
-   "dur": 50,
-   "ageDays": 0,
-   "outlierMult": 4,
-   "viralRating": 9,
-   "score": 1000,
-   "url": "https://www.ndtvprofit.com/india/rs-11-lakh-fine-on-blinkit-zepto-licence-suspended-maharashtra-fdas-big-crackdown-12381392"
+   "velScore": 871.3585896520051,
+   "url": "https://www.youtube.com/watch?v=tS91zuKAYHw",
+   "outlierMult": 0.2,
+   "viralRating": 5,
+   "score": 0.316306455787923
   }
  ],
- "catKey": "socialnews",
- "fmt": "SHORT",
+ "catKey": "facts",
+ "fmt": "LONG",
  "seenByCat": {
   "mix": [
    "nVRrtW7EsqY",
@@ -206,7 +179,10 @@
    "uVVUI0qLUrI",
    "Ub4ZmBuSA7Q",
    "UJwddV0BCt8",
-   "Y7xBrVl82rA"
+   "Y7xBrVl82rA",
+   "DHzC4VVmolk",
+   "hidRAm8JcFI",
+   "tS91zuKAYHw"
   ],
   "business_LONG": [
    "oyJ_p5hwSPo",
@@ -333,5 +309,5 @@
    "gn_qis8e6"
   ]
  },
- "ts": 1795712618052
+ "ts": 1795712676495
 }
