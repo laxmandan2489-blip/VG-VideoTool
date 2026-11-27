@@ -1,3 +1,28 @@
+THE VIRAL GYAAN VIDEOTOOL — v4.33 (Cumulative over v4.18)
+==========================================================
+Included in this single ZIP (v4.19 through v4.33 — Locked Charon Voice + Zero Adhyaay 1-6 Edition):
+1. 100% Locked "Charon" Voice Across Entire 5–10+ Min Long Videos (app/voice.py + app/make_video.py):
+   - Whichever Gemini TTS model succeeds on Chunk 1 is locked for the ENTIRE video with patient 429/503 retries (never switches model mid-video!).
+   - Auto-chunks >360-word scripts (5–10+ min) cleanly at sentence boundaries with RMS loudness matching + smooth edge fades so Charon never drifts, breaks, or shifts tone.
+2. Zero "अध्याय 1–6" / "भाग 1–6" / "Chapter 1–6" Popups or Narration (app/make_video.py + cloudflare_worker.js):
+   - Updated Long script prompt to forbid chapter headings and added a universal parser filter that strips/ignores generic numbered chapter titles (अध्याय/भाग/Chapter/Part/Block) from both on-screen cards and spoken lines.
+3. Includes ALL v4.19–v4.32 upgrades (Working Cloudflare FLUX.1-schnell + Free SDXL-Lightning backup, Default-ON AI Cinematic Mode, Strict 2.0s Short cuts, Clean Smart Frame Fit zero over-zoom, 100% zero photo repeats, Auto Full-Form card, Multi-Story Newspaper, 12s AI Explainer, Auto-Fit Hook Title, 0% touch to core visual search).
+
+--- Previous Release Notes ---
+THE VIRAL GYAAN VIDEOTOOL — v4.32 (Cumulative over v4.18)
+==========================================================
+Included in this single ZIP (v4.19 through v4.32 — Working Cloudflare FLUX AI + Clean Framing + Zero Photo Repeats):
+1. Fixed Cloudflare Workers AI FLUX.1-schnell Request Schema + Free SDXL-Lightning Backup (app/cloud_visuals.py):
+   - Removed invalid width/height fields that caused HTTP 400 on @cf/black-forest-labs/flux-1-schnell (now sends valid prompt + steps ONLY) and added @cf/bytedance/stable-diffusion-xl-lightning as an automatic FREE backup on the same CF_API_TOKEN.
+2. Clean Full-Frame Framing — Zero Over-Zoomed Rifles/Videos/Newspapers (app/render.py + app/cine/doc_cards.py):
+   - Wide 16:9 landscape videos in 9:16 Shorts now use blurred-cinema Smart Frame Fit (full subject visible, zero 3.16x crop!). Photos use gentle 1.04->1.00 zoom-out settle; Newspaper broadsheet stays crisp and centered inside frame.
+3. 100% Zero Repeated Photos (Shorts & Longs) + Video Preference (app/make_video.py):
+   - Unused videos are prioritized over images, fresh Cloudflare AI beats fill multi-beat lines, and the exact same photo is NEVER repeated 2-4 times in a row in any Short or Long.
+4. Fixed Inline `// AI:` Leak (app/make_video.py):
+   - Both `|| AI:` and `// AI:` hints are parsed cleanly and never appear in voice or subtitles.
+5. Includes ALL v4.19–v4.31 upgrades (Default-ON AI Cinematic Mode, 2.0s Short pacing, Auto Full-Form card, Multi-Story Newspaper, 12s AI Explainer, Auto-Fit Hook Title, 0% touch to core visual search).
+
+--- Previous Release Notes ---
 THE VIRAL GYAAN VIDEOTOOL — v4.31 (Cumulative over v4.18)
 ==========================================================
 Included in this single ZIP (v4.19 through v4.31 — Unlocked Realistic FLUX AI + Strict 2.0s Viral Pacing):

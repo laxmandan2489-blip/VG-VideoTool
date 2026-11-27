@@ -1484,9 +1484,9 @@ async function callGeminiTrendScript(env, video, rewrite = false) {
   const basePrompt = isLongVideo ? `You are India's #1 viral Hindi Documentary Scriptwriter (Dhruv Rathee / Nitish Rajput pacing) for "The Viral Gyaan".
 TASK:
 1) Study this viral topic and write a 100% ORIGINAL, 100% FACTUAL 5-to-6 minute Hindi YouTube Documentary script (~750-880 Hindi words, NEVER copy/translate, NEVER invent fake features or fake stats${rewrite ? " — use a COMPLETELY DIFFERENT opening hook and angle than before" : ""}).
-2) Follow the proven 6-Block Documentary Retention Structure:
+2) Follow a smooth, continuous Viral Documentary Retention Flow (ZERO chapter headings!):
    - Cold Open Hook (0-25s) with high stakes & curiosity gap
-   - 3 Short Chapters (use open loops like "Par asli khel toh ab shuru hota hai...")
+   - Smooth transitions using spoken open loops (like "Par asli khel toh ab shuru hota hai...") — STRICT: NEVER write "अध्याय 1", "अध्याय 2", "भाग 1", "Chapter 1", or "## ..." headings anywhere in the script!
    - Real numbers, dates, proof & climax reveal
    - Short engaging comment-question CTA at the end
 3) UNIVERSAL VISUAL HINT & DIGIT RULES (CRITICAL — FOLLOW FOR EVERY LINE):

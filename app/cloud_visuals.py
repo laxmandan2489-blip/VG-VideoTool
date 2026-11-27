@@ -68,30 +68,37 @@ def _save_resized(img_bytes, out_path, W, H, trim_watermark=False):
 
 
 def _try_cloudflare_direct(prompt, out_path, cf_token, cf_account, W=1080, H=1920, timeout=45):
-    """100% FREE Cloudflare Workers AI FLUX.1-schnell (10,000 Neurons/day free, zero card)."""
+    """v4.32: 100% FREE Cloudflare Workers AI — FLUX.1-schnell (exact valid schema: prompt + steps ONLY) + SDXL-Lightning fallback."""
     import requests
     acc = (cf_account or _DEFAULT_CF_ACCOUNT_ID).strip()
-    url = f"https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/@cf/black-forest-labs/flux-1-schnell"
-    # FLUX.1-schnell works best at 768x1344 (9:16) or 1024x576 (16:9) and num_steps 6-8
-    gw, gh = (1024, 576) if W > H else (768, 1344)
-    r = requests.post(
-        url,
-        headers={"Authorization": f"Bearer {cf_token}", "Content-Type": "application/json"},
-        json={"prompt": prompt, "steps": 6, "width": gw, "height": gh},
-        timeout=timeout,
-    )
-    if r.status_code != 200:
-        raise RuntimeError(f"CF Direct HTTP {r.status_code}: {r.text[:120]}")
-    ct = r.headers.get("content-type", "").lower()
-    if ct.startswith("image/") and len(r.content) > 8000:
-        return _save_resized(r.content, out_path, W, H)
-    data = r.json()
-    b64 = (data.get("result") or {}).get("image") or data.get("image")
-    if b64:
-        raw = base64.b64decode(b64)
-        if len(raw) > 8000:
-            return _save_resized(raw, out_path, W, H)
-    raise RuntimeError(f"CF Direct empty image response: {str(data)[:100]}")
+    hdrs = {"Authorization": f"Bearer {cf_token}", "Content-Type": "application/json"}
+    # Model 1: FLUX.1-schnell (ONLY accepts prompt + steps 4..8; passing width/height causes HTTP 400!)
+    # Model 2: SDXL-Lightning (instant FREE backup on the same token if FLUX filters or hiccups)
+    models = [
+        ("@cf/black-forest-labs/flux-1-schnell", {"prompt": prompt[:1800], "steps": 6}),
+        ("@cf/bytedance/stable-diffusion-xl-lightning", {"prompt": prompt[:1000]}),
+    ]
+    last_err = ""
+    for mdl, payload in models:
+        try:
+            url = f"https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/{mdl}"
+            r = requests.post(url, headers=hdrs, json=payload, timeout=timeout)
+            if r.status_code != 200:
+                last_err = f"{mdl} HTTP {r.status_code}: {r.text[:110]}"
+                continue
+            ct = r.headers.get("content-type", "").lower()
+            if ct.startswith("image/") and len(r.content) > 8000:
+                return _save_resized(r.content, out_path, W, H)
+            data = r.json()
+            b64 = (data.get("result") or {}).get("image") or data.get("image")
+            if b64:
+                raw = base64.b64decode(b64)
+                if len(raw) > 8000:
+                    return _save_resized(raw, out_path, W, H)
+            last_err = f"{mdl} empty image"
+        except Exception as e:
+            last_err = f"{mdl}: {str(e)[:90]}"
+    raise RuntimeError(f"CF Direct failed ({last_err})")
 
 
 def _try_cloudflare_worker_proxy(prompt, out_path, worker_url, tg_token, W=1080, H=1920, timeout=45):
@@ -101,7 +108,7 @@ def _try_cloudflare_worker_proxy(prompt, out_path, worker_url, tg_token, W=1080,
     r = requests.post(
         worker_url.rstrip("/") + "/ai-image",
         headers={"X-VG-Auth": tg_token, "Content-Type": "application/json"},
-        json={"prompt": prompt, "steps": 6, "width": gw, "height": gh},
+        json={"prompt": prompt[:1800], "steps": 6},
         timeout=timeout,
     )
     if r.status_code != 200:

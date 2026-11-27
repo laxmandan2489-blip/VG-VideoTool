@@ -238,19 +238,46 @@ def _strip_prompt_header(text):
     return s
 
 
+_LOCKED_TTS = {"model": None}
+
+
+def reset_tts_lock():
+    """Call once at start of a new video so Chunk 1 locks one consistent Gemini TTS model for the whole video."""
+    _LOCKED_TTS["model"] = None
+
+
+def match_rms(x, target_rms):
+    """Match chunk RMS loudness smoothly to Chunk 1 so voice volume/presence never jumps across long-video chunks."""
+    if not target_rms or target_rms <= 1e-6 or len(x) < 100:
+        return x
+    cur_rms = float(np.sqrt(np.mean(x * x)))
+    if cur_rms <= 1e-6:
+        return x
+    gain = float(np.clip(target_rms / cur_rms, 0.72, 1.38))
+    return np.clip(x * gain, -0.98, 0.98).astype(np.float32)
+
+
 def gemini_tts_raw(key, text, vname, timeout=180, raw_script=None):
-    """v4.02: Gemini TTS -> (pcm bytes, mime). For Gemini 3.8+ TTS sends PURE Hindi script verbatim (never speaks prompt!)."""
+    """v4.33: 100% Locked Single-Model Gemini TTS (Charon stays identical across entire 5-10 min video!)."""
     import requests, base64, time
     TTS_BUSY["flag"] = False
     TTS_QUOTA["out"] = False
     busy_only = True
     key_pool = _gemini_key_pool(key)
     pure_script = (raw_script or "").strip() or _strip_prompt_header(text)
+    locked = _LOCKED_TTS.get("model")
     for ki, k_cur in enumerate(key_pool):
-        models = _tts_models(k_cur)[:4]
+        base_models = _tts_models(k_cur)[:4]
+        # v4.33 VOICE LOCK: If Chunk 1 already succeeded on a model, stay STRICTLY on that locked model first
+        # with patient backoff (5s->10s->15s->20s) so voice NEVER drifts/switches mid-video!
+        if locked:
+            models = [locked] + [m for m in base_models if m != locked]
+        else:
+            models = base_models
         for model in models:
             send_text = pure_script if _is_verbatim_tts_model(model) else text
-            for attempt in range(2):
+            max_tries = 4 if (locked and model == locked) else 2
+            for attempt in range(max_tries):
                 try:
                     r = requests.post(f"https://generativelanguage.googleapis.com/v1beta/models/{model}:generateContent",
                                       params={"key": k_cur}, headers={"x-goog-api-key": k_cur}, timeout=timeout, json={
@@ -261,8 +288,9 @@ def gemini_tts_raw(key, text, vname, timeout=180, raw_script=None):
                         log(f"  gemini tts {model} (key#{ki+1}): aaj ki awaaz limit khatam", show=False)
                         TTS_QUOTA["out"] = True; break
                     if r.status_code in (429, 500, 503):
-                        log(f"  gemini tts {model} (key#{ki+1}): {r.status_code}, ruk ke dobara", show=False)
-                        time.sleep(4); continue
+                        wait_s = min(20, 5 * (attempt + 1)) if (locked and model == locked) else 4
+                        log(f"  gemini tts {model} (key#{ki+1}): {r.status_code}, {wait_s}s ruk ke same voice retry...", show=False)
+                        time.sleep(wait_s); continue
                     if r.status_code == 404:
                         log(f"  gemini tts {model}: 404 retired – agla model try...", show=False)
                         break
@@ -271,6 +299,9 @@ def gemini_tts_raw(key, text, vname, timeout=180, raw_script=None):
                         log(f"  gemini tts {model}: {r.status_code} {r.text[:200]}", show=False); break
                     part = r.json()["candidates"][0]["content"]["parts"][0]["inlineData"]
                     TTS_QUOTA["out"] = False
+                    if not _LOCKED_TTS.get("model"):
+                        _LOCKED_TTS["model"] = model
+                        log(f"  🎙️ Charon voice locked on {model} (poori video ke liye ek hi awaaz ✓)", show=False)
                     return base64.b64decode(part["data"]), part.get("mimeType", "")
                 except Exception as e:
                     log(f"  gemini tts {model} error: {e}", show=False); time.sleep(3)
@@ -296,8 +327,45 @@ def gemini_demo(key, line, names, out_dir, note=None):
     return out
 
 
-def gemini_voice(lines, style, work, key, strict_plain=False):
-    """One call to Gemini TTS for the whole script, then split into lines at pauses."""
+def gemini_voice(lines, style, work, key, strict_plain=False, _allow_chunk=True):
+    """v4.33: Locked Charon Gemini TTS. Auto-chunks >350-word scripts (5-10 min) on the SAME locked model + matched RMS."""
+    total_words = sum(len(str(ln or "").split()) for ln in (lines or []))
+    if _allow_chunk and len(lines) >= 12 and total_words > 360:
+        # Split cleanly into ~240-word chunks at sentence boundaries so even 10-min videos never break or drift!
+        chunks = []
+        cur_c, cur_w = [], 0
+        for ln in lines:
+            wc = len(str(ln or "").split())
+            if cur_c and cur_w + wc > 250:
+                chunks.append(cur_c); cur_c = [ln]; cur_w = wc
+            else:
+                cur_c.append(ln); cur_w += wc
+        if cur_c:
+            chunks.append(cur_c)
+        if len(chunks) >= 2:
+            pieces, out_sents, t_off, ref_rms = [], [], 0.0, None
+            gap = np.zeros(int(0.24 * SR), dtype=np.float32)
+            for ci, ch_lines in enumerate(chunks):
+                sub = Path(work) / f"vch_{ci}"
+                sub.mkdir(parents=True, exist_ok=True)
+                log(f"  🎙️ Charon voice part {ci+1}/{len(chunks)} ({sum(len(x.split()) for x in ch_lines)} words)...")
+                rr = gemini_voice(ch_lines, style, sub, key, strict_plain=strict_plain, _allow_chunk=False)
+                if not rr:
+                    return None
+                xc = edge_fade(load_wav(rr[0]), ms=16)
+                if ref_rms is None:
+                    ref_rms = float(np.sqrt(np.mean(xc * xc)))
+                else:
+                    xc = match_rms(xc, ref_rms)
+                for s_ in rr[1]:
+                    s_c = dict(s_); s_c["start"] += t_off; s_c["end"] += t_off
+                    s_c["words"] = [dict(w_, start=w_["start"] + t_off, end=w_["end"] + t_off) for w_ in s_["words"]]
+                    out_sents.append(s_c)
+                pieces += [xc, gap]
+                t_off += (len(xc) + len(gap)) / SR
+            wav_all = Path(work) / "voice.wav"
+            save_wav(wav_all, np.concatenate(pieces))
+            return wav_all, out_sents
     import requests, base64
     vname = GEMINI_VOICES.get(style.get("gemini_awaaz", "charon").lower(), "Charon")
     note = (style.get("gemini_andaaz") or "").strip() or DEFAULT_NOTE        # aapki AI Studio wali style line

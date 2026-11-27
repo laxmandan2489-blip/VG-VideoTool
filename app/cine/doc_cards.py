@@ -713,10 +713,11 @@ class RealisticNewsProofCard:
             for li, ln in enumerate(self.hl_lines):
                 _draw_mixed_text(dp, (74, 500 + li * 82), ln, self.f_pg_hi, self.f_pg_en, fill=(18, 16, 14, 252))
 
-            tilt = -0.05 + 0.08 * (3 * t * t - 2 * t * t * t)
-            z = 0.88 + 0.14 * ent + 0.07 * t
-            pws = W * 0.94 * z; phs = pws * (self.PH / self.PW)
-            cx, cy = W * 0.50, H * 0.52 + (1 - ent) * 110 - t * 18
+            # v4.32: Crisp fixed-frame broadsheet (no over-zoom or heavy edge slide!)
+            tilt = -0.015 + 0.03 * (3 * t * t - 2 * t * t * t)
+            z = 0.88 + 0.05 * ent + 0.02 * t
+            pws = W * 0.92 * z; phs = pws * (self.PH / self.PW)
+            cx, cy = W * 0.50, H * 0.50 + (1 - ent) * 42 - t * 6
             dst = [
                 (cx - pws * (0.5 - tilt * 0.6), cy - phs * 0.5 - tilt * 38),
                 (cx + pws * (0.5 - tilt * 0.6), cy - phs * 0.5 + tilt * 38),
@@ -810,12 +811,12 @@ class RealisticNewsProofCard:
         dp = ImageDraw.Draw(pg, "RGBA")
         for li, ln in enumerate(self.hl_lines):
             _draw_mixed_text(dp, (74, 500 + li * 82), ln, self.f_pg_hi, self.f_pg_en, fill=(18, 16, 14, 252))
-        z = 0.90 + 0.12 * ent + 0.06 * t
-        pws = int(W * 0.94 * z); phs = int(pws * (self.PH / self.PW))
+        z = 0.88 + 0.05 * ent + 0.02 * t
+        pws = int(W * 0.92 * z); phs = int(pws * (self.PH / self.PW))
         scaled = pg.resize((max(10, pws), max(10, phs)), Image.LANCZOS).convert("RGBA")
         frame = Image.new("RGBA", (W, H), (14, 15, 20, 255))
         px0 = (W - pws) // 2
-        py0 = int((H - phs) // 2 + (1 - ent) * 80 - t * 14)
+        py0 = int((H - phs) // 2 + (1 - ent) * 36 - t * 6)
         frame.alpha_composite(scaled, (px0, py0))
         return frame.convert("RGB")
 

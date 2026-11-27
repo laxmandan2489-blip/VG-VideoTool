@@ -150,7 +150,13 @@ def read_script(path):
             continue
         if s.startswith("##"):
             name = s.lstrip("#").strip()
-            if name: SECTIONS.append((len(lines), name))
+            # v4.33: NEVER add generic "अध्याय 1..9" / "भाग 1..9" / "Chapter 1..9" / "Part 1..9" chapter cards!
+            if name and not re.search(r"^(?:अध्याय|भाग|अंक|खंड|adhyaay|adhyay|bhaag|bhag|chapter|part|block|section)\s*[0-9०-९\-:.]*", name, re.I):
+                SECTIONS.append((len(lines), name))
+            continue
+        # Also strip accidental leading "अध्याय 1:" / "भाग 2:" / "Chapter 3:" from spoken lines
+        s = re.sub(r"^(?:अध्याय|भाग|अंक|chapter|part|block)\s*[0-9०-९]+\s*[:\-—–।]?\s*", "", s, flags=re.I).strip()
+        if not s:
             continue
         if s.startswith("#"):
             continue
@@ -172,8 +178,14 @@ def read_script(path):
                 break
             continue
         hint = ""
+        # v4.32: Also handle `// AI: ...` (even mid-line) so it NEVER leaks into voice or subtitles!
         if "||" in s:
             s, hint = [x.strip() for x in s.split("||", 1)]
+        elif re.search(r"//\s*AI\s*:", s, re.I):
+            _m_ai_sl = re.search(r"//\s*(AI\s*:[^\u0900-\u097F।]+)", s, re.I)
+            if _m_ai_sl:
+                hint = _m_ai_sl.group(1).strip()
+                s = re.sub(r"\s*//\s*AI\s*:[^\u0900-\u097F।]+", " ", s, flags=re.I).strip()
         else:
             # v3.18: user slash se bhi batata hai ki line pe kya dikhe:  "लाइन / Voyager 1 spacecraft"  ya  "लाइन // ..."
             # (https:// wala slash, 24/7 jaise number aur ‘और/या’ jaise Hindi shabd hint nahi maane jaate)
@@ -234,8 +246,9 @@ def section_voice(lines, style, work, key):
     starts = [i for i, _ in SECTIONS if i < len(lines)]
     if not starts or starts[0] != 0: starts = [0] + starts
     bounds = list(zip(starts, starts[1:] + [len(lines)]))
-    pieces = []; sents = []; t = 0.0
-    gap = np.zeros(int(0.45 * voice.SR), dtype=np.float32)
+    voice.reset_tts_lock()
+    pieces = []; sents = []; t = 0.0; ref_rms = None
+    gap = np.zeros(int(0.32 * voice.SR), dtype=np.float32)
     for k, (a, b) in enumerate(bounds):
         if b <= a: continue
         sub = work / f"sec_{k}"; sub.mkdir(exist_ok=True)
@@ -243,7 +256,11 @@ def section_voice(lines, style, work, key):
         r = voice.gemini_voice(lines[a:b], style, sub, key)
         if not r:
             log("   section awaaz nahi bani – poori ek saath try karunga", show=False); return None
-        x = voice.edge_fade(voice.load_wav(r[0]))
+        x = voice.edge_fade(voice.load_wav(r[0]), ms=16)
+        if ref_rms is None:
+            ref_rms = float(np.sqrt(np.mean(x * x)))
+        else:
+            x = voice.match_rms(x, ref_rms)
         for s in r[1]:
             s = dict(s); s["start"] += t; s["end"] += t
             s["words"] = [dict(w, start=w["start"] + t, end=w["end"] + t) for w in s["words"]]
@@ -505,6 +522,7 @@ def main():
             if LONG and len(SECTIONS) >= 2:
                 res = section_voice(lines, style, work, keys["GEMINI"])
             if not res:
+                voice.reset_tts_lock()
                 res = voice.gemini_voice_checked(lines, style, work, keys["GEMINI"])   # v2.15: chhooti line pakdo
             if not res and voice.TTS_BUSY["flag"] and not voice.TTS_QUOTA["out"]:
                 res = gemini_wait(lambda: (section_voice(lines, style, work, keys["GEMINI"]) if LONG and len(SECTIONS) >= 2
@@ -1619,11 +1637,16 @@ def main():
                         _UG.register(it)
                 elif items:
                     _beat_ai_done = False
-                    if (VMODE_AI or yes(style.get("ai_visual_auto", "haan"))) and j >= 1 and (i not in face_lines):
+                    # v4.32: First check unused VIDEO clips (video preference over image!), then fresh AI beat
+                    _unused_vids = [x for x in items if x.get("kind") == "video" and not _UG.is_duplicate(x)]
+                    if _unused_vids:
+                        it = dict(_unused_vids[0])
+                        _beat_ai_done = True
+                    elif (VMODE_AI or yes(style.get("ai_visual_auto", "haan"))) and j >= 1 and (i not in face_lines):
                         try:
                             import cloud_visuals as _cv_b2
                             _q_b2 = str(sources.SHOW.get(i) or (eng[i] if i < len(eng) and eng[i] else s.get("script") or s["text"]))
-                            _ai_b2 = _cv_b2.generate_scene_image(f"close-up emotional reaction angle, {_q_b2}, beat {j+1}",
+                            _ai_b2 = _cv_b2.generate_scene_image(f"different documentary angle, candid real-world shot, {_q_b2}, beat {j+1}",
                                                                  work / "ai_visuals", topic=_clean_title(title, ""), W=W, H=H, keys=keys)
                             if _ai_b2 and Path(_ai_b2).exists():
                                 it = {"kind": "image", "path": Path(_ai_b2), "credit": "", "src": "cloud flux (beat)", "fullbleed": True}
@@ -1631,10 +1654,15 @@ def main():
                         except Exception:
                             pass
                     if not _beat_ai_done:
-                        vids = [x for x in items if x["kind"] == "video"] or items
-                        it = dict(vids[j % len(vids)])     # video ka alag hissa (photo nahi)
-                        if it.get("hero"):                 # v3.1: wahi photo isi line me dobara -> alag crop
-                            it["crop_v"] = int(it.get("crop_v") or 0) + j
+                        vids = [x for x in items if x["kind"] == "video"]
+                        if vids:
+                            it = dict(vids[j % len(vids)])     # video ka alag hissa (video preferred over repeating image!)
+                        else:
+                            # v4.32 ZERO PHOTO REPEAT GUARANTEE (Shorts + Longs!): NEVER cut to the exact same photo 2-4x!
+                            if plan and plan[-1][2] and plan[-1][2].get("kind") == "image" and str(plan[-1][2].get("path")) == str(items[0].get("path")):
+                                plan[-1] = (plan[-1][0], pts[j + 1], plan[-1][2])
+                                continue
+                            it = dict(items[0])
                 else:
                     # v3.1: static Hindi text card NAHI (upar faltu Hindi likha aata tha) -> chalta kinetic keyword card
                     it = None

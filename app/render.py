@@ -207,10 +207,12 @@ def video_frame_vf(src, W, H, style):
     # a dark blurred backdrop so the full subject stays visible. Set smart_frame_fit = nahi for old hard crop.
     # v4.13 CINEMATIC FULL-SCREEN SHORTS: fill vertical 9:16 screen with smart_x subject tracking
     # (eliminates tiny 38% horizontal strip + 62% blur bars). Reversible via style.txt: shorts_full_frame = nahi
-    if yes(style.get("shorts_full_frame", "haan")) and W < H and fit != "poora":
-        fit = "bhar"
-    elif yes(style.get("smart_frame_fit", "haan")) and W < H and ar >= 1.35 and fit != "bhar":
+    # v4.32 SMART FRAME FIT: Wide landscape videos (16:9, ar >= 1.35) in 9:16 Shorts use clean blurred-cinema
+    # full-frame fit so rifles/subjects are NEVER brutally 3.16x zoomed/chopped! Vertical/square clips fill 100%.
+    if yes(style.get("smart_frame_fit", "haan")) and W < H and ar >= 1.35 and fit != "bhar":
         fit = "auto"
+    elif yes(style.get("shorts_full_frame", "haan")) and W < H and fit != "poora":
+        fit = "bhar"
     elif fit != "poora":
         fit = "bhar"
     if same_shape or fit == "bhar" or not (w and h) or W > H or ar < 0.8:
@@ -220,7 +222,7 @@ def video_frame_vf(src, W, H, style):
     if fit == "poora":
         bw = W; bh = int(W / ar) // 2 * 2
     elif ar >= 1.25:                                   # leti video
-        bw = W; bh = int(W / ar * 1.22) // 2 * 2       # 22% bada -> kam kaali jagah, sirf thode side kate
+        bw = W; bh = int(W / ar * 1.08) // 2 * 2       # v4.32: poora frame saaf dikhe (zero heavy zoom/crop!)
     else:
         bw = W; bh = int(W * 5 / 4) // 2 * 2
     bh = min(bh, H)
@@ -466,14 +468,14 @@ def render_shot(item, dur, out, style, idx, effect=None, trans=None):
     tmp = Path(out).with_suffix(".jpg"); im.save(tmp, quality=93)
     cx = "iw/2-(iw/zoom/2)"; cy = "ih/2-(ih/zoom/2)"
     # v3.13 FIX ("chehra bahut zoom / poori photo nahi"): photo pe zoom 16% -> 6%, punch 1.32 -> 1.15
-    zz = 0.06 if yes(style.get("photo_poora", "haan")) else 0.16
+    zz = 0.04 if yes(style.get("photo_poora", "haan")) else 0.08  # v4.32: gentle zoom-out/settle, zero over-zoom
     if effect == "punch":
         z = f"if(lt(on,6),1.15-0.022*on,1.02+0.04*(on-6)/{frames})"; x = cx; y = cy
     elif yes(style.get("zoom")):
         mode = idx % 3
-        if mode == 0:   z = f"1+{zz}*on/{frames}"; x = cx; y = cy
-        elif mode == 1: z = f"{1+zz}-{zz}*on/{frames}"; x = cx; y = cy
-        else:           z = f"{1+zz*0.6:.3f}"; x = f"(iw-iw/zoom)*on/{frames}"; y = cy
+        # v4.32: Clean gentle zoom-out settle into full frame (no heavy zoom-in cropping edges!)
+        if mode in (0, 2): z = f"{1+zz}-{zz}*on/{frames}"; x = cx; y = cy
+        else:              z = f"1+{zz*0.75:.4f}*on/{frames}"; x = cx; y = cy
     else:
         z = "1"; x = cx; y = cy
     if idx == 0 and yes(style.get("punch_shuru", "haan")) and effect != "punch":
