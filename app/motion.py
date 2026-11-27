@@ -151,6 +151,10 @@ def find_events(sents, style, total):
             t = w["start"]
             if t - last < gap: continue
             has_num = bool(re.search(r"[0-9०-९]", c))
+            _nxt = _clean(words[i + 1]["w"]) if i + 1 < len(words) else ""
+            if has_num and (re.search(r"(वीं|वी|वां|वा|वें|th|st|nd|rd)$", c, re.I) or
+                            re.match(r"(सदी|शताब्दी|century|centuries)", _nxt or "", re.I)):
+                continue      # v5.1: "19वीं सदी" ginti nahi (pehle laal "14 -> 19" counter aa jaata tha)
             if has_num or c in MULT:
                 a = i - 1 if (c in MULT and i > 0 and not has_num) else i
                 b = i

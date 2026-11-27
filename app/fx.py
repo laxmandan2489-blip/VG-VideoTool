@@ -622,15 +622,20 @@ def map_clip(place, label, dur, out, W, H, style, work, fps=30):
         for p in polys:
             pts = [(_wm(la, lo, zm)[0] - ox, _wm(la, lo, zm)[1] - oy) for lo, la in p]
             if len(pts) >= 3: dm.polygon(pts, fill=255)
+        # v5.2 GOOGLE-EARTH DOCUMENTARY LOOK: jagah ke andar ASLI satellite rang (pehle sab laal pot diya jaata tha
+        # -> "ghatiya" lagta tha), bahar halka andhera + feeka, seema pe chamakti peeli line + glow.
         a = np.asarray(mos).astype(np.float32)
         lum = a.mean(axis=2, keepdims=True)
-        red = np.clip(lum * np.array([1.55, 0.16, 0.16]) + np.array([40, 0, 0]), 0, 255)
-        mk = (np.asarray(mask.filter(ImageFilter.GaussianBlur(1.2))).astype(np.float32) / 255)[..., None]
-        outside = a * 0.78
-        a2 = outside * (1 - mk) + red * mk
+        mk = (np.asarray(mask.filter(ImageFilter.GaussianBlur(1.5))).astype(np.float32) / 255)[..., None]
+        inside = np.clip(a * 1.10 + 6, 0, 255)
+        outside = (a * 0.35 + lum * 0.65) * 0.50
+        a2 = outside * (1 - mk) + inside * mk
         mos = Image.fromarray(a2.astype("uint8"))
-        edge = mask.filter(ImageFilter.FIND_EDGES).filter(ImageFilter.MaxFilter(3))
-        mos.paste((255, 235, 235), (0, 0), edge.point(lambda v: 200 if v > 40 else 0))
+        lw = max(3, int(round(mos.width / 420)))
+        edge = mask.filter(ImageFilter.FIND_EDGES).filter(ImageFilter.MaxFilter(lw | 1))
+        glow = edge.filter(ImageFilter.GaussianBlur(lw * 3)).point(lambda v: min(255, int(v * 2.2)))
+        mos.paste((255, 196, 0), (0, 0), glow.point(lambda v: int(v * 0.55)))
+        mos.paste((255, 222, 60), (0, 0), edge.point(lambda v: 255 if v > 40 else 0))
     else:
         mos = Image.fromarray((np.asarray(mos).astype(np.float32) * 0.85).astype("uint8"))
     # pin + naam

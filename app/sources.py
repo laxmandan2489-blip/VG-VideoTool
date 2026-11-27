@@ -464,9 +464,18 @@ def pexels_videos(q, key):
     """v3.8: Pexels video search (free API key: pexels.com/api). 720p+ file, khadi pehle."""
     if not key: return []
     try:
+        # v5.1: Shorts ke liye khadi (portrait) video pehle – crop/zoom ki zaroorat hi nahi
+        vids = []
+        try:
+            rp = S.get("https://api.pexels.com/videos/search", params={"query": q, "per_page": 10, "orientation": "portrait"},
+                       headers={"Authorization": key}, timeout=TIMEOUT)
+            vids = rp.json().get("videos", []) or []
+        except Exception:
+            vids = []
         r = S.get("https://api.pexels.com/videos/search", params={"query": q, "per_page": 15},
                   headers={"Authorization": key}, timeout=TIMEOUT)
-        vids = r.json().get("videos", [])
+        _seen_ids = {v.get("id") for v in vids}
+        vids += [v for v in (r.json().get("videos", []) or []) if v.get("id") not in _seen_ids]
     except Exception as e:
         log(f"  pexels video error: {e}", show=False); return []
     out = []

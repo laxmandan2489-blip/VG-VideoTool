@@ -165,13 +165,16 @@ class PhotoHero:
         ar = im.width / im.height; ar_out = W / H
         # chaukor (1:1) se chaudi photo -> poori; lagbhag khadi (4:5) -> poori screen, subject ki taraf crop
         # v4.23 FULL-SCREEN 9:16 SHORTS: fill vertical frame with CLIP smart_x tracking for normal 16:9 photos (ar <= 2.2), only letterbox extreme panoramas
-        self.fit_whole = (ar > 2.2) if (W < H) else ((ar > 2.0) if whole is False else (ar / ar_out > 1.6 if whole else ar > 2.0))
+        # v5.1 FIX ("frame bahut zoom, poori nahi dikhti"): v4.23 me 9:16 me 16:9 photo ko poori screen bharne ke
+        # liye beech se ~70% kaat dete the. Ab chaukor ya chaudi photo (ar > 0.85) POORI dikhti hai (poori chaudai,
+        # upar-neeche usi ka blur); sirf lagbhag-khadi (4:5 ya patli) photo screen bharti hai.
+        self.fit_whole = (ar > 0.85) if (W < H) else ((ar > 2.0) if whole is False else (ar / ar_out > 1.6 if whole else ar > 2.0))
         self.fx = focus_x(im, focus_text or name) if (focus_text or name) else 0.5
         self.how = "flat"
         base = _cover(im, W, H, 1.03, self.fx)
         self.bg = base.filter(ImageFilter.GaussianBlur(30)).point(lambda v: int(v * 0.45)) if self.fit_whole else None
         if self.fit_whole:
-            f = min(W * 1.0 / im.width, H * 0.66 / im.height)        # v3.13: poori chaudai (chhota card nahi)
+            f = min(W * 1.0 / im.width, H * 0.70 / im.height)        # v3.13: poori chaudai (chhota card nahi)
             self.card = im.resize((int(im.width * f), int(im.height * f)), Image.LANCZOS)
             self.lays = None
         else:

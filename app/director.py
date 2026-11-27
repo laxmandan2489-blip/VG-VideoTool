@@ -27,11 +27,11 @@ from common import log
 PASS = 7.0          # is se upar = beat sahi (Gemini 0-10)
 AI_OK = 6.0         # AI photo is se kam -> ek baar dobara
 VIDEO_BONUS = 0.6   # barabar ho to chalti video, photo se pehle
-STATE = {"on": False, "beats": {}, "lock": {}, "report": {}, "judge": "none"}
+STATE = {"on": False, "beats": {}, "lock": {}, "report": {}, "judge": "none", "planner": "rules", "ai_fail": 0}
 _LOCK = threading.Lock()
 
-SKIP_SRC = ("aapki footage", "aapka link", "chehra", "map", "news card", "tweet card", "ai explainer",
-            "blender", "film trailer", "my_clips")
+SKIP_SRC = ("aapki footage", "aapka link", "chehra", "ai explainer", "blender", "film trailer", "my_clips")
+CARD_SRC = ("map", "news card", "tweet card")      # v5.1: poori line ka card nahi – sirf pehla beat, baaki asli footage
 
 
 # ------------------------------------------------------------------ helpers
@@ -52,44 +52,100 @@ def _line_text(s):
     return _s((s or {}).get("script") or (s or {}).get("text"), 400)
 
 
+# ------------------------------------------------------------------ 0) GitHub Models (FREE, alag quota)
+# v5.1: GitHub Actions ka apna GITHUB_TOKEN (workflow me "permissions: models: read") se GPT-4.1 / GPT-4.1-mini
+# FREE milta hai – Gemini ki free limit se bilkul alag. Plan + photo jaanch pehle yahin se, phir Gemini, phir Groq.
+GH_URL = "https://models.github.ai/inference/chat/completions"
+GEO_RE = re.compile(r"(देश|शहर|राज्य|गाँव|गांव|बॉर्डर|सीमा|नक्शा|महाद्वीप|सफर|यात्रा|किलोमीटर|नदी|पहाड़|समुद्र|द्वीप|"
+                    r"country|city|state|border|continent|route|journey|km|river|mountain|ocean|island|map|"
+                    r"[A-Z][a-z]+ (?:में|से|तक|की|के|का))")
+GH = {"dead": set(), "used": ""}
+
+
+def _gh_token():
+    import os
+    return (os.environ.get("GH_MODELS_TOKEN") or os.environ.get("GITHUB_TOKEN") or "").strip()
+
+
+def _gh_chat(content, model, max_tokens=3000, timeout=120):
+    tok = _gh_token()
+    if not tok or model in GH["dead"]:
+        return None
+    try:
+        import requests
+        r = requests.post(GH_URL, timeout=timeout, headers={"Authorization": f"Bearer {tok}",
+                                                            "Content-Type": "application/json"},
+                          json={"model": model, "temperature": 0.15, "max_tokens": max_tokens,
+                                "messages": [{"role": "user", "content": content}]})
+        if r.status_code in (401, 403, 404):
+            GH["dead"].add(model)
+            log(f"   (GitHub Models {model}: {r.status_code} – workflow me 'models: read' + GITHUB_TOKEN chahiye)", show=False)
+            return None
+        if r.status_code == 429:
+            GH["dead"].add(model)
+            log(f"   (GitHub Models {model}: aaj/abhi ki limit – Gemini pe ja raha hoon)", show=False)
+            return None
+        if r.status_code != 200:
+            log(f"   (GitHub Models {model}: HTTP {r.status_code} {r.text[:100]})", show=False)
+            return None
+        txt = r.json()["choices"][0]["message"]["content"]
+        from ai import parse_json
+        data = parse_json(txt)
+        if data is not None:
+            GH["used"] = model
+        return data
+    except Exception as e:
+        log(f"   (GitHub Models fail: {str(e)[:90]})", show=False)
+        return None
+
+
 # ------------------------------------------------------------------ 1) beat plan
-PLAN_PROMPT = """You are the director + B-roll editor of a viral Hindi YouTube Shorts / documentary channel.
-Read the WHOLE script first, understand the story, then plan visuals BEAT BY BEAT.
+PLAN_PROMPT = """You are the director + B-roll editor of a top Hindi YouTube Shorts / documentary channel.
+Read the WHOLE script first. Understand its TOPIC and GENRE (science, history, money, tech, health, crime...).
+Every visual must stay INSIDE that topic. Never drift to another genre (science video -> no random history or
+fantasy; nutrition video -> no random space or vault doors). Show what the words are ABOUT, literally.
 
 Main subject of the video: {main}
-Each numbered line below shows how many beats (shots) it needs: [beats=N]. One beat = one shot of about {step} seconds.
+Each numbered line shows how many beats (shots) it needs: [beats=N]. One beat = one shot of about {step} seconds.
 
 For EVERY beat give:
- "show": ONE concrete, literal English sentence: exactly what the viewer SEES in this shot (subject + action + place).
-         It must PROVE the words spoken during that beat. Abstract words -> the closest REAL concrete thing
-         (e.g. "paisa doob gaya" -> "worried Indian man looking at falling stock chart on laptop").
-         Every beat of a line must be a DIFFERENT shot (different subject, action or place) - never the same thing twice.
- "q": 2 short English stock-footage search queries (2-4 words each) that will find real VIDEO of this shot on
-      Pexels/Pixabay/YouTube. Concrete nouns, no abstract words, stay inside the story's world.
- "ai": a photorealistic scene description for an AI photo generator (25-45 words): subject, action, setting,
-       time of day, camera angle (wide / medium / close-up / low angle / over-the-shoulder), lighting.
-       If the topic is Indian, the people/places must look Indian. NEVER mention text, signs, logos, screens with
-       writing, charts, numbers or words. If this beat is about a REAL named person, do NOT ask to draw their face:
-       show the context instead (e.g. "silhouette of a politician at a podium in a crowded hall").
- "phrase": the first 1-3 Hindi words (copied EXACTLY from the line) at which this beat should start
-           (first beat: the line's first word).
- "real": true if this beat MUST be real footage (a real named person, a real news event, a real brand/product,
-         a real sports moment). Else false.
+ "show": ONE concrete, literal English sentence: exactly what the viewer SEES (who + doing what + where).
+         It must PROVE the words spoken in that beat. If the line talks about something humans made, show humans
+         making / using it. If the line names a country, show that country's people/streets. If it names food,
+         show that food being eaten/made. Abstract words -> the closest REAL concrete scene.
+         The beats of one line must be DIFFERENT shots (different subject, action, place or camera distance).
+ "q": 2 short English stock-VIDEO search queries (2-4 words) that would find real moving footage of this shot
+      on Pexels / Pixabay / YouTube. Concrete nouns + action. No abstract words. No text/infographic words.
+ "ai": a photorealistic scene for an AI photo generator (25-45 words): subject, action, setting, era, time of day,
+       camera distance/angle, lighting. Indian topic -> Indian people/places. Historical line -> that era's
+       clothes and places. NEVER ask for text, signs, logos, screens with writing, charts or numbers.
+ "phrase": the first 1-3 Hindi words (copied EXACTLY from the line) where this beat starts (beat 1 = line start).
+ "real": true ONLY if the beat shows a specific REAL named person, a brand logo/product, or one specific recent
+         news event that must not be faked. Generic historical or everyday scenes are NOT real (false).
+ "type": how to show it:
+         "footage" = real stock / YouTube video (default, best),
+         "archive" = real old footage/photos of a historical event or era (before ~1995),
+         "person"  = a real named person (put the exact English name in "who"; q must contain the name),
+         "map"     = a satellite map zoom to a place - ONLY when WHERE something is IS the point of the beat
+                     (a country/city/route/border being talked about). Max 1 map in the whole script.
+                     Put the place's English name in "place". Never use map for food, science, people or money.
+         "ai"      = no real footage can exist (imagination, inside the body, far future, impossible scene).
+For each line also give "means": one short English sentence - what the line is really saying.
 
-Return ONLY JSON: {{"lines": [{{"n": 1, "beats": [{{"show": "..", "q": ["..",".."], "ai": "..", "phrase": "..", "real": false}}]}}]}}
+Return ONLY JSON: {{"topic": "..", "genre": "..", "lines": [{{"n": 1, "means": "..", "beats": [{{"show": "..", "q": ["..",".."], "ai": "..", "phrase": "..", "real": false, "type": "footage", "place": "", "who": ""}}]}}]}}
 
 SCRIPT:
 {script}
 """
 
 
-def plan(sents, eng, spans, keys, main="", long_mode=False, chunk=10):
+def plan(sents, eng, spans, keys, main="", long_mode=False, chunk=8):
     """Gemini se har line ke har beat ka shot. STATE['beats'][i] = [beat dict, ...] (len = spans k)."""
     STATE["beats"].clear()
     key = (keys or {}).get("GEMINI")
     n = len(sents)
     step = 4.0 if long_mode else 2.0
-    if key:
+    if key or _gh_token():
         for a in range(0, n, chunk):
             idx = list(range(a, min(n, a + chunk)))
             ctx = ""
@@ -100,10 +156,19 @@ def plan(sents, eng, spans, keys, main="", long_mode=False, chunk=10):
                 f"{j + 1}. [beats={spans[j][2]}] {_line_text(sents[j])}"
                 + (f"   (English: {_s(eng[j], 220)})" if j < len(eng) and eng[j] else "") for j in idx)
             data = None
-            for _try in range(2):
-                data = _ask_json(key, [PLAN_PROMPT.format(main=main or "(find it from the script)", step=step,
-                                                          script=body)], temperature=0.35, timeout=150)
+            _pp = PLAN_PROMPT.format(main=main or "(find it from the script)", step=step, script=body)
+            for mdl in ("openai/gpt-4.1", "openai/gpt-4.1-mini"):        # v5.1: GitHub Models (alag free quota)
+                data = _gh_chat(_pp, mdl, max_tokens=4000, timeout=150)
                 if isinstance(data, dict) and isinstance(data.get("lines"), list):
+                    STATE["planner"] = "github " + mdl.split("/")[-1]
+                    break
+                data = None
+            for _try in range(2):
+                if data or not key:
+                    break
+                data = _ask_json(key, [_pp], temperature=0.35, timeout=150)
+                if isinstance(data, dict) and isinstance(data.get("lines"), list):
+                    STATE["planner"] = "gemini/backup"
                     break
                 data = None
             if not data:
@@ -116,6 +181,10 @@ def plan(sents, eng, spans, keys, main="", long_mode=False, chunk=10):
                     continue
                 if j not in idx:
                     continue
+                if data.get("topic") and not STATE.get("topic"):
+                    STATE["topic"] = _s(data.get("topic"), 80) + (f" ({_s(data.get('genre'), 30)})" if data.get("genre") else "")
+                if x.get("means"):
+                    STATE.setdefault("means", {})[j] = _s(x.get("means"), 200)
                 bs = []
                 for b in (x.get("beats") or []):
                     if not isinstance(b, dict):
@@ -125,8 +194,17 @@ def plan(sents, eng, spans, keys, main="", long_mode=False, chunk=10):
                     q = [_s(q_, 50) for q_ in (b.get("q") or []) if isinstance(q_, str) and _s(q_)][:3]
                     if not show and not q:
                         continue
-                    bs.append({"show": show or (q[0] if q else ""), "q": q or [show[:40]], "ai": ai_p,
-                               "phrase": _s(b.get("phrase"), 40), "real": bool(b.get("real"))})
+                    typ = _s(b.get("type"), 12).lower() or "footage"
+                    if typ not in ("footage", "archive", "person", "map", "ai"):
+                        typ = "footage"
+                    who = _s(b.get("who"), 60)
+                    if typ == "person" and who and not any(who.lower() in q_.lower() for q_ in q):
+                        q = [f"{who}"] + q
+                    if typ == "archive":
+                        q = q + [f"{q[0]} archive footage"] if q else q
+                    bs.append({"show": show or (q[0] if q else ""), "q": (q or [show[:40]])[:4], "ai": ai_p,
+                               "phrase": _s(b.get("phrase"), 40), "real": bool(b.get("real")) or typ == "person",
+                               "type": typ, "place": _s(b.get("place"), 60), "who": who})
                 if bs:
                     STATE["beats"][j] = bs
     # fallback: Gemini ka purana per-line plan (show / ai_prompt / q)
@@ -217,26 +295,27 @@ def _jpg(im):
 
 
 # ------------------------------------------------------------------ 2) judge (Gemini Vision, sab ke sab)
-JUDGE_PROMPT = """You are a very strict B-roll editor checking if each candidate shot matches the narration.
-For each candidate you get: the narration line (Hindi + English), the planned beats (what must be seen), and the image.
-Score 0-10:
- 10 = shows exactly what the line/beat says (right subject, right action, right context)
-  8 = clearly the right subject and context, a viewer would instantly connect it to the words
-  6 = related and acceptable but generic
-  4 = weak: same general topic but wrong subject/action/place
-  2 = wrong (different person/country/thing, misleading)
-  0 = unrelated, OR big burned-in text/subtitles/watermark/logo, foreign-language text, cartoon/meme, black/blurry frame
-Also give "b" = the beat number (1..N) this image fits best, and a 3-8 word "why".
-Return ONLY JSON: {"r": [{"c": 1, "s": 7, "b": 1, "why": ".."}]}"""
+JUDGE_PROMPT = """You are a very strict B-roll editor of a top Hindi Shorts channel. Topic of the video: {topic}.
+For each candidate you get the narration line (Hindi + English), the planned beats (what must be seen) and one frame.
+Score 0-10 how well the frame SHOWS what is being said:
+ 10 = exactly what the line/beat says (right subject, right action, right place/era)
+  8 = clearly the right subject and context - a viewer instantly connects it to the words
+  6 = right topic, generic but acceptable
+  4 = weak: same broad topic but wrong subject/action/place/era
+  2 = wrong or misleading (different person/country/thing, different genre than the video)
+  0 = unrelated; OR burned-in titles/subtitles/big text/watermark/logo; OR a slide/diagram/whiteboard/screenshot
+      of a web page; OR cartoon/clip-art when real footage is needed; OR black, washed-out, blurry or tiny frame
+"b" = beat number (1..N) the frame fits best, "why" = 3-8 words.
+Return ONLY JSON: {{"r": [{{"c": 1, "s": 7, "b": 1, "why": ".."}}]}}"""
 
 
-def _judge_batch(key, rows):
-    """rows: [(cid, line_txt, eng_txt, beats[list], PIL)] -> {cid: (score, beat_idx0, why)}"""
-    parts = [JUDGE_PROMPT]
-    for n, (cid, lt, et, bts, im) in enumerate(rows, 1):
-        bl = " | ".join(f"{k + 1}) {b}" for k, b in enumerate(bts)) or "-"
-        parts += [f"Candidate {n}: LINE: \"{lt[:220]}\" (English: {et[:200]}) BEATS: {bl[:500]}", {"jpg": _jpg(im)}]
-    data = _ask_json(key, parts, temperature=0.1, timeout=150)
+def _row_text(n, row):
+    cid, lt, et, bts, im = row
+    bl = " | ".join(f"{k + 1}) {b}" for k, b in enumerate(bts)) or "-"
+    return f"Candidate {n}: LINE: \"{lt[:220]}\" (English: {et[:200]}) BEATS: {bl[:500]}"
+
+
+def _parse_judge(data, rows):
     out = {}
     if isinstance(data, dict):
         for r in data.get("r") or data.get("results") or []:
@@ -248,6 +327,57 @@ def _judge_batch(key, rows):
                     out[rows[n][0]] = (s, b, _s(r.get("why"), 80))
             except Exception:
                 continue
+    return out
+
+
+def _judge_gh(rows):
+    """GitHub Models GPT-4.1-mini vision: har candidate ka text + uski photo saath-saath (detail low = sasta)."""
+    import base64
+    content = [{"type": "text", "text": JUDGE_PROMPT.format(topic=STATE.get("topic") or "see lines")}]
+    for n, row in enumerate(rows, 1):
+        content.append({"type": "text", "text": _row_text(n, row)})
+        content.append({"type": "image_url", "image_url": {
+            "url": "data:image/jpeg;base64," + base64.b64encode(_jpg(row[4])).decode(), "detail": "low"}})
+    for mdl in ("openai/gpt-4.1-mini", "openai/gpt-4.1"):
+        data = _gh_chat(content, mdl, max_tokens=1500, timeout=120)
+        res = _parse_judge(data, rows)
+        if res:
+            return res, "github " + mdl.split("/")[-1]
+    return {}, ""
+
+
+def _judge_gemini(key, rows):
+    parts = [JUDGE_PROMPT.format(topic=STATE.get("topic") or "see lines")]
+    for n, row in enumerate(rows, 1):
+        parts += [_row_text(n, row), {"jpg": _jpg(row[4])}]
+    try:
+        from ai import _ask_gemini, parse_json        # sirf Gemini (backup Groq 5 photo se zyada nahi le sakta)
+        txt = _ask_gemini(key, parts, True, False, 0.1, 150, 3, 240)
+        return _parse_judge(parse_json(txt), rows)
+    except Exception as e:
+        log(f"   (director gemini judge: {str(e)[:90]})", show=False)
+        return {}
+
+
+def _judge_backup(keys, rows):
+    """Groq / OpenRouter free vision: 1 request me max 3 photo, photo usi kram me jaise candidates likhe."""
+    out = {}
+    try:
+        import free_ai
+        bk = {k: v for k, v in (keys or {}).items() if k in ("GROQ", "OPENROUTER") and v}
+        if not bk:
+            return out
+        for a in range(0, len(rows), 3):
+            ch = rows[a:a + 3]
+            prompt = JUDGE_PROMPT.format(topic=STATE.get("topic") or "see lines") + \
+                "\nThe images are attached in the SAME order as the candidates.\n" + \
+                "\n".join(_row_text(n, r) for n, r in enumerate(ch, 1)) + "\nReply with JSON only."
+            txt, who = free_ai.ask_vision(bk, prompt, [_jpg(r[4]) for r in ch])
+            if txt:
+                from ai import parse_json
+                out.update(_parse_judge(parse_json(txt), ch))
+    except Exception as e:
+        log(f"   (director backup judge: {str(e)[:90]})", show=False)
     return out
 
 
@@ -273,26 +403,38 @@ def _clip_judge(rows):
     return out
 
 
-def judge(rows, keys, batch=10, threads=2):
+def judge(rows, keys, batch=8, threads=2):
+    """v5.1 jaanch ki chain: GitHub Models (alag free quota) -> Gemini -> Groq/OpenRouter -> CLIP andaza."""
     key = (keys or {}).get("GEMINI")
-    res = {}
+    res, who = {}, set()
     if not rows:
         return res
     chunks = [rows[a:a + batch] for a in range(0, len(rows), batch)]
-    if key:
+    if _gh_token():
         with ThreadPoolExecutor(max_workers=threads) as ex:
-            for r in ex.map(lambda ch: _judge_batch(key, ch), chunks):
-                res.update(r or {})
-        if res:
-            STATE["judge"] = "gemini"
+            for r, w in ex.map(_judge_gh, chunks):
+                if r:
+                    res.update(r); who.add(w)
+    miss = [r for r in rows if r[0] not in res]
+    if miss and key:
+        chunks = [miss[a:a + batch] for a in range(0, len(miss), batch)]
+        with ThreadPoolExecutor(max_workers=threads) as ex:
+            for r in ex.map(lambda ch: _judge_gemini(key, ch), chunks):
+                if r:
+                    res.update(r); who.add("gemini")
     miss = [r for r in rows if r[0] not in res]
     if miss:
-        cl = _clip_judge(miss)
-        if cl and STATE["judge"] != "gemini":
-            STATE["judge"] = "clip"
-        elif cl:
-            STATE["judge"] = "gemini+clip"
-        res.update(cl)
+        r = _judge_backup(keys, miss)
+        if r:
+            res.update(r); who.add("groq/openrouter")
+    miss = [r for r in rows if r[0] not in res]
+    if miss:
+        r = _clip_judge(miss)
+        if r:
+            res.update(r); who.add("clip")
+    if who:
+        old = set(x for x in str(STATE.get("judge") or "").split("+") if x and x != "none")
+        STATE["judge"] = "+".join(sorted(old | who))
     return res
 
 
@@ -314,7 +456,7 @@ class _Dedup:
         if k not in self._cache:
             try:
                 from unique_guard import _dhash
-                im = it.get("_im") or _frame(it, 160)
+                im = _frame(it, 160)
                 self._cache[k] = _dhash(im) if im is not None else None
             except Exception:
                 self._cache[k] = None
@@ -366,11 +508,40 @@ def _special(items):
 
 
 def judge_and_fill(found, sents, eng, keys, work, W, H, topic="", skip_lines=(), user_ai=None, face_lines=(),
-                   style=None, time_budget_s=420):
-    """found[i] = (items, kw). Har normal line ko exactly k beat ke verified visual deta hai (item['dir']=True)."""
+                   style=None, time_budget_s=420, search_fn=None, map_fn=None, spans=None, max_maps=1):
+    """found[i] = (items, kw). Har normal line ko verified visual deta hai (item['dir']=True). Jo beat sahi na bhare,
+    wo hata diya jaata hai (pichhla shot lamba chalega) – ek hi clip 2 baar NAHI."""
     t0 = time.time()
     user_ai = user_ai or {}
+    STATE["judge"] = "none"; STATE["ai_fail"] = 0
+    if topic and not STATE.get("topic"):
+        STATE["topic"] = _s(topic, 80)
+    vertical = H > W
     guard = _Dedup()
+    # v5.1: map / news / tweet card -> sirf pehla beat; us line ke baaki beat ke liye asli footage khojo
+    cards = {}
+    for i in range(len(found)):
+        its = list(found[i][0] or [])
+        if i in skip_lines or i in face_lines or not its or not STATE["beats"].get(i):
+            continue
+        if any(str(x.get("src", "")).lower().startswith(CARD_SRC) for x in its) and \
+                not any(str(x.get("src", "")).lower().startswith(SKIP_SRC) or x.get("face") for x in its):
+            card = next(x for x in its if str(x.get("src", "")).lower().startswith(CARD_SRC))
+            cards[i] = dict(card, whole=False, ss=0.0, dir=True, vscore=None, vwhy="card", beat=0)
+            found[i] = ([], found[i][1])
+    if cards and search_fn is not None:
+        def _srch(i):
+            try:
+                r = search_fn(i)
+                return i, list((r[0] if isinstance(r, tuple) else r) or [])
+            except Exception:
+                return i, []
+        with ThreadPoolExecutor(max_workers=3) as ex:
+            for i, its in ex.map(_srch, list(cards)):
+                its = [x for x in its if not str(x.get("src", "")).lower().startswith(CARD_SRC + SKIP_SRC)
+                       and not x.get("whole")]
+                found[i] = (its, found[i][1])
+        log(f"   🗺 Director: {len(cards)} card-line (map/news/tweet) – card sirf pehle beat pe, baaki asli footage")
     try:
         import visual_brain as _vb
     except Exception:
@@ -399,16 +570,51 @@ def judge_and_fill(found, sents, eng, keys, work, W, H, topic="", skip_lines=(),
     with ThreadPoolExecutor(max_workers=4) as ex:
         for lst in ex.map(_prep, lines_todo):
             for cid, i, it, im in lst:
-                cmap[cid] = (i, it)
+                cmap[cid] = (i, dict(it, _ar=round(im.width / max(1, im.height), 3)))
                 rows.append((cid, _line_text(sents[i]), _s(eng[i] if i < len(eng) else "", 220), beat_texts(i), im))
-    log(f"   🎯 Director: {len(rows)} mili clips/photos Gemini Vision se jaanch raha hoon ({len(lines_todo)} lines)...")
+    log(f"   🎯 Director: {len(rows)} mili clips/photos AI aankh (GitHub/Gemini) se jaanch raha hoon ({len(lines_todo)} lines)...")
     J = judge(rows, keys)
+    # --- a2) Planner ne jahan "map" kaha (aur line sach me jagah ki baat kare) -> asli satellite map (Google Earth jaisa)
+    map_items = {}
+    if map_fn is not None and max_maps > 0:
+        mj = []
+        for i in lines_todo:
+            if i in cards:
+                continue
+            if not GEO_RE.search(_line_text(sents[i])):
+                continue
+            for j, b in enumerate(STATE["beats"].get(i) or []):
+                if b.get("type") == "map" and b.get("place"):
+                    mj.append((i, j, b["place"])); break
+            if len(mj) >= max_maps:
+                break
+        def _mk(x):
+            i, j, place = x
+            try:
+                k = len(STATE["beats"][i]) or 1
+                dur = (float(spans[i][1]) - float(spans[i][0])) if spans else 4.0
+                dur = max(2.6, dur * min(1.0, 2.0 / k) + 0.3)          # map ko kam se kam 2 beat ka samay
+                out = Path(work) / "shots" / f"dmap_{i:02d}_{j}.mp4"
+                out.parent.mkdir(parents=True, exist_ok=True)
+                p = map_fn(place, dur, out)
+                return (i, j, p, place)
+            except Exception as e:
+                log(f"   (director map skip: {str(e)[:80]})", show=False)
+                return (i, j, None, place)
+        with ThreadPoolExecutor(max_workers=2) as ex:
+            for i, j, p, place in ex.map(_mk, mj):
+                if p and Path(str(p)).exists():
+                    map_items[(i, j)] = {"kind": "video", "path": Path(str(p)), "credit": "Satellite imagery (map tiles)",
+                                         "src": "map (director)", "ss": 0.0, "dir": True, "vscore": None,
+                                         "vwhy": f"map: {place}", "beat": j}
+                    log(f"   🛰 line {i + 1}: satellite map – {place}")
     # --- b) har beat ko sabse achha visual (pehle na laga, video ko thodi preference)
     plan_out, need_ai = {}, []
     for i in lines_todo:
         beats = STATE["beats"][i]
         k = len(beats)
         cands = []
+        start_j = 0
         for cid, (ii, it) in cmap.items():
             if ii != i:
                 continue
@@ -421,18 +627,31 @@ def judge_and_fill(found, sents, eng, keys, work, W, H, topic="", skip_lines=(),
         line_real = bool(_vb and _vb.is_real_line(i))
         chosen = [None] * k
         used = set()
-        for j in range(k):
+        skip_j = set()
+        if i in cards:
+            chosen[0] = cards[i]; start_j = 1
+            if str(cards[i].get("src", "")).startswith("map") and k >= 3:
+                skip_j.add(1)                        # map ki zoom animation ko 2 beat ka samay
+        for (mi, mj_), mit in map_items.items():
+            if mi == i:
+                chosen[mj_] = mit
+                if mj_ + 1 < k:
+                    skip_j.add(mj_ + 1)
+        for j in range(start_j, k):
+            if chosen[j] is not None or j in skip_j:
+                continue
             best, best_eff = None, -1e9
             for c in cands:
                 if c["cid"] in used:
                     continue
                 if guard and guard.is_duplicate(c["it"]):
                     continue
-                eff = c["s"] + (VIDEO_BONUS if c["it"].get("kind") == "video" else 0.0) + (0.8 if c["b"] == j else 0.0)
+                ar = float(c["it"].get("_ar") or 1.0)
+                eff = c["s"] + (VIDEO_BONUS if c["it"].get("kind") == "video" else 0.0) + (0.8 if c["b"] == j else 0.0) \
+                    + (0.7 if vertical and ar < 0.8 else 0.0) - (0.4 if vertical and ar > 1.9 else 0.0)
                 if eff > best_eff:
                     best, best_eff = c, eff
-            if best is not None and (best["s"] >= PASS or (beats[j].get("real") and best["s"] >= 5.0)
-                                     or (line_real and best["s"] >= 5.0)):
+            if best is not None and (best["s"] >= PASS or (beats[j].get("real") and best["s"] >= 5.0)):
                 used.add(best["cid"])
                 it = dict(best["it"], dir=True, vscore=best["s"] if best.get("judged") else None, vwhy=best["why"], beat=j)
                 chosen[j] = it
@@ -452,9 +671,11 @@ def judge_and_fill(found, sents, eng, keys, work, W, H, topic="", skip_lines=(),
             return (i, j, None, prompt)              # jaanch band – theek-thaak asli clip ko andhe me AI se nahi badlenge
         if b.get("real") and best is not None and best["s"] >= 4.0:
             return (i, j, None, prompt)              # asli event/insaan: nakli AI se behtar asli (thoda kamzor) clip
-        if b.get("real") and _vb is not None and not _vb.allow_ai_fill(i, style or {}):
-            return (i, j, None, prompt)
+        if b.get("real") and _vb is not None and (_vb.PLAN.get(i) or {}).get("person"):
+            return (i, j, None, prompt)              # asli insaan ki nakli AI photo kabhi nahi
         p = _ai_image(prompt, work, W, H, keys, topic, seed=i * 31 + j * 7 + 1)
+        if p is None:
+            STATE["ai_fail"] += 1
         return (i, j, p, prompt)
     gen_res = []
     if need_ai and time.time() - t0 < time_budget_s:
@@ -523,13 +744,8 @@ def judge_and_fill(found, sents, eng, keys, work, W, H, topic="", skip_lines=(),
                 it = dict(st["it"], dir=True, vscore=st["s"] if st.get("judged") else None, vwhy=st["why"], beat=j)
                 chosen[j] = it
                 if guard: guard.register(it)
-        # abhi bhi khaali -> line ki koi video ka ALAG hissa (repeat photo nahi)
-        for j in range(len(chosen)):
-            if chosen[j] is None:
-                vids = [c for c in chosen if c is not None and c.get("kind") == "video"]
-                if vids:
-                    v = vids[j % len(vids)]
-                    chosen[j] = dict(v, ss=float(v.get("ss") or 0.0) + 2.5 * (j + 1), beat=j, vscore=v.get("vscore"))
+        # v5.1: abhi bhi khaali beat -> HATA do (pichhla sahi shot thoda lamba chalega). Pehle yahan wahi clip
+        # dobara lagti thi -> video me ek hi cheez 2-3 baar dikhti thi.
         fin = [c for c in chosen if c is not None]
         if fin:
             found[i] = (fin, found[i][1])
@@ -545,20 +761,48 @@ def judge_and_fill(found, sents, eng, keys, work, W, H, topic="", skip_lines=(),
     weak = [l_ for l_, v in per_line.items() if v < 70]
     n_ai = sum(1 for i in lines_todo for c in found[i][0] or [] if str(c.get("src", "")).startswith("cloud flux"))
     n_vid = sum(1 for i in lines_todo for c in found[i][0] or [] if c.get("dir") and c.get("kind") == "video")
-    STATE["report"] = {"score": total, "judge": STATE["judge"], "beats": len(sc), "lines": per_line, "weak_lines": weak,
+    STATE["report"] = {"score": total, "judge": STATE["judge"], "planner": STATE.get("planner"), "ai_fail": STATE["ai_fail"],
+                       "beats": len(sc), "lines": per_line, "weak_lines": weak,
                        "ai_shots": n_ai, "video_shots": n_vid, "special_lines": n - len(lines_todo),
                        "seconds": round(time.time() - t0)}
+    if STATE["ai_fail"]:
+        log(f"   ⚠️ Director: {STATE['ai_fail']} AI photo nahi bani (Cloudflare FLUX limit/token?) – un beats pe agla shot lamba chala")
     log(f"   🎯 Director score: {total if total is not None else '?'}/100 ({STATE['judge']} ne {len(sc)} shot dekhe) – "
         f"{n_vid} asli video, {n_ai} AI photo, kamzor lines: {weak or 'koi nahi'} [{round(time.time() - t0)}s]")
     return STATE["report"]
 
 
-def report_md():
+def report_md(sents=None, found=None):
+    """v5.2 VISUAL SCRIPT: har line – tool ne kya samjha, har beat me kya dikhana tha, kya laga, kitne number, kyun.
+    Ye file Gemini / kisi editor ko seedhe de sakte ho."""
     r = STATE.get("report") or {}
-    if not r:
-        return ""
-    out = [f"# Director Visual Report – {r.get('score')}/100 (jaanch: {r.get('judge')})", ""]
-    for l_, v in sorted((r.get("lines") or {}).items()):
-        bs = STATE["beats"].get(l_ - 1) or []
-        out.append(f"- line {l_}: {v}/100 – " + " | ".join(b["show"][:60] for b in bs))
+    out = [f"# Visual Script – {r.get('score', '?')}/100", "",
+           f"Topic: {STATE.get('topic') or '-'} | Plan: {STATE.get('planner')} | Jaanch: {r.get('judge', '-')}", ""]
+    n = len(sents) if sents else (max(STATE["beats"]) + 1 if STATE["beats"] else 0)
+    for i in range(n):
+        bs = STATE["beats"].get(i) or []
+        line = _line_text(sents[i]) if sents else ""
+        out.append(f"## Line {i + 1}" + (f" – {(r.get('lines') or {}).get(i + 1)}/100" if (r.get('lines') or {}).get(i + 1) else ""))
+        if line:
+            out.append(f"> {line}")
+        if (STATE.get("means") or {}).get(i):
+            out.append(f"- **Matlab:** {STATE['means'][i]}")
+        its = list((found[i][0] if found and i < len(found) else []) or [])
+        by_beat = {x.get("beat"): x for x in its if x.get("beat") is not None}
+        for j, b in enumerate(bs):
+            got = by_beat.get(j)
+            tag = b.get("type", "footage") + (f": {b.get('place') or b.get('who')}" if (b.get("place") or b.get("who")) else "")
+            line_b = f"- Beat {j + 1}" + (f" (\"{b['phrase']}\" se)" if b.get("phrase") else "") + f" [{tag}] – dikhana: {b['show']}"
+            if got:
+                sc = got.get("vscore")
+                line_b += f"  \n  → laga: {str(got.get('src', ''))[:40]}" + (f" – {sc:.0f}/10" if sc is not None else "") + \
+                          (f" ({got.get('vwhy')})" if got.get("vwhy") else "")
+            elif str((by_beat.get(j - 1) or {}).get("src", "")).startswith("map"):
+                line_b += "  \n  → map ki zoom animation ko yahan tak ka samay diya"
+            else:
+                line_b += "  \n  → ye beat hata diya (sahi visual nahi mila, pichhla shot lamba chala)"
+            out.append(line_b)
+        if not bs and its:
+            out.append("- (special: " + ", ".join(sorted({str(x.get('src', ''))[:30] for x in its})) + ")")
+        out.append("")
     return "\n".join(out)

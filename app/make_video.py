@@ -996,8 +996,11 @@ def main():
         if i in prev_items and i not in redo:
             its = [dict(it, path=Path(it["path"])) for it in prev_items[i] if Path(it["path"]).exists()]
             if its: return (its, [])
+        _geo_ok = bool(re.search(r"(बॉर्डर|सीमा|देश|महाद्वीप|सफर|यात्रा|किलोमीटर|नक्शा|राज्य|शहर|नदी|पहाड़|समुद्र|रास्ता|"
+                                 r"border|country|continent|route|journey|km|map|ocean|river|city|state)",
+                                 str(sents[i].get("script") or sents[i]["text"] or ""), re.I))
         if SB and i < len(SB) and SB[i].get("graphic") == "map" and SB[i].get("place") and i not in user_assign \
-                and i not in face_lines and yes(style.get("map", "haan")):
+                and i not in face_lines and yes(style.get("map", "haan")) and not DIRECTOR_ON:   # v5.2: Director khud tay karta hai
             _pl_name = str((SB[i]["place"] or {}).get("name") or "").strip().lower()
             _can_cmap = False
             with _fx_map_lock:
@@ -1008,7 +1011,9 @@ def main():
                     from cine import mapanim
                     mout = work / "shots" / f"cmap_{i:02d}.mp4"
                     dur_m = spans[i][1] - spans[i][0] + 0.3
-                    mapanim.render(SB[i]["place"], dur_m, mout, W, H, style, BIBLE["palette"] if BIBLE else {}, fps=render.FPS)
+                    _pn = str((SB[i]["place"] or {}).get("name") or "")      # v5.2: pehle asli satellite (Google Earth jaisa)
+                    if not (_pn and fx.map_clip(_pn, _pn, dur_m, mout, W, H, style, work, fps=render.FPS)):
+                        mapanim.render(SB[i]["place"], dur_m, mout, W, H, style, BIBLE["palette"] if BIBLE else {}, fps=render.FPS)
                     with _fx_map_lock:
                         _fx_map_state["count"] += 1
                         if _pl_name: _fx_map_state["places"].add(_pl_name)
@@ -1320,6 +1325,11 @@ def main():
             _dtopic = (LOCK or {}).get("main_subject") or (" ".join(topic_kw) if topic_kw else _clean_title(title, ""))
             DIRECTOR_REP = _dir2.judge_and_fill(found, sents, eng, keys, work, W, H, topic=_dtopic, skip_lines=_skip,
                                                 user_ai=dict(USER_AI_HINT), face_lines=face_lines, style=style,
+                                                search_fn=job, spans=spans,
+                                                map_fn=(lambda _pl, _du, _out: fx.map_clip(_pl, _pl.split(",")[0].strip(), _du, _out,
+                                                                                           W, H, style, work, fps=render.FPS))
+                                                if yes(style.get("map", "haan")) else None,
+                                                max_maps=max(0, _fx_map_max - _fx_map_state["count"]),
                                                 time_budget_s=float(num(style, "director_time_s", 60, 1800))
                                                 if style.get("director_time_s") else (900 if LONG else 420))
             _DIR_DONE = bool(DIRECTOR_REP and DIRECTOR_REP.get("beats"))
@@ -1585,9 +1595,9 @@ def main():
                         _is_action_line = bool(re.search(r"(लॉन्च|उड़ान|क्रैश|हमला|विस्फोट|launch|liftoff|crash|explosion|blast|attack)", _ltxt, re.I))
                         _news_cap = 3 if LONG else (0 if (_is_action_line and items) else 1)
                         _px_cap = 2 if LONG else 1
-                        if items and items[0].get("dir") and items[0].get("kind") == "video" and \
-                                float(items[0].get("vscore") or 0) >= 8:
-                            _news_cap = 0; _px_cap = 0   # v5.0: sahi asli video ko text/parallax card se nahi dhakna
+                        if items and items[0].get("dir") and (items[0].get("vscore") is None or
+                                                              float(items[0].get("vscore") or 0) >= 6.5):
+                            _news_cap = 0; _px_cap = 0   # v5.1: jaancha hua sahi shot ko text/parallax card se nahi dhakna
                         _stat_pat = r"(?:[₹$€]\s*\d[\d,.]*\s*(?:करोड़|लाख|अरब|हजार|Cr|Crore|Lakh|Million|Billion|K|M|B)?|\d[\d,.]*\s*(?:%|प्रतिशत|लाख|करोड़|अरब|मिलियन|बिलियन|हजार|फीट|किलोमीटर|°C|डिग्री|Cr\b|Crore|Lakh|Million|Billion))"
                         _yr_m = re.search(r"\b(19[4-9]\d|20[0-2]\d)\b", _ltxt)
                         # Beat A: Big number / money / percent -> StatCounterProCard
@@ -2469,11 +2479,13 @@ def main():
     except Exception as e:
         log(f"   (quality gate skip: {e})", show=False)
     VREPORT = {}
+    DIRECTOR_SCRIPT_P = None
     try:                                               # v5.0: Director ka beat-wise report (artifact me upload hota hai)
         import director as _dmd
-        _dm = _dmd.report_md()
+        _dm = _dmd.report_md(sents, found)
         if _dm:
-            Path(str(Path(out).with_suffix("")) + "_DIRECTOR_VISUAL_REPORT.md").write_text(_dm, encoding="utf-8")
+            DIRECTOR_SCRIPT_P = Path(str(Path(out).with_suffix("")) + "_DIRECTOR_VISUAL_REPORT.md")
+            DIRECTOR_SCRIPT_P.write_text(_dm, encoding="utf-8")
     except Exception:
         pass
     try:                                               # v3.66: VISUAL REPORT – har line: samjha kya, chuna kya, kyun
@@ -2604,8 +2616,9 @@ def main():
             "ig_story": str(ig_story_p) if ig_story_p else None,
             "category": style.get("category") or "general",
             "review": {k: REVIEW.get(k) for k in ("score", "verdict", "issues", "not_done")} if REVIEW else {},
-            "director": {k: (DIRECTOR_REP or {}).get(k) for k in ("score", "judge", "beats", "weak_lines", "ai_shots",
-                                                                   "video_shots")} if DIRECTOR_REP else {},
+            "director_script": str(DIRECTOR_SCRIPT_P) if DIRECTOR_SCRIPT_P else None,
+            "director": {k: (DIRECTOR_REP or {}).get(k) for k in ("score", "judge", "planner", "beats", "weak_lines",
+                                                                   "ai_shots", "video_shots", "ai_fail")} if DIRECTOR_REP else {},
             "timing": (lambda tp: f"⏱ {tp[0]/60:.1f} min: " + ", ".join(f"{n_} {t_/60:.1f}" for n_, t_ in tp[1][:4] if t_ >= 5))(stage_report()),
             "voice_cache": {"wav": str(jd / "voice.wav"), "sents": str(jd / "sents.json")},
             "note": "\n".join(x for x in ((FB["note"] if FB else ""), GEM_NOTE,

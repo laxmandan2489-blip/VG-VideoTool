@@ -1,10 +1,10 @@
-=== EK BAAR KA KAAM (2 minute, phone se) – v3.73 ===
-Isse 2 cheezein hamesha ke liye theek: (1) "No space left" disk error, (2) install fail ya time-limit
-pe bhi Telegram par message + log aayega (chupchaap atki nahi rahegi).
+=== v5.1 EK BAAR KA KAAM (2 minute, phone se) ===
+Isse video tool ko FREE "GitHub Models" (GPT-4.1 photo dekhne wala AI) milta hai – har clip/photo ki jaanch
+Gemini ki free limit khatam hone par bhi sahi hoti rahegi. (Bot ZIP se .github folder nahi badal sakta, isliye haath se.)
 
 1. GitHub repo kholo -> GITHUB_PE_HAATH_SE_BADLO -> make_video.yml
 2. Upar daayein "Copy raw file" (📋) dabao
 3. Repo -> .github -> workflows -> make_video.yml -> pencil ✏️
 4. Saara text hatao -> paste -> "Commit changes" -> "Commit changes"
 
-Bas. Cookies ab GitHub Secret me nahi – cookies.txt file seedha Telegram bot ko bhejo.
+Bas. Koi nayi key nahi chahiye – GitHub apna token khud deta hai.

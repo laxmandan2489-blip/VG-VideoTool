@@ -1,3 +1,35 @@
+THE VIRAL GYAAN VIDEOTOOL — v5.2 (Script ki detail samajh + asli satellite map)
+==============================================================================
+1. Map: orange 3D blob wala map (mapanim) ab Director mode me nahi lagta. Map ab ASLI satellite photo se
+   (Sentinel-2 / Esri – Google Earth jaisa): door se zoom-in, jagah ke andar asli rang, bahar halka andhera,
+   seema pe chamakti peeli line, pin + naam. (Pehle andar sab laal pot diya jaata tha.)
+2. Map sirf tab jab Planner kahe ki "jagah hi is beat ki baat hai" AUR line me desh/shehar/safar/seema ho.
+   Short me max 1. Map ko 2 beat ka samay (zoom poora dikhe).
+3. Planner ab har line ka MATLAB likhta hai + har beat ka TYPE: footage / archive (purani asli footage) /
+   person (asli insaan – naam se khoj) / map / ai (jo filma hi nahi sakte). Search usi type se.
+4. Naya Telegram file: "Visual Script" – har line ka matlab, har beat kis shabd se shuru, kya dikhana tha,
+   kya laga, kitne number, kyun. Editing/badlaav ke liye yahi file Gemini ko de sakte ho.
+
+THE VIRAL GYAAN VIDEOTOOL — v5.1 (Director fix: asli jaanch + frame fit + no repeat)
+====================================================================================
+Pichhli video (Netherlands/height) ki report me likha tha "jaanch: clip" – matlab Gemini ki free limit khatam thi,
+photo dekhne wala AI chala hi nahi, sirf CLIP ka andaza laga. Isi se galat visual paas ho gaye. Is version me:
+1. Naya FREE "AI aankh": GitHub Models (GPT-4.1 / 4.1-mini vision) – GitHub Actions ka apna token, Gemini se ALAG
+   limit. Chain: GitHub -> Gemini -> Groq/OpenRouter (max 3 photo, sahi kram) -> CLIP. Plan bhi pehle GPT-4.1 se.
+   (EK BAAR workflow file haath se badalni hai – GITHUB_PE_HAATH_SE_BADLO/PADHO.txt)
+2. Planner + jaanch ke prompt sakht: video ka topic/genre se bahar ka visual nahi (science me history/vault nahi),
+   insaan ki banayi cheez -> insaan banate/chalate dikhe, burned-in title/text/slide/whiteboard frame = 0 number.
+3. Frame zoom FIX: 16:9 photo ab 9:16 me beech se 70% kaati nahi jaati – poori photo, poori chaudai (hero.py).
+4. Pexels se khadi (portrait) video pehle; Director khadi video ko +0.7 preference deta hai.
+5. Ek hi clip 2-3 baar nahi: beat ke liye sahi visual na mile to beat hata dete hain (pichhla shot lamba).
+6. Map / news / tweet card poori line nahi – sirf pehla beat; baaki line ki asli footage dhoondhi jaati hai.
+   Storyboard ka apne-aap map sirf jagah/desh/safar wali line pe (dairy wali line pe Netherlands map nahi).
+7. "19वीं सदी" jaise shabd pe laal number counter nahi.
+8. Jaancha hua sahi shot news/parallax text card se nahi dhaka jaata.
+9. Historical / aam scene ki line pe AI photo allowed (pehle "history" category me AI band tha) – sirf asli
+   naam wale insaan ki nakli photo nahi.
+10. Telegram caption: kis AI ne jaancha, AI photo fail kitni, kamzor lines – sab saaf.
+
 THE VIRAL GYAAN VIDEOTOOL — v5.0 HYBRID DIRECTOR (ek hi try, free)
 ====================================================================
 1. AI mode + Stock mode ab EK system (app/director.py – naya):
