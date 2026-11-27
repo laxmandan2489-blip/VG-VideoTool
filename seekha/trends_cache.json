@@ -10,7 +10,7 @@
    "views": 689587,
    "dur": 15,
    "ageDays": 30,
-   "velScore": 2567.7671214396564,
+   "velScore": 2567.7589484252776,
    "url": "https://www.youtube.com/watch?v=ypfl45xbEXg",
    "outlierMult": 3.4,
    "viralRating": 8.9,
@@ -26,7 +26,7 @@
    "views": 445794,
    "dur": 63,
    "ageDays": 24,
-   "velScore": 1976.9391487512462,
+   "velScore": 1976.9314200788456,
    "url": "https://www.youtube.com/watch?v=dbYzUzj97qM",
    "outlierMult": 2.2,
    "viralRating": 7.9,
@@ -42,7 +42,7 @@
    "views": 300639,
    "dur": 72,
    "ageDays": 9,
-   "velScore": 3261.8194665423894,
+   "velScore": 3261.7829329640354,
    "url": "https://www.youtube.com/watch?v=FxHPphut2YA",
    "outlierMult": 1.5,
    "viralRating": 7.1,
@@ -58,7 +58,7 @@
    "views": 187652,
    "dur": 89,
    "ageDays": 6,
-   "velScore": 2579.5235426452573,
+   "velScore": 2579.485376529202,
    "url": "https://www.youtube.com/watch?v=ndxdORZwjuk",
    "outlierMult": 0.9,
    "viralRating": 6.2,
@@ -74,7 +74,7 @@
    "views": 199993,
    "dur": 59,
    "ageDays": 11,
-   "velScore": 1685.0120186293873,
+   "velScore": 1684.998002466554,
    "url": "https://www.youtube.com/watch?v=JU-e-AuXwCc",
    "outlierMult": 1,
    "viralRating": 6.3,
@@ -316,5 +316,5 @@
    "gn_5ux2dx"
   ]
  },
- "ts": 1795794649007
+ "ts": 1795794658721
 }
