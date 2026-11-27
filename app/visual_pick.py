@@ -349,6 +349,16 @@ def gather(i, parts_q, keys, main="", film="", existing=()):
                      f"{x.get('channel','')} ({x['url']})") for x in _ys.ytdlp_search(q, 8)]))
         if brave: jobs.append(("brave video", q, lambda q=q: sources.brave_videos(q, n=10)))
         if sx and pv: jobs.append(("searxng video", q, lambda q=q: pv.searxng(q, sx, "videos", 8)))
+    _ytk = (keys or {}).get("YOUTUBE") or (keys or {}).get("YOUTUBEAPI") or (keys or {}).get("YOUTUBEAPIKEY")
+    if _ys and _ytk and not _ys.quota_out():          # v5.3: YouTube CREATIVE COMMONS – asli chalti video, credit ke saath
+        for q in allq[:1]:
+            jobs.append(("youtube cc", q, lambda q=q: [
+                dict(kind="video", yt=x["video_id"], thumb=x.get("thumbnail"), title=x.get("title", ""),
+                     channel=x.get("channel", ""), duration_seconds=x.get("duration_seconds") or 0,
+                     youtube_license="creativeCommon", url=x["url"],
+                     credit=f"YouTube (CC BY): {x.get('title', '')[:70]} – {x.get('channel', '')} ({x['url']})")
+                for x in _ys.search_videos(q, _ytk, 6, license="creativeCommon")
+                if 6 <= float(x.get("duration_seconds") or 0) <= 3600]))
     for q in allq[:2]:
         if pv: jobs.append(("archive video", q, lambda q=q: pv.archive_videos(q, 4)))
         if space: jobs.append(("nasa", q, lambda q=q: sources.nasa_videos(q)[:4] if hasattr(sources, "nasa_videos") else []))
@@ -583,7 +593,8 @@ def materialize(c, i, verify_text, avoid=()):
                     if key in yt_clips.USED: continue
                     yt_clips.USED.add(key)
                 d = CACHE / "ytclips"; d.mkdir(parents=True, exist_ok=True)
-                _yt_risk = yt_clips.is_copyright_risk(c.get("channel", ""), c.get("title", ""), is_film=bool(TOPIC.get("film")))
+                _yt_risk = yt_clips.is_copyright_risk(c.get("channel", ""), c.get("title", ""), is_film=bool(TOPIC.get("film")),
+                                                      license_str=c.get("youtube_license", ""))
                 if _yt_risk:
                     p = yt_clips._extract_screenshot(c["yt"], st, d / f"{c['yt']}_{int(st)}_ss")
                     _yt_kind = "image"

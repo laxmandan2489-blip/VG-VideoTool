@@ -171,7 +171,12 @@ def generate_html_scene(scene_desc, hindi_line, W, H, dur, keys):
     try:
         import ai
         key = (keys or {}).get("GEMINI") or ""
-        if not key and not (ai.BACKUP["keys"].get("GROQ") or ai.BACKUP["keys"].get("OPENROUTER")):
+        try:
+            import director as _dgh
+            _gh_ok = bool(_dgh._gh_token())
+        except Exception:
+            _dgh = None; _gh_ok = False
+        if not key and not _gh_ok and not (ai.BACKUP["keys"].get("GROQ") or ai.BACKUP["keys"].get("OPENROUTER")):
             return None
         prompt = (
             _SYSTEM_PROMPT.format(W=W, H=H, DUR=float(dur))
@@ -179,7 +184,9 @@ def generate_html_scene(scene_desc, hindi_line, W, H, dur, keys):
             + (f"NARRATION CONTEXT (Hindi): {hindi_line}\n" if hindi_line else "")
             + "\nBuild a vivid, clear, step-by-step animated visual explanation that makes a viewer instantly understand this exact concept!"
         )
-        raw = ai.ask(key, [prompt], temperature=0.35, timeout=55)
+        raw = _dgh.gh_text(prompt, "openai/gpt-4.1", 4000, 120) if _gh_ok else None   # v5.3: GitHub Models pehle
+        if not raw:
+            raw = ai.ask(key, [prompt], temperature=0.35, timeout=55)
         if not raw:
             return None
         txt = re.sub(r"^```[a-zA-Z]*\s*", "", raw.strip())

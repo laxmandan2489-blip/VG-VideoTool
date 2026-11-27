@@ -1048,7 +1048,7 @@ def main():
                     _real_vids = []
                     # Layer 2 (v4.35): Auto 30fps Detailed Moving Hindi/Hinglish Explainer on key rule/law/process/comparison lines!
                     _exp_cap = 5 if LONG else 2
-                    _exp_cap = 3 if LONG else 1          # v5.0: Short me 1 (zyada cards = slideshow feel)
+                    _exp_cap = 0 if DIRECTOR_ON else (3 if LONG else 1)   # v5.3: Director khud "explain" beat banata hai
                     with _fx_map_lock:
                         _exp_cnt = getattr(main, "_auto_exp_cnt", 0)
                         _exp_last = getattr(main, "_auto_exp_last", -9)
@@ -1318,10 +1318,7 @@ def main():
             _skip = set(user_assign) | set(face_lines)
             for i_ in range(len(sents)):
                 _t_ = str(sents[i_].get("script") or sents[i_]["text"] or "").lower()
-                if i_ == len(sents) - 1 and i_ > 0 and re.search(r"(फॉलो|फोलो|सब्सक्राइब|subscribe|follow)", _t_):
-                    _skip.add(i_)
-                if LOCK and i_ < len(LOCK["scenes"]) and LOCK["scenes"][i_].get("cta"):
-                    _skip.add(i_)
+                pass   # v5.3: subscribe/CTA line bhi Director bharta hai (pehle purani kamzor photo dobara aati thi)
             _dtopic = (LOCK or {}).get("main_subject") or (" ".join(topic_kw) if topic_kw else _clean_title(title, ""))
             DIRECTOR_REP = _dir2.judge_and_fill(found, sents, eng, keys, work, W, H, topic=_dtopic, skip_lines=_skip,
                                                 user_ai=dict(USER_AI_HINT), face_lines=face_lines, style=style,
@@ -1330,6 +1327,10 @@ def main():
                                                                                            W, H, style, work, fps=render.FPS))
                                                 if yes(style.get("map", "haan")) else None,
                                                 max_maps=max(0, _fx_map_max - _fx_map_state["count"]),
+                                                long_mode=LONG,
+                                                explain_fn=(lambda _d, _l, _du, _out: __import__("cine.ai_explainer", fromlist=["x"])
+                                                            .render_explainer(_d, _l, _du, _out, W, H, style, keys, fps=render.FPS))
+                                                if yes(style.get("ai_explainer", "haan")) else None,
                                                 time_budget_s=float(num(style, "director_time_s", 60, 1800))
                                                 if style.get("director_time_s") else (900 if LONG else 420))
             _DIR_DONE = bool(DIRECTOR_REP and DIRECTOR_REP.get("beats"))
@@ -2618,7 +2619,7 @@ def main():
             "review": {k: REVIEW.get(k) for k in ("score", "verdict", "issues", "not_done")} if REVIEW else {},
             "director_script": str(DIRECTOR_SCRIPT_P) if DIRECTOR_SCRIPT_P else None,
             "director": {k: (DIRECTOR_REP or {}).get(k) for k in ("score", "judge", "planner", "beats", "weak_lines",
-                                                                   "ai_shots", "video_shots", "ai_fail")} if DIRECTOR_REP else {},
+                                                                   "ai_shots", "video_shots", "ai_fail", "ai_why")} if DIRECTOR_REP else {},
             "timing": (lambda tp: f"⏱ {tp[0]/60:.1f} min: " + ", ".join(f"{n_} {t_/60:.1f}" for n_, t_ in tp[1][:4] if t_ >= 5))(stage_report()),
             "voice_cache": {"wav": str(jd / "voice.wav"), "sents": str(jd / "sents.json")},
             "note": "\n".join(x for x in ((FB["note"] if FB else ""), GEM_NOTE,

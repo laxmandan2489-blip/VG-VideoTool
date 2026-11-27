@@ -166,7 +166,7 @@ def purge_expired() -> None:
     except Exception as e:
         log(f"YouTube discovery expiry cleanup skip: {e}", show=False)
 
-def search_videos(query: str, api_key: str, max_results: int = 5, order: str = "relevance") -> list[dict]:
+def search_videos(query: str, api_key: str, max_results: int = 5, order: str = "relevance", license: str = "") -> list[dict]:
     """Search public YouTube videos and enrich with duration/license metadata."""
     if not api_key or not query or not query.strip():
         return []
@@ -179,6 +179,7 @@ def search_videos(query: str, api_key: str, max_results: int = 5, order: str = "
             "part": "snippet", "q": query[:180], "type": "video",
             "maxResults": max(1, min(int(max_results), 10)), "order": order,
             "safeSearch": "moderate", "videoEmbeddable": "true", "key": api_key,
+            **({"videoLicense": license} if license else {}),   # v5.3: "creativeCommon" = credit dekar reuse ki ijazat
         }, timeout=TIMEOUT)
         if r.status_code != 200:
             try: detail = r.json().get("error", {}).get("message", r.text[:180])

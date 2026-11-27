@@ -1,3 +1,19 @@
+THE VIRAL GYAAN VIDEOTOOL — v5.3 (Teacher jaisa samjhao + YouTube CC + Animation + Clip Library)
+==========================================================================================
+1. Planner "teacher" ki tarah: line ki har cheez aur har kaam ka alag beat, usi kram me; "agar X to Y" -> pehle X
+   hote dikhe phir Y (nashedi cigarette phenke -> dustbin me gire -> kagaz sulge -> aag).
+2. Har beat ki 3 khoj: sateek -> aasaan -> mood (pehle bahut khaas shabd the, stock pe kuch nahi milta tha).
+3. NAYA: YouTube CREATIVE COMMONS khoj – asli chalti video jinki reuse ki ijazat hai (credit ke saath, poori clip).
+4. NAYA: "explain" beat – rule / process / comparison ke liye chalti animated diagram video (Short me max 2);
+   koi line bilkul khaali ho to galat photo ki jagah animation. HTML ab pehle GitHub GPT-4.1 likhta hai.
+5. NAYA: Clip Library – 8/10+ pass hui clips yaad (GitHub cache me), agli video me pehle wahi muqable me.
+   (make_video.yml me "Clip Library" step – nayi workflow file upload karni hai)
+6. 6/10 se kam wala visual KABHI nahi lagta (Terms of Service jaisi photo khatam). CLIP akela pass nahi kara sakta.
+7. AI photo ab samay-seema se chhoot-ti nahi; max 12/video (Long 26), sabse zaroori beat pehle.
+8. Cloudflare: band SDXL model hataya (410); har engine ki galti alag + Telegram caption me saaf wajah
+   (jaise "aaj ki free limit khatam"). Pollinations bina key 402 -> ek baar fail to dobara nahi.
+9. Subscribe wali aakhri line bhi Director bharta hai (purani kamzor photo dobara nahi).
+
 THE VIRAL GYAAN VIDEOTOOL — v5.2 (Script ki detail samajh + asli satellite map)
 ==============================================================================
 1. Map: orange 3D blob wala map (mapanim) ab Director mode me nahi lagta. Map ab ASLI satellite photo se

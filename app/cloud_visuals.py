@@ -24,6 +24,27 @@ from common import log
 _DEFAULT_CF_ACCOUNT_ID = "79108b20de09ead3bfff43e738f1b8b9"
 _WARNED_ONCE = False
 _DEAD = set()
+ERRS = {}          # v5.3: har engine ki aakhri galti alag (pehle sirf aakhri wali dikhti thi – FLUX ki wajah chhup jaati thi)
+
+
+def _why(code, text=""):
+    t = str(text or "")
+    if code == 429 or "4006" in t or "daily free allocation" in t.lower():
+        return "aaj ki free limit khatam (kal subah ~5:30 IST reset)"
+    if code in (401, 403):
+        return "token galat / permission nahi (CF_API_TOKEN me Workers AI permission chahiye)"
+    if code == 410:
+        return "model Cloudflare ne band kar diya"
+    if code == 402:
+        return "paid ho gaya (free nahi)"
+    if code == 400:
+        return "request galat (400)"
+    return f"HTTP {code}"
+
+
+def last_error_summary():
+    """Telegram caption ke liye: kaunsa AI engine kyun fail hua."""
+    return "; ".join(f"{k}: {v}" for k, v in ERRS.items())[:300]
 
 
 def _sanitize_scene_for_ai(scene_desc, topic=""):
@@ -115,19 +136,22 @@ def _try_cloudflare_direct(prompt, out_path, cf_token, cf_account, W=1080, H=192
     models += [
         ("@cf/black-forest-labs/flux-1-schnell", _fx),
         ("@cf/black-forest-labs/flux-1-schnell", {"prompt": prompt[:1800], "steps": 8}),
-        ("@cf/bytedance/stable-diffusion-xl-lightning", {"prompt": prompt[:1000],
-                                                         "width": 768 if H > W else 1024, "height": 1344 if H > W else 576}),
-        ("@cf/bytedance/stable-diffusion-xl-lightning", {"prompt": prompt[:1000]}),
-    ]
+    ]                                                   # v5.3: SDXL-Lightning Cloudflare ne hata diya (HTTP 410)
     last_err = ""
     for mdl, payload in models:
+        if mdl in _DEAD:
+            continue
         try:
             url = f"https://api.cloudflare.com/client/v4/accounts/{acc}/ai/run/{mdl}"
             r = requests.post(url, headers=hdrs, json=payload, timeout=timeout)
             if r.status_code != 200:
                 last_err = f"{mdl} HTTP {r.status_code}: {r.text[:110]}"
-                if mdl == _pm and r.status_code in (400, 404):
+                ERRS["Cloudflare " + mdl.split("/")[-1]] = _why(r.status_code, r.text)
+                if r.status_code in (404, 410) or (mdl == _pm and r.status_code == 400):
                     _DEAD.add(mdl)
+                if r.status_code in (401, 403, 429) or "4006" in r.text:
+                    _DEAD.add(mdl)                   # aaj dobara koshish bekaar – baaki photo ke liye seedha agla engine
+                    break
                 continue
             ct = r.headers.get("content-type", "").lower()
             if ct.startswith("image/") and len(r.content) > 8000:
@@ -315,13 +339,16 @@ def generate_scene_image(scene_desc, out_dir, topic="", W=1080, H=1920, keys=Non
 
     # 3. Pollinations (gen.pollinations.ai if free key present + legacy fallback)
     pol_key = (keys.get("POLLINATIONS_API_KEY") or os.environ.get("POLLINATIONS_API_KEY") or "").strip()
-    try:
-        res = _try_pollinations(prompt, out_path, W=W, H=H, api_key=pol_key)
-        if res:
-            log(f"   🎨 Pollinations 35mm visual ready ✓ ({out_path.name})", show=False)
-            return res
-    except Exception as e:
-        errors.append(f"Pollinations: {str(e)[:90]}")
+    if "pollinations" not in _DEAD:                     # v5.3: bina key ab 402 (paid) – ek baar fail to is video me dobara nahi
+        try:
+            res = _try_pollinations(prompt, out_path, W=W, H=H, api_key=pol_key)
+            if res:
+                log(f"   🎨 Pollinations 35mm visual ready ✓ ({out_path.name})", show=False)
+                return res
+        except Exception as e:
+            errors.append(f"Pollinations: {str(e)[:90]}")
+            if "402" in str(e) or "401" in str(e):
+                _DEAD.add("pollinations"); ERRS["Pollinations"] = _why(402)
 
     # 4. Optional Hugging Face Free Inference
     hf_tok = (keys.get("HF_TOKEN") or os.environ.get("HF_TOKEN") or "").strip()
@@ -334,6 +361,8 @@ def generate_scene_image(scene_desc, out_dir, topic="", W=1080, H=1920, keys=Non
             errors.append(f"HF: {str(e)[:70]}")
 
     # Loud diagnostic log ONCE so user immediately knows why AI fell back to Stock
+    if not ERRS and errors:
+        ERRS["AI photo"] = errors[0][:80]
     if not _WARNED_ONCE:
         _WARNED_ONCE = True
         msg = " | ".join(errors) if errors else "no AI image key configured"

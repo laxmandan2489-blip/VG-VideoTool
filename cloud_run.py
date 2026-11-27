@@ -673,7 +673,7 @@ def main():
             cap += (f"\n🎯 Visual match: {_ds:.0f}/100" + (" ✅" if _ds >= 80 else " ⚠️") + f" ({_jt}, {dir_rep.get('beats')} shot)"
                     f"\n🎞 {dir_rep.get('video_shots', 0)} asli video + {dir_rep.get('ai_shots', 0)} AI shot")
             if dir_rep.get("ai_fail"):
-                cap += f"\n⚠️ {dir_rep['ai_fail']} AI photo nahi bani (Cloudflare FLUX limit?)"
+                cap += f"\n⚠️ {dir_rep['ai_fail']} AI photo nahi bani – " + (str(dir_rep.get("ai_why") or "wajah log me"))[:160]
             if dir_rep.get("weak_lines"):
                 cap += f"\n🔎 kamzor lines: {', '.join(str(x) for x in dir_rep['weak_lines'][:8])}"
         elif review_sc is not None:

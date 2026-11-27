@@ -25,6 +25,10 @@ from pathlib import Path
 from common import log
 
 PASS = 7.0          # is se upar = beat sahi (Gemini 0-10)
+MIN_USE = 6.0       # v5.3: is se kam number wala stock KABHI nahi lagta (pehle AI na bane to 3/10 bhi lag jaata tha)
+CLIP_MAX = 6.0      # v5.3: CLIP (kamzor aankh) akela kisi visual ko PASS nahi kara sakta
+AI_CAP = {"short": 12, "long": 26}   # v5.3: ek video me max AI photo (Cloudflare ki roz ki free limit bachao)
+EXPLAIN_CAP = {"short": 2, "long": 4}
 AI_OK = 6.0         # AI photo is se kam -> ek baar dobara
 VIDEO_BONUS = 0.6   # barabar ho to chalti video, photo se pehle
 STATE = {"on": False, "beats": {}, "lock": {}, "report": {}, "judge": "none", "planner": "rules", "ai_fail": 0}
@@ -99,11 +103,37 @@ def _gh_chat(content, model, max_tokens=3000, timeout=120):
         return None
 
 
+def gh_text(prompt, model="openai/gpt-4.1", max_tokens=4000, timeout=150):
+    """GitHub Models se seedha text (HTML waghera) – JSON nahi."""
+    tok = _gh_token()
+    if not tok or model in GH["dead"]:
+        return None
+    try:
+        import requests
+        r = requests.post(GH_URL, timeout=timeout, headers={"Authorization": f"Bearer {tok}",
+                                                            "Content-Type": "application/json"},
+                          json={"model": model, "temperature": 0.35, "max_tokens": max_tokens,
+                                "messages": [{"role": "user", "content": prompt}]})
+        if r.status_code in (401, 403, 404, 429):
+            GH["dead"].add(model); return None
+        if r.status_code != 200:
+            return None
+        return r.json()["choices"][0]["message"]["content"]
+    except Exception:
+        return None
+
+
 # ------------------------------------------------------------------ 1) beat plan
 PLAN_PROMPT = """You are the director + B-roll editor of a top Hindi YouTube Shorts / documentary channel.
 Read the WHOLE script first. Understand its TOPIC and GENRE (science, history, money, tech, health, crime...).
 Every visual must stay INSIDE that topic. Never drift to another genre (science video -> no random history or
 fantasy; nutrition video -> no random space or vault doors). Show what the words are ABOUT, literally.
+
+EXPLAIN LIKE A GREAT TEACHER: break every line into its pieces. Every important noun AND every action in the line
+gets its own beat, in the SAME order as spoken. For "if X then Y" / "because X, Y" lines show X happening, then Y
+happening (cause -> effect). Example: "agar nashedi cigarette dustbin me phenk de to aag lag jayegi" ->
+1) drunk man secretly smoking, 2) he throws the burning cigarette into a dustbin full of paper, 3) paper starts
+smoking, 4) flames burst out of the dustbin. Abstract words (rule, law, danger, risk) -> show the concrete thing.
 
 Main subject of the video: {main}
 Each numbered line shows how many beats (shots) it needs: [beats=N]. One beat = one shot of about {step} seconds.
@@ -114,8 +144,11 @@ For EVERY beat give:
          making / using it. If the line names a country, show that country's people/streets. If it names food,
          show that food being eaten/made. Abstract words -> the closest REAL concrete scene.
          The beats of one line must be DIFFERENT shots (different subject, action, place or camera distance).
- "q": 2 short English stock-VIDEO search queries (2-4 words) that would find real moving footage of this shot
-      on Pexels / Pixabay / YouTube. Concrete nouns + action. No abstract words. No text/infographic words.
+ "q": 3 English stock-VIDEO search queries, from exact to easy:
+      [0] exact shot (3-5 words, e.g. "man throwing cigarette into dustbin"),
+      [1] simple version that surely exists on Pexels/Pixabay (2-3 words, e.g. "throwing cigarette"),
+      [2] mood/close-up fallback (2-3 words, e.g. "trash can fire").
+      Concrete nouns + action only. No abstract words, no text/infographic/sign words.
  "ai": a photorealistic scene for an AI photo generator (25-45 words): subject, action, setting, era, time of day,
        camera distance/angle, lighting. Indian topic -> Indian people/places. Historical line -> that era's
        clothes and places. NEVER ask for text, signs, logos, screens with writing, charts or numbers.
@@ -129,7 +162,10 @@ For EVERY beat give:
          "map"     = a satellite map zoom to a place - ONLY when WHERE something is IS the point of the beat
                      (a country/city/route/border being talked about). Max 1 map in the whole script.
                      Put the place's English name in "place". Never use map for food, science, people or money.
-         "ai"      = no real footage can exist (imagination, inside the body, far future, impossible scene).
+         "ai"      = no real footage can exist (imagination, inside the body, far future, impossible scene),
+         "explain" = an animated diagram is clearer than any footage: a rule, a process, a comparison, numbers,
+                     how something works step by step. Max 2 "explain" beats in a Short. Put a 1-line
+                     description of the animation in "show".
 For each line also give "means": one short English sentence - what the line is really saying.
 
 Return ONLY JSON: {{"topic": "..", "genre": "..", "lines": [{{"n": 1, "means": "..", "beats": [{{"show": "..", "q": ["..",".."], "ai": "..", "phrase": "..", "real": false, "type": "footage", "place": "", "who": ""}}]}}]}}
@@ -195,7 +231,7 @@ def plan(sents, eng, spans, keys, main="", long_mode=False, chunk=8):
                     if not show and not q:
                         continue
                     typ = _s(b.get("type"), 12).lower() or "footage"
-                    if typ not in ("footage", "archive", "person", "map", "ai"):
+                    if typ not in ("footage", "archive", "person", "map", "ai", "explain"):
                         typ = "footage"
                     who = _s(b.get("who"), 60)
                     if typ == "person" and who and not any(who.lower() in q_.lower() for q_ in q):
@@ -397,7 +433,7 @@ def _clip_judge(rows):
             s = max(0.0, min(10.0, (v - 0.17) / 0.015))      # 0.17 -> 0, ~0.32 -> 10
             if float(neg[0]) > v + 0.02:
                 s = min(s, 3.0)
-            out[cid] = (round(s, 1), max(0, best - 1), "clip andaza")
+            out[cid] = (round(min(s, CLIP_MAX), 1), max(0, best - 1), "clip andaza")
     except Exception as e:
         log(f"   (director clip judge skip: {str(e)[:80]})", show=False)
     return out
@@ -508,7 +544,8 @@ def _special(items):
 
 
 def judge_and_fill(found, sents, eng, keys, work, W, H, topic="", skip_lines=(), user_ai=None, face_lines=(),
-                   style=None, time_budget_s=420, search_fn=None, map_fn=None, spans=None, max_maps=1):
+                   style=None, time_budget_s=420, search_fn=None, map_fn=None, spans=None, max_maps=1,
+                   explain_fn=None, long_mode=False):
     """found[i] = (items, kw). Har normal line ko verified visual deta hai (item['dir']=True). Jo beat sahi na bhare,
     wo hata diya jaata hai (pichhla shot lamba chalega) – ek hi clip 2 baar NAHI."""
     t0 = time.time()
@@ -542,6 +579,46 @@ def judge_and_fill(found, sents, eng, keys, work, W, H, topic="", skip_lines=(),
                        and not x.get("whole")]
                 found[i] = (its, found[i][1])
         log(f"   🗺 Director: {len(cards)} card-line (map/news/tweet) – card sirf pehle beat pe, baaki asli footage")
+    # v5.3: jis line pe koi footage hi nahi (jaise subscribe wali aakhri line) -> uske beats ki khoj
+    empties = [i for i in range(len(found)) if i not in cards and i not in skip_lines and i not in face_lines
+               and STATE["beats"].get(i) and not (found[i][0] or [])]
+    if empties and search_fn is not None:
+        def _srch2(i):
+            try:
+                r = search_fn(i)
+                return i, [x for x in list((r[0] if isinstance(r, tuple) else r) or [])
+                           if not x.get("whole") and not str(x.get("src", "")).lower().startswith(CARD_SRC + SKIP_SRC)]
+            except Exception:
+                return i, []
+        with ThreadPoolExecutor(max_workers=3) as ex:
+            for i, its in ex.map(_srch2, empties):
+                found[i] = (its, found[i][1])
+    # v5.3: apni LIBRARY (pichhli videos me 8/10+ pass hui clips) se bhi candidates
+    try:
+        import clip_library as _lib
+        _lib.load()
+        lib_jobs = []
+        for i in range(len(found)):
+            if i in skip_lines or i in face_lines or not STATE["beats"].get(i):
+                continue
+            if any(x.get("face") or x.get("whole") for x in (found[i][0] or [])):
+                continue
+            texts = [b["show"] for b in STATE["beats"][i]] + [q for b in STATE["beats"][i] for q in (b.get("q") or [])]
+            have = {str(x.get("url") or "") for x in (found[i][0] or [])}
+            for e in _lib.find(texts, n=3, exclude=have):
+                lib_jobs.append((i, e))
+        if lib_jobs:
+            def _mat(x):
+                i, e = x
+                return i, _lib.materialize(e)
+            with ThreadPoolExecutor(max_workers=4) as ex:
+                got = [(i, it) for i, it in ex.map(_mat, lib_jobs) if it]
+            for i, it in got:
+                found[i] = (list(found[i][0] or []) + [it], found[i][1])
+            if got:
+                log(f"   📚 Library: pichhli videos ki {len(got)} pass hui clips bhi muqable me")
+    except Exception as _le:
+        log(f"   (library skip: {str(_le)[:80]})", show=False)
     try:
         import visual_brain as _vb
     except Exception:
@@ -608,6 +685,40 @@ def judge_and_fill(found, sents, eng, keys, work, W, H, topic="", skip_lines=(),
                                          "src": "map (director)", "ss": 0.0, "dir": True, "vscore": None,
                                          "vwhy": f"map: {place}", "beat": j}
                     log(f"   🛰 line {i + 1}: satellite map – {place}")
+    # --- a3) v5.3: "explain" beats -> chalti hui animated diagram video (rule / process / comparison)
+    exp_items = {}
+    ecap = EXPLAIN_CAP["long" if long_mode else "short"]
+    if explain_fn is not None and ecap > 0:
+        ej = []
+        for i in lines_todo:
+            if i in cards:
+                continue
+            for j, b in enumerate(STATE["beats"].get(i) or []):
+                if b.get("type") == "explain" and (i, j) not in map_items:
+                    ej.append((i, j)); break
+            if len(ej) >= ecap:
+                break
+        def _ex(x):
+            i, j = x
+            try:
+                k = len(STATE["beats"][i]) or 1
+                dur = (float(spans[i][1]) - float(spans[i][0])) if spans else 4.0
+                dur = max(3.0, dur * min(1.0, 2.0 / k) + 0.3)
+                out = Path(work) / "shots" / f"dexp_{i:02d}_{j}.mp4"
+                out.parent.mkdir(parents=True, exist_ok=True)
+                b = STATE["beats"][i][j]
+                p = explain_fn(f"{b['show']} | line meaning: {(STATE.get('means') or {}).get(i, '')}", _line_text(sents[i]),
+                               dur, out)
+                return i, j, p
+            except Exception as e:
+                log(f"   (director explain skip: {str(e)[:80]})", show=False)
+                return i, j, None
+        with ThreadPoolExecutor(max_workers=2) as ex:
+            for i, j, p in ex.map(_ex, ej):
+                if p and Path(str(p)).exists():
+                    exp_items[(i, j)] = {"kind": "video", "path": Path(str(p)), "credit": "", "src": "explainer (director)",
+                                         "ss": 0.0, "dir": True, "vscore": None, "vwhy": "animated explain", "beat": j}
+                    log(f"   ✨ line {i + 1}: animated explainer beat ready")
     # --- b) har beat ko sabse achha visual (pehle na laga, video ko thodi preference)
     plan_out, need_ai = {}, []
     for i in lines_todo:
@@ -632,7 +743,7 @@ def judge_and_fill(found, sents, eng, keys, work, W, H, topic="", skip_lines=(),
             chosen[0] = cards[i]; start_j = 1
             if str(cards[i].get("src", "")).startswith("map") and k >= 3:
                 skip_j.add(1)                        # map ki zoom animation ko 2 beat ka samay
-        for (mi, mj_), mit in map_items.items():
+        for (mi, mj_), mit in list(map_items.items()) + list(exp_items.items()):
             if mi == i:
                 chosen[mj_] = mit
                 if mj_ + 1 < k:
@@ -648,7 +759,8 @@ def judge_and_fill(found, sents, eng, keys, work, W, H, topic="", skip_lines=(),
                     continue
                 ar = float(c["it"].get("_ar") or 1.0)
                 eff = c["s"] + (VIDEO_BONUS if c["it"].get("kind") == "video" else 0.0) + (0.8 if c["b"] == j else 0.0) \
-                    + (0.7 if vertical and ar < 0.8 else 0.0) - (0.4 if vertical and ar > 1.9 else 0.0)
+                    + (0.7 if vertical and ar < 0.8 else 0.0) - (0.4 if vertical and ar > 1.9 else 0.0) \
+                    + (0.3 if str(c["it"].get("src", "")).startswith("library") else 0.0)
                 if eff > best_eff:
                     best, best_eff = c, eff
             if best is not None and (best["s"] >= PASS or (beats[j].get("real") and best["s"] >= 5.0)):
@@ -678,10 +790,18 @@ def judge_and_fill(found, sents, eng, keys, work, W, H, topic="", skip_lines=(),
             STATE["ai_fail"] += 1
         return (i, j, p, prompt)
     gen_res = []
-    if need_ai and time.time() - t0 < time_budget_s:
-        log(f"   🎨 Director: {len(need_ai)} beat ke liye sahi footage nahi mili – unke apne prompt se AI photo...")
-        with ThreadPoolExecutor(max_workers=3) as ex:
-            gen_res = list(ex.map(_gen, need_ai))
+    if need_ai:
+        # v5.3: AI kabhi samay ki wajah se chhoot-ta nahi (v5.2 me 7 min ki seema se chupchaap chhoot jaata tha).
+        # Limit bachane ke liye max AI_CAP photo – pehle wo beat jinka stock sabse kamzor / bilkul nahi; har line ka
+        # pehla beat pehle (line ki shuruaat khaali na lage).
+        cap = AI_CAP["long" if long_mode else "short"]
+        order = sorted(need_ai, key=lambda x: (x[1] > 0, (x[2]["s"] if x[2] is not None else -1), x[0], x[1]))
+        todo_ai = order[:cap]
+        if len(need_ai) > cap:
+            log(f"   🎨 Director: {len(need_ai)} khaali beat – AI limit bachane ke liye sirf {cap} sabse zaroori pe AI photo")
+        log(f"   🎨 Director: {len(todo_ai)} beat ke liye sahi footage nahi mili – unke apne prompt se AI photo...")
+        with ThreadPoolExecutor(max_workers=4) as ex:
+            gen_res = list(ex.map(_gen, todo_ai))
     best_by = {(i, j): best for i, j, best in need_ai}
     # --- d) AI photo bhi Gemini jaanchega; kamzor -> ek baar naye prompt se
     ai_rows, ai_map = [], {}
@@ -740,15 +860,29 @@ def judge_and_fill(found, sents, eng, keys, work, W, H, topic="", skip_lines=(),
                       "vwhy": ai[2], "beat": j}
                 chosen[j] = it
                 if guard: guard.register(it)
-            elif st is not None and not (guard and guard.is_duplicate(st["it"])):
+            elif st is not None and st["s"] >= MIN_USE and not (guard and guard.is_duplicate(st["it"])):
                 it = dict(st["it"], dir=True, vscore=st["s"] if st.get("judged") else None, vwhy=st["why"], beat=j)
                 chosen[j] = it
                 if guard: guard.register(it)
+            # v5.3: 6 se kam wala stock nahi lagta – beat hat jaata hai (Terms of Service jaisi photo kabhi nahi)
         # v5.1: abhi bhi khaali beat -> HATA do (pichhla sahi shot thoda lamba chalega). Pehle yahan wahi clip
         # dobara lagti thi -> video me ek hi cheez 2-3 baar dikhti thi.
         fin = [c for c in chosen if c is not None]
+        if not fin and explain_fn is not None and len(exp_items) < ecap + 1:
+            try:                                       # poori line khaali -> animated explainer (galat photo se behtar)
+                dur = (float(spans[i][1]) - float(spans[i][0]) + 0.3) if spans else 4.0
+                out = Path(work) / "shots" / f"dexp_{i:02d}_all.mp4"
+                p = explain_fn(" ; ".join(b["show"] for b in STATE["beats"][i]), _line_text(sents[i]), dur, out)
+                if p and Path(str(p)).exists():
+                    fin = [{"kind": "video", "path": Path(str(p)), "credit": "", "src": "explainer (director)",
+                            "ss": 0.0, "dir": True, "vscore": None, "vwhy": "line khaali – explainer", "beat": 0}]
+                    exp_items[(i, 0)] = fin[0]
+            except Exception:
+                pass
         if fin:
             found[i] = (fin, found[i][1])
+        else:
+            found[i] = ([], found[i][1])           # kamzor/galat visual nahi; purana system pichhla shot chalayega
     # --- f) asli score
     sc = []
     per_line = {}
@@ -761,12 +895,38 @@ def judge_and_fill(found, sents, eng, keys, work, W, H, topic="", skip_lines=(),
     weak = [l_ for l_, v in per_line.items() if v < 70]
     n_ai = sum(1 for i in lines_todo for c in found[i][0] or [] if str(c.get("src", "")).startswith("cloud flux"))
     n_vid = sum(1 for i in lines_todo for c in found[i][0] or [] if c.get("dir") and c.get("kind") == "video")
+    try:                                               # v5.3: 8/10+ asli clips library me (agli videos ke liye)
+        import clip_library as _lib2
+        n_saved = 0
+        for i in lines_todo:
+            for c in found[i][0] or []:
+                if c.get("dir") and (c.get("vscore") or 0) >= 8 and "judged_by_clip" not in str(c.get("vwhy")):
+                    bs = STATE["beats"].get(i) or []
+                    b = bs[c.get("beat") or 0] if bs and (c.get("beat") or 0) < len(bs) else {}
+                    if _lib2.add(c, [b.get("show", "")] + list(b.get("q") or []), c.get("vscore"), STATE.get("topic", "")):
+                        n_saved += 1
+        _lib2.save()
+        if n_saved:
+            log(f"   📚 Library: {n_saved} nayi pass hui clips yaad rakhi (kul {_lib2.size()})")
+    except Exception as _lse:
+        log(f"   (library save skip: {str(_lse)[:80]})", show=False)
+    try:
+        import cloud_visuals as _cvr
+        ai_why = _cvr.last_error_summary()
+    except Exception:
+        ai_why = ""
     STATE["report"] = {"score": total, "judge": STATE["judge"], "planner": STATE.get("planner"), "ai_fail": STATE["ai_fail"],
+                       "ai_why": ai_why if STATE["ai_fail"] else "",
                        "beats": len(sc), "lines": per_line, "weak_lines": weak,
                        "ai_shots": n_ai, "video_shots": n_vid, "special_lines": n - len(lines_todo),
                        "seconds": round(time.time() - t0)}
     if STATE["ai_fail"]:
-        log(f"   ⚠️ Director: {STATE['ai_fail']} AI photo nahi bani (Cloudflare FLUX limit/token?) – un beats pe agla shot lamba chala")
+        try:
+            import cloud_visuals as _cvl
+            _w = _cvl.last_error_summary()
+        except Exception:
+            _w = ""
+        log(f"   ⚠️ Director: {STATE['ai_fail']} AI photo nahi bani ({_w or 'wajah upar log me'}) – un beats pe agla shot lamba chala")
     log(f"   🎯 Director score: {total if total is not None else '?'}/100 ({STATE['judge']} ne {len(sc)} shot dekhe) – "
         f"{n_vid} asli video, {n_ai} AI photo, kamzor lines: {weak or 'koi nahi'} [{round(time.time() - t0)}s]")
     return STATE["report"]
