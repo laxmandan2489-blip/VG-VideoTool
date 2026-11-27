@@ -1016,11 +1016,35 @@ def main():
                 try:
                     import cloud_visuals as _cv_ai
                     _real_vids = []
-                    # Try fetching 1 strong real HD video clip on every other line or CTA so video feels ALIVE (50/50 hybrid!)
-                    if _is_cta_line or (i % 2 == 0 and not USER_AI_HINT.get(i)):
+                    # Layer 2 (v4.35): Auto 30fps Detailed Moving Hindi/Hinglish Explainer on key rule/law/process/comparison lines!
+                    _exp_cap = 5 if LONG else 2
+                    _exp_cnt = getattr(main, "_auto_exp_cnt", 0)
+                    _exp_last = getattr(main, "_auto_exp_last", -9)
+                    _is_explain_worthy = (
+                        not _is_cta_line and not USER_AI_HINT.get(i)
+                        and _exp_cnt < _exp_cap and (i - _exp_last) >= 3
+                        and 1 <= i <= max(1, len(lines) - 2)
+                        and bool(re.search(r"(नियम|कानून|जुर्माना|लाइसेंस|डिस्क्लेमर|प्रतिशत|गणित|तरीका|वजह|कैसे|तुलना|फायदा|बचत|रद्द|सिस्टम|प्रक्रिया|rule|law|fine|license|tax|gst|how|percent|compare)", _line_hi_raw, re.I))
+                    )
+                    if _is_explain_worthy and yes(style.get("ai_explainer", "haan")):
+                        try:
+                            from cine import ai_explainer as _aie
+                            _ex_dur = max(2.2, float(sents[i]["end"]) - float(sents[i]["start"])) if i < len(sents) else 4.0
+                            _ex_out = work / "shots" / f"auto_explain_{i:02d}.mp4"
+                            _ex_desc = str(_rp_m.get("action") or _rp_m.get("subject") or (eng[i] if i < len(eng) else _line_hi_raw))
+                            if _aie.render_ai_explainer(_ex_desc, _line_hi_raw, _ex_dur, _ex_out, W, H, style, keys, fps=render.FPS):
+                                main._auto_exp_cnt = _exp_cnt + 1
+                                main._auto_exp_last = i
+                                log(f"   ✨ line {i+1}: Auto 30fps Detailed Moving Explainer ready ✓")
+                                return ([{"kind": "video", "path": _ex_out, "credit": "", "src": "ai explainer", "whole": True, "ss": 0.0}], [])
+                        except Exception as _aee:
+                            log(f"   (auto explainer skip line {i+1}: {str(_aee)[:60]})", show=False)
+
+                    # Layer 1 (v4.35): Check strong relevant REAL MOVING HD VIDEO on EVERY line (videos first, images only when no strong video!)
+                    if not USER_AI_HINT.get(i):
                         try:
                             _j_its, _j_rej = job(i)
-                            _real_vids = [x for x in (_j_its or []) if x.get("kind") == "video" and float(x.get("score") or 0) >= 0.265]
+                            _real_vids = [x for x in (_j_its or []) if x.get("kind") == "video" and float(x.get("score") or 0) >= 0.255]
                         except Exception:
                             _real_vids = []
                     _h_clean = re.sub(r"^AI\s*:\s*", "", str(hints[i] if i < len(hints) else "") or "", flags=re.I).strip()
@@ -1050,7 +1074,7 @@ def main():
                     for _bi in range(_ai_needed):
                         _ap = _cv_ai.generate_scene_image(
                             _angles[(_bi + len(_hybrid_list)) % len(_angles)], work / "ai_visuals",
-                            topic=_clean_title(title, ""), W=W, H=H, keys=keys
+                            topic=_clean_title(title, ""), W=W, H=H, keys=keys, variation=(i * 7 + _bi + 1)
                         )
                         if _ap and Path(_ap).exists():
                             _hybrid_list.append({"kind": "image", "path": Path(_ap), "credit": "",
@@ -1146,6 +1170,11 @@ def main():
                 except Exception as _re:
                     log(f"   (route map fallback: {str(_re)[:70]})", show=False)
             if name == "map" and val and yes(style.get("map", "haan")):
+                _m_line_hi = str(lines[i] if i < len(lines) else "")
+                _is_geo_line = bool(re.search(r"(बॉर्डर|सीमा|देश|महाद्वीप|सफर|किलोमीटर|रूस|अमेरिका|यूरोप|एशिया|नक्शा|राज्य|नदी|पहाड़|समुद्र|बेरिंग|border|country|continent|route|km|russia|america|map|ocean|journey|walk)", _m_line_hi, re.I))
+                if not _is_geo_line and not re.search(r"\[map:", str(sents[i].get("script") or ""), re.I):
+                    log(f"   line {i+1}: non-geography line -> faltu map skip ({val.strip()[:30]})", show=False)
+                    continue
                 place, _, lab = val.partition("|")
                 _pk = place.split(",")[-1].strip().lower() or place.strip().lower()
                 with _fx_map_lock:
@@ -1182,9 +1211,9 @@ def main():
                 try:
                     from cine import doc_cards as _dc_n
                     _pal = (BIBLE.get("palette") if isinstance(BIBLE, dict) else None) or {}
-                    _hl_words = [w for w in head.strip().split() if len(w) > 3]
-                    _hl_phrase = " ".join(_hl_words[:4]) if _hl_words else head.strip()[:36]
-                    if _dc_n.render_news_highlight(srcn.strip() or "NEWS REPORT", head.strip(), _hl_phrase, dur, out, W, H, style, _pal):
+                    # v4.35: Show Bold Headline + ACTUAL spoken Hindi news detail paragraph highlighted in yellow!
+                    _art_para = _safe_trim(lines[i], 145) if (i < len(lines) and len(str(lines[i] or "").strip()) >= 18) else head.strip()
+                    if _dc_n.render_news_highlight(_safe_trim(srcn.strip() or "NEWS REPORT", 28), _safe_trim(head.strip(), 72), _art_para, dur, out, W, H, style, _pal):
                         return ([{"kind": "video", "path": out, "credit": "", "src": "news card", "whole": True, "ss": 0.0}], [])
                 except Exception as _dce:
                     log(f"   (realistic news card fallback: {str(_dce)[:80]})", show=False)
@@ -1430,6 +1459,8 @@ def main():
             if "_UG" not in locals():
                 from unique_guard import UniqueAssetGuard
                 _UG = UniqueAssetGuard()
+            if "_USED_IMGS" not in locals():
+                _USED_IMGS = set()
             if "_DOC_BEATS" not in locals():
                 _DOC_BEATS = {"stat": 0, "year": 0, "news": 0, "parallax": 0, "fullform": 0, "last_line": -9}
             for j in range(k):
@@ -1647,7 +1678,7 @@ def main():
                             import cloud_visuals as _cv2
                             from cine import doc_cards as _dc2, bible as _bib2
                             _q_exact = str(USER_AI_HINT.get(i) or _rp_i.get("ai_prompt") or sources.SHOW.get(i) or (eng[i] if i < len(eng) and eng[i] else s.get("script") or s["text"]))
-                            _ai_ex = _cv2.generate_scene_image(_q_exact, work / "ai_visuals", topic=_clean_title(title, ""), W=W, H=H, keys=keys)
+                            _ai_ex = _cv2.generate_scene_image(_q_exact, work / "ai_visuals", topic=_clean_title(title, ""), W=W, H=H, keys=keys, variation=(i * 11 + j + 3))
                             if _ai_ex:
                                 # v3.59 + v4.26: Full-screen immersive AI scene (smooth Ken Burns, no repetitive dark box!)
                                 if not USER_AI_HINT.get(i):
@@ -1656,6 +1687,21 @@ def main():
                         except Exception:
                             pass
                     if it is not None:
+                        if it.get("kind") == "image":
+                            _ip_str = str(it.get("path") or "")
+                            if _ip_str in _USED_IMGS and not (i in face_lines):
+                                try:
+                                    import cloud_visuals as _cv_unq
+                                    _q_u = str(sources.SHOW.get(i) or (eng[i] if i < len(eng) and eng[i] else s.get("script") or s["text"]))
+                                    _ai_u = _cv_unq.generate_scene_image(_q_u, work / "ai_visuals", topic=_clean_title(title, ""),
+                                                                         W=W, H=H, keys=keys, variation=(len(_USED_IMGS) + i * 13 + j + 5))
+                                    if _ai_u and Path(_ai_u).exists():
+                                        it = {"kind": "image", "path": Path(_ai_u), "credit": "", "src": "cloud flux (unique)", "fullbleed": True}
+                                        _ip_str = str(_ai_u)
+                                except Exception:
+                                    pass
+                            if _ip_str:
+                                _USED_IMGS.add(_ip_str)
                         _UG.register(it)
                 elif items:
                     _beat_ai_done = False
@@ -1669,7 +1715,7 @@ def main():
                             import cloud_visuals as _cv_b2
                             _q_b2 = str(sources.SHOW.get(i) or (eng[i] if i < len(eng) and eng[i] else s.get("script") or s["text"]))
                             _ai_b2 = _cv_b2.generate_scene_image(f"different documentary angle, candid real-world shot, {_q_b2}, beat {j+1}",
-                                                                 work / "ai_visuals", topic=_clean_title(title, ""), W=W, H=H, keys=keys)
+                                                                 work / "ai_visuals", topic=_clean_title(title, ""), W=W, H=H, keys=keys, variation=(i * 11 + j + 3))
                             if _ai_b2 and Path(_ai_b2).exists():
                                 it = {"kind": "image", "path": Path(_ai_b2), "credit": "", "src": "cloud flux (beat)", "fullbleed": True}
                                 _beat_ai_done = True
@@ -1680,10 +1726,12 @@ def main():
                         if vids:
                             it = dict(vids[j % len(vids)])     # video ka alag hissa (video preferred over repeating image!)
                         else:
-                            # v4.32 ZERO PHOTO REPEAT GUARANTEE (Shorts + Longs!): NEVER cut to the exact same photo 2-4x!
-                            if plan and plan[-1][2] and plan[-1][2].get("kind") == "image" and str(plan[-1][2].get("path")) == str(items[0].get("path")):
-                                plan[-1] = (plan[-1][0], pts[j + 1], plan[-1][2])
-                                continue
+                            # v4.35 GLOBAL ZERO PHOTO REPEAT GUARANTEE (blocks A->A AND A->B->A across entire video!)
+                            _cand_p = str(items[0].get("path") or "")
+                            if _cand_p and _cand_p in _USED_IMGS:
+                                if plan:
+                                    plan[-1] = (plan[-1][0], pts[j + 1], plan[-1][2])
+                                    continue
                             it = dict(items[0])
                 else:
                     # v3.1: static Hindi text card NAHI (upar faltu Hindi likha aata tha) -> chalta kinetic keyword card
@@ -1729,7 +1777,7 @@ def main():
                                 try:
                                     import cloud_visuals as _cv
                                     _q_desc = (eng[i] if i < len(eng) and eng[i] else _txt_line)
-                                    _ai_img = _cv.generate_scene_image(_q_desc, work / "ai_visuals", topic=_clean_title(title, ""), W=W, H=H, keys=keys)
+                                    _ai_img = _cv.generate_scene_image(_q_desc, work / "ai_visuals", topic=_clean_title(title, ""), W=W, H=H, keys=keys, variation=(i * 11 + j + 3))
                                 except Exception as _cve:
                                     log(f"   (cloud visual skip: {_cve})", show=False)
                             if _auto_exp_done:
@@ -2132,12 +2180,14 @@ def main():
                 _badge_h = style.get("_hook_badge") or "VIRAL FACT"
                 _acc_h = style.get("_hook_accent") or "#FACC15"
                 if title:
-                    _t1 = " ".join(_tw(x) for x in title[0].split())
-                    _t2 = " ".join(_tw(x) for x in (title[1] if len(title) > 1 else title[0]).split())
+                    # v4.35: Crisp punchy 4-5 word Hook Title ONLY (never dump a 15-word sentence!)
+                    _raw_t = (title[1] if len(title) > 1 and len(title[1].split()) <= 6 else title[0])
+                    _t1 = " ".join(_tw(x) for x in title[0].split()[:5])
+                    _t2 = " ".join(_tw(x) for x in _raw_t.split()[:5])
                 else:
                     _w0 = re.sub(r'[।,!?"\'“”]', "", lines[0]).split()
                     _t1 = _badge_h
-                    _t2 = " ".join(_tw(x) for x in _w0[:7])
+                    _t2 = " ".join(_tw(x) for x in _w0[:5])
                 if hf_hook.render_hook(_t1, _t2, HFH, hl=sources.KEYW.get(0, ""), W=W, H=H, badge=_badge_h, accent=_acc_h):
                     hook = None                      # ASS wala upar ka text nahi (do title ek saath nahi)
                     effects.append((0.08, "sfx", ("boom" if LONG else "whoosh", 0.42)))

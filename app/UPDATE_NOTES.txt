@@ -1,3 +1,17 @@
+THE VIRAL GYAAN VIDEOTOOL — v4.35 (Cumulative over v4.18)
+==========================================================
+Included in this single ZIP (v4.19 through v4.35 — 3-Layer Detailed Moving Video Engine + Zero Photo Repeat Lock):
+1. Layer 1 — Real Moving HD Video Priority on EVERY Line (app/make_video.py):
+   - Checks strong relevant moving HD videos (score >= 0.255) on EVERY non-card line (removed 50% line skip), prioritizing real moving clips over static images while rejecting weak/irrelevant/cartoon clips.
+2. Layer 2 — Auto 30fps Detailed Moving Explainer Videos (app/make_video.py):
+   - Automatically triggers 30fps Hindi/Hinglish visual explainer animations on 2 key rule/law/process/comparison lines in Shorts (up to 5 in Longs) even without manual [explain:] tags so complex lines are visually explained in detail.
+3. Layer 3 — 100% Global Zero Photo Repeat + Unique Cache Salt (app/cloud_visuals.py + app/make_video.py):
+   - Added `variation` hash salt + distinct framing angles so multi-beat AI scenes never collide on the same cached `.jpg`, and added global `_USED_IMGS` lock blocking both consecutive and A->B->A photo repeats across the entire video.
+4. Fixed [news:] Full Highlighted Hindi Paragraph + Crisp 5-Word Hook Title + Smart Map Guard (app/make_video.py):
+   - Newspaper cards now display Bold Headline + actual spoken Hindi article paragraph highlighted in yellow (fixes duplicate half-headline); Hook Title strictly capped to 5 punchy words; non-geography lines skip irrelevant maps.
+5. Includes ALL v4.19–v4.34 upgrades (Smart 3/Day IST Auto-Scheduler + /schedule, Unified 35mm Look, 100% Locked Charon Voice, Zero Adhyaay 1-6, Cloudflare FLUX + SDXL-Lightning, Strict 2.0s Short cuts, 0% touch to core visual search).
+
+--- Previous Release Notes ---
 THE VIRAL GYAAN VIDEOTOOL — v4.34 (Cumulative over v4.18)
 ==========================================================
 Included in this single ZIP (v4.19 through v4.34 — Unified Documentary Look, 50/50 Hybrid Video+AI & Smart 3/Day Auto-Scheduler):

@@ -233,7 +233,7 @@ def _try_huggingface(prompt, out_path, hf_token, W=1080, H=1920, timeout=60):
     raise RuntimeError(f"HF HTTP {r.status_code}")
 
 
-def generate_scene_image(scene_desc, out_dir, topic="", W=1080, H=1920, keys=None):
+def generate_scene_image(scene_desc, out_dir, topic="", W=1080, H=1920, keys=None, variation=0):
     """Generate a 100% realistic 35mm documentary AI photograph (zero GPU, zero card)."""
     global _WARNED_ONCE
     keys = keys or {}
@@ -243,7 +243,10 @@ def generate_scene_image(scene_desc, out_dir, topic="", W=1080, H=1920, keys=Non
 
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    h = hashlib.sha1(f"{prompt}|{W}x{H}".encode("utf-8")).hexdigest()[:12]
+    _var_tag = ("wide establishing documentary frame", "medium candid action frame", "close-up natural detail frame", "over-the-shoulder real-life perspective")[int(variation or 0) % 4]
+    if variation:
+        prompt = f"{_var_tag}, {prompt}"
+    h = hashlib.sha1(f"{prompt}|{W}x{H}|v{int(variation or 0)}".encode("utf-8")).hexdigest()[:12]
     out_path = out_dir / f"ai_doc_{h}.jpg"
     if out_path.exists() and out_path.stat().st_size > 8000:
         return str(out_path)
