@@ -1,3 +1,18 @@
+THE VIRAL GYAAN VIDEOTOOL — v4.34 (Cumulative over v4.18)
+==========================================================
+Included in this single ZIP (v4.19 through v4.34 — Unified Documentary Look, 50/50 Hybrid Video+AI & Smart 3/Day Auto-Scheduler):
+1. Unified Signature Theme & Zero AI Text/Chinese/Foreign Face Glitches (app/cloud_visuals.py + app/render.py):
+   - Sanitizer strips numbers (80%), internal beat markers (beat 2/3), subscribe/comment/chart/screen triggers before FLUX so AI NEVER draws Chinese text, fake 'ubscribe', or broken charts.
+   - Locks authentic Indian look on Indian topics + adds unified warm 35mm brand color grade so Real Videos & AI Photos blend into one cohesive documentary film.
+2. Smart 50/50 Hybrid Mode (Real HD Videos + 35mm Realistic AI) + Hero CTA + Zero Title Overlap (app/make_video.py):
+   - Prioritizes strong real HD videos on Beat 1 + 35mm realistic Cloudflare FLUX AI on Beat 2/3 (zero slideshow feel!), uses clean main-topic hero visuals on Subscribe/Comment CTA lines, and skips overlapping 0-3s Hook Title when Line 1 is already an AI Explainer or Newspaper card.
+3. Full Newspaper Article Layout (app/cine/doc_cards.py + app/make_video.py):
+   - Broadsheet newspaper renders Bold Headline + real 2-3 line article paragraph right underneath with animated yellow highlighter sweeping across the key fact (zero blank gap!).
+4. Smart 3-Videos/Day Auto-Scheduler (9:00 AM, 1:30 PM, 7:00 PM IST) + /schedule Command (cloudflare_worker.js):
+   - New 1-tap '📅 Auto-Schedule (3/Day Best IST ⭐)' button on every Short & Long publish card automatically queues 3 videos/day across upcoming days for YT + FB Page + IG, plus /schedule command synced in BOT_COMMANDS & bottom KEYBOARD.
+5. Includes ALL v4.19–v4.33 upgrades (100% Locked Charon Voice, Zero Adhyaay 1-6, Working Cloudflare FLUX + SDXL-Lightning, Strict 2.0s Short cuts, Clean Smart Frame Fit, Zero photo repeats, 0% touch to core visual search).
+
+--- Previous Release Notes ---
 THE VIRAL GYAAN VIDEOTOOL — v4.33 (Cumulative over v4.18)
 ==========================================================
 Included in this single ZIP (v4.19 through v4.33 — Locked Charon Voice + Zero Adhyaay 1-6 Edition):

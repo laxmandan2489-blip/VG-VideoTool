@@ -1003,42 +1003,64 @@ def main():
             # v4.31 UNLOCKED AI CINEMATIC DOCUMENTARY MODE (Default ON):
             # - ONLY named real celebrities/people (face_lines or explicit person in RAW_PLAN) use real Wikimedia portraits.
             # - EVERY other line (including real:true factual lines!) generates ultra-realistic 35mm AI beats every ~2.0s!
+            # v4.34 SMART 50/50 HYBRID (Real HD Video + 35mm Realistic AI):
+            # - Named real person/celebrity -> real Wikimedia portrait via job(i)
+            # - Subscribe/Comment CTA line -> clean main-topic hero visual (NEVER AI 'ubscribe' or Chinese phone!)
+            # - Strong real HD video clip (score >= 0.265) -> put REAL VIDEO on Beat 1 + 35mm AI on Beat 2/3!
+            # - Otherwise -> 2-4 distinct candid 35mm AI beats (every ~2.0s in Shorts, 2.4s/4.0s in Longs)
             _rp_m = (sources.RAW_PLAN.get(i) or {})
             _has_named_person = (i in face_lines) or bool(str(_rp_m.get("person") or "").strip())
+            _line_hi_raw = str(lines[i] if i < len(lines) else "")
+            _is_cta_line = (i >= max(1, len(lines) - 2)) and bool(re.search(r"(सब्सक्राइब|कमेंट|फॉलो|subscribe|comment|follow|अगली वीडियो)", _line_hi_raw, re.I))
             if not _has_named_person:
                 try:
                     import cloud_visuals as _cv_ai
+                    _real_vids = []
+                    # Try fetching 1 strong real HD video clip on every other line or CTA so video feels ALIVE (50/50 hybrid!)
+                    if _is_cta_line or (i % 2 == 0 and not USER_AI_HINT.get(i)):
+                        try:
+                            _j_its, _j_rej = job(i)
+                            _real_vids = [x for x in (_j_its or []) if x.get("kind") == "video" and float(x.get("score") or 0) >= 0.265]
+                        except Exception:
+                            _real_vids = []
                     _h_clean = re.sub(r"^AI\s*:\s*", "", str(hints[i] if i < len(hints) else "") or "", flags=re.I).strip()
                     _u_parts = [str(_rp_m.get(k_) or "").strip() for k_ in ("subject", "action", "place") if _rp_m.get(k_)]
                     _u_desc = ", ".join(_u_parts)
                     _en_line = str(eng[i] if i < len(eng) and eng[i] else "")
-                    _scene_prompt = _h_clean or _u_desc or _en_line or str(lines[i] if i < len(lines) else "")
-                    if _u_desc and _h_clean and len(_h_clean.split()) <= 6:
-                        _scene_prompt = f"{_h_clean}, {_u_desc}"
+                    if _is_cta_line:
+                        _scene_prompt = f"cinematic wide golden-hour documentary hero shot of {_clean_title(title, 'Indian documentary subject')}, real-world outdoor scene"
+                    else:
+                        _scene_prompt = _h_clean or _u_desc or _en_line or _line_hi_raw
+                        if _u_desc and _h_clean and len(_h_clean.split()) <= 6:
+                            _scene_prompt = f"{_h_clean}, {_u_desc}"
                     _line_st = float(sents[i]["start"]) if i < len(sents) else 0.0
                     _line_dur = max(0.0, float(sents[i]["end"]) - _line_st) if i < len(sents) else 0.0
                     _beat_step = 2.0 if not LONG else (2.4 if _line_st < 15.0 else 4.0)
                     _need_beats = max(1, min(4 if not LONG else 2, int(-(-_line_dur // _beat_step)))) if _line_dur > 0 else 1
                     _angles = [
                         f"wide candid documentary shot, {_scene_prompt}",
-                        f"medium close-up focusing on action and human detail, {_scene_prompt}",
-                        f"emotional close-up perspective showing authentic real-life expression, {_scene_prompt}",
-                        f"cinematic side-angle documentary detail shot, {_scene_prompt}",
+                        f"medium close-up focusing on real-life action and texture, {_scene_prompt}",
+                        f"natural candid close-up perspective in authentic daylight, {_scene_prompt}",
+                        f"atmospheric side-angle documentary detail shot, {_scene_prompt}",
                     ]
-                    _ai_list = []
-                    for _bi in range(_need_beats):
+                    _hybrid_list = []
+                    if _real_vids:
+                        _hybrid_list.append(_real_vids[0])
+                    _ai_needed = max(0, _need_beats - len(_hybrid_list))
+                    for _bi in range(_ai_needed):
                         _ap = _cv_ai.generate_scene_image(
-                            _angles[_bi % len(_angles)], work / "ai_visuals",
+                            _angles[(_bi + len(_hybrid_list)) % len(_angles)], work / "ai_visuals",
                             topic=_clean_title(title, ""), W=W, H=H, keys=keys
                         )
                         if _ap and Path(_ap).exists():
-                            _ai_list.append({"kind": "image", "path": Path(_ap), "credit": "",
-                                             "src": "cloud flux (AI Cinematic)", "fullbleed": True, "score": 0.36})
+                            _hybrid_list.append({"kind": "image", "path": Path(_ap), "credit": "",
+                                                 "src": "cloud flux (AI Cinematic)", "fullbleed": True, "score": 0.36})
                         else:
-                            break  # If first beat fails (engine unavailable), don't waste time retrying 4x
-                    if _ai_list:
-                        log(f"   🎬 line {i+1}: AI Cinematic 35mm ready ({len(_ai_list)} shots, ~{_beat_step:.1f}s pace) ✓")
-                        return (_ai_list, [])
+                            break
+                    if _hybrid_list:
+                        _tag_h = "Hybrid Video+AI" if _real_vids else "AI Cinematic 35mm"
+                        log(f"   🎬 line {i+1}: {_tag_h} ready ({len(_hybrid_list)} shots, ~{_beat_step:.1f}s pace) ✓")
+                        return (_hybrid_list, [])
                 except Exception as _vme:
                     log(f"   (vmode ai fallback to stock on line {i+1}: {str(_vme)[:60]})", show=False)
         return job(i)
@@ -2100,7 +2122,10 @@ def main():
         cards = sec_t if (LONG and yes(style.get("section_card", "haan"))) else []
         HFH = work / "hook_hf.webm"
         if HFH.exists(): HFH.unlink()
-        if yes(style.get("hf_hook", "haan")):   # v4.29: Guaranteed Viral 0-3s Hook Title (Shorts + Longs, Python-native fallback)
+        _first_src = str((plan[0][2].get("src") or "") if (plan and plan[0][2]) else "").lower()
+        _first_path = str((plan[0][2].get("path") or "") if (plan and plan[0][2]) else "").lower()
+        _first_has_own_title = any(k in _first_src or k in _first_path for k in ("explainer", "explain_", "news card", "news_", "tweet"))
+        if yes(style.get("hf_hook", "haan")) and not _first_has_own_title:   # v4.34: Zero overlap with Line-1 Explainer/Newspaper!
             try:
                 import hf_hook
                 from translit import word as _tw

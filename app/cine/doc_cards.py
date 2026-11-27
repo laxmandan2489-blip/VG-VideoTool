@@ -600,7 +600,7 @@ class RealisticNewsProofCard:
         self.W, self.H, self.pal, self.dur = W, H, pal, max(1.0, dur)
         self.source = (source or "VERIFIED ARCHIVE").strip()[:36].upper()
         self.headline = (headline or "Verified Documentary Record").strip()[:120]
-        self.highlight = (highlight_phrase or self.headline).strip()[:90]
+        self.highlight = (highlight_phrase or self.headline).strip()[:160]
         self.date_str = (date_str or "DOCUMENTARY RECORD").strip()[:32].upper()
         self.variant = variant
         self.rng = np.random.default_rng(abs(hash(self.headline + variant)) % 10000)
@@ -689,7 +689,12 @@ class RealisticNewsProofCard:
         self.page_base = page
         self.f_pg_hi = _dc_font("NotoSansDevanagari-Bold.ttf", 40)
         self.f_pg_en = _dc_font("Poppins-ExtraBold.ttf", 38)
-        self.hl_lines = _wrap_mixed(self.headline, self.f_pg_hi, self.f_pg_en, PW - 140)[:4]
+        self.f_art_hi = _dc_font("NotoSansDevanagari-Bold.ttf", 30)
+        self.f_art_en = _dc_font("Poppins-SemiBold.ttf", 28)
+        # v4.34: Support BOTH Bold Headline AND real 2-3 line highlighted article paragraph (zero blank space!)
+        self.hl_lines = _wrap_mixed(self.headline, self.f_pg_hi, self.f_pg_en, PW - 140)[:2]
+        _art_src = self.highlight if (self.highlight and self.highlight.lower() != self.headline.lower() and len(self.highlight) >= 18) else ""
+        self.art_lines = _wrap_mixed(_art_src, self.f_art_hi, self.f_art_en, PW - 140)[:3] if _art_src else []
 
     def frame(self, i, fps):
         W, H = self.W, self.H
@@ -699,19 +704,39 @@ class RealisticNewsProofCard:
 
         if self.variant == "broadsheet":
             pg = self.page_base.copy()
-            if hl > 0.01:
-                arr = np.asarray(pg, dtype=np.float32)
+            # v4.34: Draw Bold Headline + Real Article Paragraph below it (yellow highlighter sweeps the key fact!)
+            if self.art_lines:
+                if hl > 0.01:
+                    arr = np.asarray(pg, dtype=np.float32)
+                    art_y0 = 472 + len(self.hl_lines) * 66 + 18
+                    for li, ln in enumerate(self.art_lines):
+                        y0 = art_y0 + li * 56
+                        xe = int(62 + (self.PW - 124) * min(1.0, max(0.0, hl * len(self.art_lines) - li)))
+                        if xe > 68:
+                            arr[y0:y0 + 48, 62:xe, 0] *= 0.99
+                            arr[y0:y0 + 48, 62:xe, 1] *= 0.85
+                            arr[y0:y0 + 48, 62:xe, 2] *= 0.34
+                    pg = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+                dp = ImageDraw.Draw(pg, "RGBA")
                 for li, ln in enumerate(self.hl_lines):
-                    y0 = 490 + li * 82
-                    xe = int(62 + (self.PW - 124) * min(1.0, max(0.0, hl * len(self.hl_lines) - li)))
-                    if xe > 68:
-                        arr[y0:y0 + 68, 62:xe, 0] *= 0.99
-                        arr[y0:y0 + 68, 62:xe, 1] *= 0.84
-                        arr[y0:y0 + 68, 62:xe, 2] *= 0.36
-                pg = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
-            dp = ImageDraw.Draw(pg, "RGBA")
-            for li, ln in enumerate(self.hl_lines):
-                _draw_mixed_text(dp, (74, 500 + li * 82), ln, self.f_pg_hi, self.f_pg_en, fill=(18, 16, 14, 252))
+                    _draw_mixed_text(dp, (74, 466 + li * 66), ln, self.f_pg_hi, self.f_pg_en, fill=(14, 12, 10, 255))
+                art_y0 = 472 + len(self.hl_lines) * 66 + 24
+                for li, ln in enumerate(self.art_lines):
+                    _draw_mixed_text(dp, (74, art_y0 + li * 56), ln, self.f_art_hi, self.f_art_en, fill=(22, 20, 18, 250))
+            else:
+                if hl > 0.01:
+                    arr = np.asarray(pg, dtype=np.float32)
+                    for li, ln in enumerate(self.hl_lines):
+                        y0 = 490 + li * 82
+                        xe = int(62 + (self.PW - 124) * min(1.0, max(0.0, hl * len(self.hl_lines) - li)))
+                        if xe > 68:
+                            arr[y0:y0 + 68, 62:xe, 0] *= 0.99
+                            arr[y0:y0 + 68, 62:xe, 1] *= 0.84
+                            arr[y0:y0 + 68, 62:xe, 2] *= 0.36
+                    pg = Image.fromarray(np.clip(arr, 0, 255).astype(np.uint8))
+                dp = ImageDraw.Draw(pg, "RGBA")
+                for li, ln in enumerate(self.hl_lines):
+                    _draw_mixed_text(dp, (74, 500 + li * 82), ln, self.f_pg_hi, self.f_pg_en, fill=(18, 16, 14, 252))
 
             # v4.32: Crisp fixed-frame broadsheet (no over-zoom or heavy edge slide!)
             tilt = -0.015 + 0.03 * (3 * t * t - 2 * t * t * t)

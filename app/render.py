@@ -240,12 +240,14 @@ def video_frame_vf(src, W, H, style):
             f"pad={W}:{H}:(ow-iw)/2:{y}:color=0x0B0F17")
 
 
-LOOKS = {   # v2.14: saari footage ek jaisa rang (alag jagah ki clips bhi ek film jaisi lagein)
-    "film":    "eq=contrast=1.08:saturation=1.14:gamma=0.97,colorbalance=rs=0.03:gs=0.0:bs=-0.03:rh=0.03:bh=-0.04,"
+LOOKS = {   # v4.34: Unified Signature Channel Color Grade (Real Videos + 35mm AI Photos blend into ONE film!)
+    "film":    "eq=contrast=1.07:saturation=1.10:gamma=0.98,colorbalance=rs=0.025:gs=0.0:bs=-0.025:rh=0.025:bh=-0.03,"
                "vignette=angle=PI/5",
-    "teal":    "eq=contrast=1.10:saturation=1.10,colorbalance=rs=-0.04:bs=0.05:rh=0.05:bh=-0.05,vignette=angle=PI/5",
+    "warm":    "eq=contrast=1.06:saturation=1.08:gamma=0.99,colorbalance=rs=0.035:gs=0.01:bs=-0.03:rh=0.03:bh=-0.03,"
+               "vignette=angle=PI/5.2",
+    "teal":    "eq=contrast=1.08:saturation=1.06,colorbalance=rs=-0.03:bs=0.04:rh=0.03:bh=-0.04,vignette=angle=PI/5",
     "doc":     "eq=contrast=1.07:saturation=0.92:brightness=-0.015,vignette=angle=PI/4.5",
-    "natural": "eq=contrast=1.04:saturation=1.06",
+    "natural": "eq=contrast=1.04:saturation=1.05,vignette=angle=PI/6",
 }
 
 

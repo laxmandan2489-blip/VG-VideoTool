@@ -1,3 +1,4 @@
+import re
 """v4.31 100% FREE ULTRA-REALISTIC CLOUD AI VISUAL GENERATOR (Zero GPU, Zero Card).
 
 Engine Priority (all 100% FREE, zero international card):
@@ -24,20 +25,41 @@ _DEFAULT_CF_ACCOUNT_ID = "79108b20de09ead3bfff43e738f1b8b9"
 _WARNED_ONCE = False
 
 
+def _sanitize_scene_for_ai(scene_desc, topic=""):
+    """v4.34: Strip text/chart/number/meta triggers so FLUX NEVER draws garbled English, Chinese signs, or fake 'ubscribe'."""
+    s = str(scene_desc or "").strip()
+    # Remove internal beat/shot markers, subscribe/comment/UI triggers, and raw percentages/numbers
+    s = re.sub(r"\b(?:beat|shot)\s*\d+\b", "", s, flags=re.I)
+    s = re.sub(r"\b(?:subscribe|comment|follow|like|share|bell icon|pie chart|bar chart|graph|infographic|text overlay|headline|signboard|banner|billboard|calculator screen|phone screen|smartphone screen|logo|watermark)\b", "", s, flags=re.I)
+    s = re.sub(r"\b\d+(?:\.\d+)?\s*(?:%|(?:percent|crore|lakh|million|billion)\b)", "", s, flags=re.I)
+    s = re.sub(r"[₹$€]\s*[\d,.]+", "", s)
+    s = re.sub(r"\s+", " ", s).strip(" ,.-—|")
+    if len(s) < 6 and topic:
+        s = f"authentic real-world documentary scene about {topic}"
+    return s
+
+
 def _doc_prompt(scene_desc, topic="", W=1080, H=1920):
-    """v4.31: Ultra-realistic candid 35mm documentary photography prompt (zero plastic/CGI AI look)."""
-    clean = str(scene_desc or "").strip()
+    """v4.34: Cohesive 35mm documentary photojournalism prompt — authentic Indian look when Indian topic, ZERO text/charts/Chinese."""
+    clean = _sanitize_scene_for_ai(scene_desc, topic)
     if not clean:
         return ""
     orient = "widescreen 16:9 horizontal framing" if W > H else "vertical 9:16 portrait framing"
-    ctx = f"Real-world setting: {topic}. " if topic else ""
+    combined = f"{clean} {topic}".lower()
+    is_indian = bool(re.search(
+        r"(india|indian|bharat|hindi|delhi|mumbai|kashmir|tata|mahindra|railway|rupee|gst|isro|rbi|kirana|modi|bengaluru|chennai|kolkata|pune|jaipur|truck)",
+        combined, re.I
+    ))
+    locale_lock = (
+        "Authentic real Indian environment, natural Indian people and real Indian daylight textures, "
+        if is_indian else ""
+    )
     return (
-        f"Candid documentary photograph of {clean}. {ctx}"
-        "Shot on 35mm Kodak Portra 400 film, 50mm lens, natural unposed real people and real textures, "
-        "authentic daylight or realistic practical indoor lighting, subtle natural film grain, sharp focus, "
-        f"photojournalism still frame, {orient}. "
-        "Strict: NO plastic skin, NO glossy CGI, NO 3D render, NO cartoon, NO anime, NO neon glow, "
-        "NO text, NO letters, NO numbers, NO watermark, NO logos."
+        f"Pure candid 35mm documentary photograph of {clean}. {locale_lock}"
+        "Shot on Kodak Portra 400 film with 50mm lens, warm natural ambient daylight, genuine real-life textures, "
+        f"cinematic photojournalism still, sharp focus, subtle organic film grain, {orient}. "
+        "STRICTLY PURE PHOTOGRAPH: ZERO text, ZERO letters, ZERO numbers, ZERO Chinese or foreign characters, "
+        "ZERO signs, ZERO screens, ZERO charts, ZERO logos, ZERO plastic skin, ZERO glossy CGI, ZERO cartoon."
     )
 
 

@@ -12,7 +12,7 @@ const KEYBOARD = {
     [{ text: "🔥 /trends" }, { text: "📈 /planner" }],
     [{ text: "📂 /republish" }, { text: "📜 /log" }, { text: "📊 /status" }],
     [{ text: "🎬 /vmode" }, { text: "🎨 /vfilter" }, { text: "🛑 /rok" }],
-    [{ text: "📖 /guide" }],
+    [{ text: "📅 /schedule" }, { text: "📖 /guide" }],
     [{ text: "▶️ Aaj shuru karo (5 Prompt)" }, { text: "🎬 Long Prompt" }],
   ],
   resize_keyboard: true,
@@ -23,6 +23,7 @@ const BOT_COMMANDS = [
   { command: "trends", description: "🔥 SHORT & LONG viral topics (YouTube + X/IG/FB News + Influencer)" },
   { command: "planner", description: "📈 Auto-Pilot Winner Category & Views Tracker" },
   { command: "republish", description: "📂 Last 10 videos (Cover+Story) 1-tap Re-Upload" },
+  { command: "schedule", description: "📅 Smart 3/Day Auto-Publish Schedule Queue (IST)" },
   { command: "publish", description: "📤 Purani 20-200MB video catbox link se publish" },
   { command: "log", description: "📜 Last video ki downloadable log + Visual Report" },
   { command: "vmode", description: "🎬 Visual Mode: AI Cinematic vs Stock Search" },
@@ -212,7 +213,11 @@ export default {
         if (ctx && ctx.waitUntil) ctx.waitUntil(p); else await p;
       } else if (cdata.startsWith("vf:")) {
         await handleVfilterCallback(env, update.callback_query);
-      } else if (cdata.startsWith("vm:")) {
+      } else if (cdata.startsWith("scancel:")) {
+   await handleScheduleCancel(env, update.callback_query);
+   return new Response("ok");
+ }
+ if (cdata.startsWith("vm:")) {
         await handleVmodeCallback(env, update.callback_query);
       } else if (cdata.startsWith("pl:")) {
         const p = handlePlannerCallback(env, update.callback_query);
@@ -354,6 +359,11 @@ export default {
       return new Response("ok", { status: 200 });
     }
 
+    // 5b.4) v4.34 Smart 3/Day Publish Schedule Queue (/schedule)
+    if (tl === "/schedule" || tl.startsWith("/schedule ") || text.includes("/schedule")) {
+      await showScheduleQueue(env, chatId);
+      return new Response("ok");
+    }
     // 5b.5) v4.27 Visual Mode Switch (/vmode ai | /vmode stock | /vmode)
     if (tl === "/vmode" || tl.startsWith("/vmode ") || text.includes("/vmode")) {
       const arg = tl.replace(/.*\/vmode/, "").trim();
@@ -437,7 +447,7 @@ export default {
   //   30 3 * * *       -> Daily 9:00 AM IST  (5 Viral Shorts topics — 70-80% Winner Category!)
   //   30 11 * * 0,2,4  -> Tue/Thu/Sun 5:00 PM IST (5 Viral Long 5-6 min 16:9 topics!)
   async scheduled(event, env, ctx) {
-    const p = runAutoPilotCron(env, event && event.cron ? event.cron : "");
+    const p = Promise.allSettled([runAutoPilotCron(env, event && event.cron ? event.cron : ""), runScheduledPublishes(env)]);
     if (ctx && ctx.waitUntil) ctx.waitUntil(p); else await p;
   },
 };
@@ -2341,6 +2351,10 @@ async function handlePublishCallback(env, cq) {
     const id = parts[1] || "";
     const action = parts[2] || "";
 
+    if (action === "auto_sched") {
+      await scheduleVideoAuto(env, chatId, msgId, id);
+      return;
+    }
     if (action === "skip") {
       if (msgId) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: msgId, text: "⏭️ Auto-Publish skip kar diya (video + Cover + Story saved hain — baad me /republish se kabhi bhi daal sakte ho)." });
       return;
@@ -2636,13 +2650,15 @@ async function handleVmodeCallback(env, cq) {
 function buildPublishKeyboard(id, isLong) {
   return isLong ? {
     inline_keyboard: [
-      [{ text: "⏱️ YT 25m Auto-Public + FB Page (BEST ⭐)", callback_data: `pub:${id}:all_sched` }],
+      [{ text: "📅 Auto-Schedule (3/Day Best IST ⭐)", callback_data: `pub:${id}:auto_sched` }],
+      [{ text: "⏱️ YT 25m Auto-Public + FB Page (Turant)", callback_data: `pub:${id}:all_sched` }],
       [{ text: "🚀 YT Instant PUBLIC + FB Page", callback_data: `pub:${id}:all_pub` }],
       [{ text: "⏱️ YT 25m Auto-Public", callback_data: `pub:${id}:yt_sched` }, { text: "🔒 YT Unlisted", callback_data: `pub:${id}:yt` }],
       [{ text: "📱 Sirf Facebook Page", callback_data: `pub:${id}:meta` }, { text: "❌ Skip", callback_data: `pub:${id}:skip` }],
     ],
   } : {
     inline_keyboard: [
+      [{ text: "📅 Auto-Schedule (3/Day Best IST ⭐)", callback_data: `pub:${id}:auto_sched` }],
       [{ text: "⏱️ Sab Par (YT 25m Auto-Public + FB + IG ⭐)", callback_data: `pub:${id}:all_sched` }],
       [{ text: "🚀 Sab Par Instant PUBLIC (YT + FB + IG)", callback_data: `pub:${id}:all_pub` }],
       [{ text: "⏱️ YT 25m Auto-Public", callback_data: `pub:${id}:yt_sched` }, { text: "🔒 YT Unlisted", callback_data: `pub:${id}:yt` }],
@@ -2907,4 +2923,173 @@ async function runAutoPilotCron(env, cronExpr, overrideChatId = "") {
     : `🌅 GOOD MORNING! DAILY AUTO-PILOT SHORTS RADAR (9:00 AM IST)\n🏆 Focus Category: ${TREND_CATEGORIES[targetCat]?.label || targetCat}`;
   await tgReply(env.TG_TOKEN, chatId, intro, false);
   await runTrendsForCategory(env, chatId, targetCat, true, null, isLongCron ? "LONG" : "SHORT");
+}
+
+
+// =========================================================================
+// v4.34: SMART 3-VIDEOS/DAY AUTO-SCHEDULER (9:00 AM, 1:30 PM, 7:00 PM IST)
+// =========================================================================
+const SCHED_PUB_PATH = "seekha/publish_schedule.json";
+const IST_OFFSET_MS = 5.5 * 3600 * 1000;
+const DAILY_SLOTS_IST = [
+  { h: 9, m: 0, label: "9:00 AM IST" },
+  { h: 13, m: 30, label: "1:30 PM IST" },
+  { h: 19, m: 0, label: "7:00 PM IST" },
+];
+
+function findNextFreeIstSlot(existingPending, nowMs = Date.now()) {
+  const taken = new Set(existingPending.map(x => Number(x.slot_utc_ms || 0)));
+  const minAllowed = nowMs + 15 * 60 * 1000;
+  const istNow = new Date(nowMs + IST_OFFSET_MS);
+  const baseYear = istNow.getUTCFullYear();
+  const baseMonth = istNow.getUTCMonth();
+  const baseDay = istNow.getUTCDate();
+  const days = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const months = ["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+
+  for (let dOff = 0; dOff < 45; dOff++) {
+    for (const sl of DAILY_SLOTS_IST) {
+      const slotIstWallMs = Date.UTC(baseYear, baseMonth, baseDay + dOff, sl.h, sl.m, 0, 0);
+      const slotUtcMs = slotIstWallMs - IST_OFFSET_MS;
+      if (slotUtcMs < minAllowed) continue;
+      let clash = false;
+      for (const tk of taken) {
+        if (Math.abs(tk - slotUtcMs) < 10 * 60 * 1000) { clash = true; break; }
+      }
+      if (!clash) {
+        const dt = new Date(slotIstWallMs);
+        const dayStr = `${days[dt.getUTCDay()]}, ${dt.getUTCDate()} ${months[dt.getUTCMonth()]} — ${sl.label}`;
+        return { slot_utc_ms: slotUtcMs, slot_ist: dayStr };
+      }
+    }
+  }
+  const fb = nowMs + 24 * 3600 * 1000;
+  return { slot_utc_ms: fb, slot_ist: "Tomorrow 9:00 AM IST" };
+}
+
+async function scheduleVideoAuto(env, chatId, msgId, id) {
+  const store = await readGhJson(env, PUB_PATH, {});
+  const item = store.data && store.data[id];
+  if (!item || (!item.video_url && !item.tg_file_id)) {
+    if (msgId) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: msgId, text: "⚠️ Ye publish card purana ho gaya — /republish se dobara kholein." });
+    return;
+  }
+  const qCur = await readGhJson(env, SCHED_PUB_PATH, []);
+  const queue = Array.isArray(qCur.data) ? qCur.data : [];
+  const pending = queue.filter(x => x && x.status === "pending");
+  const already = pending.find(x => x.id === id);
+  if (already) {
+    if (msgId) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: msgId, text: `📅 Ye video pehle se scheduled hai!\n⏰ ${already.slot_ist}\n🎬 ${String(item.title || "").slice(0, 75)}` });
+    return;
+  }
+  const slot = findNextFreeIstSlot(pending, Date.now());
+  const entry = {
+    id: item.id,
+    title: String(item.title || "The Viral Gyaan").slice(0, 100),
+    description: String(item.description || "").slice(0, 2000),
+    tags: item.tags || "",
+    mode: item.mode || "SHORT",
+    category: item.category || "general",
+    video_url: item.video_url || "",
+    tg_file_id: item.tg_file_id || "",
+    cover_tg_file_id: item.cover_tg_file_id || "",
+    cover_url: item.cover_url || "",
+    story_tg_file_id: item.story_tg_file_id || "",
+    story_url: item.story_url || "",
+    slot_utc_ms: slot.slot_utc_ms,
+    slot_ist: slot.slot_ist,
+    status: "pending",
+    queued_at: Date.now(),
+  };
+  const nextQ = [...queue.filter(x => x && (x.status === "pending" || (Date.now() - Number(x.done_at || 0)) < 7 * 86400000)), entry];
+  await writeGhJson(env, SCHED_PUB_PATH, nextQ, qCur.sha, `schedule ${item.id} at ${slot.slot_ist}`);
+  const isLong = String(entry.mode).toUpperCase() === "LONG";
+  const plats = isLong ? "YouTube + Facebook Page" : "YouTube + Facebook Page + Instagram";
+  const pos = pending.length + 1;
+  const txt =
+    `✅ Smart Auto-Schedule Set! (#${pos} in queue)\n\n` +
+    `🎬 ${entry.title}\n` +
+    `⏰ Publish Time: ${slot.slot_ist}\n` +
+    `📣 Platforms: ${plats}\n\n` +
+    `(Roz 3 best slots: 9:00 AM • 1:30 PM • 7:00 PM IST — poora schedule dekhne ke liye /schedule dabaein.)`;
+  if (msgId) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: msgId, text: txt });
+  else await tgReply(env.TG_TOKEN, chatId, txt, true);
+}
+
+async function showScheduleQueue(env, chatId) {
+  const qCur = await readGhJson(env, SCHED_PUB_PATH, []);
+  const queue = Array.isArray(qCur.data) ? qCur.data : [];
+  const pending = queue.filter(x => x && x.status === "pending").sort((a, b) => Number(a.slot_utc_ms) - Number(b.slot_utc_ms));
+  if (!pending.length) {
+    await tgReply(env.TG_TOKEN, chatId, "📅 Abhi koi video schedule queue mein nahi hai.\n\nKisi bhi ready video par '📅 Auto-Schedule (3/Day Best IST ⭐)' dabaein — roz 9:00 AM, 1:30 PM aur 7:00 PM IST par apne aap publish hoti jayegi!", true);
+    return;
+  }
+  const lines = [`📅 Scheduled Videos Queue (${pending.length} pending — 3/Day IST):`, ""];
+  const kb = [];
+  for (let i = 0; i < Math.min(12, pending.length); i++) {
+    const it = pending[i];
+    const badge = String(it.mode || "SHORT").toUpperCase() === "LONG" ? "📺" : "📱";
+    lines.push(`${i + 1}. ${badge} ${it.slot_ist}\n   🎬 ${String(it.title || "").slice(0, 62)}`);
+    if (i < 6) kb.push([{ text: `❌ Cancel #${i + 1} (${String(it.slot_ist).slice(0, 18)})`, callback_data: `scancel:${it.id}` }]);
+  }
+  await tgApi(env, "sendMessage", {
+    chat_id: chatId,
+    text: lines.join("\n").slice(0, 3900),
+    reply_markup: { inline_keyboard: kb },
+  });
+}
+
+async function handleScheduleCancel(env, cq) {
+  const chatId = String(cq.message && cq.message.chat ? cq.message.chat.id : "");
+  const msgId = cq.message ? cq.message.message_id : null;
+  await tgApi(env, "answerCallbackQuery", { callback_query_id: cq.id });
+  if (env.ALLOWED_CHAT_ID && chatId !== String(env.ALLOWED_CHAT_ID).trim()) return;
+  const targetId = String(cq.data || "").replace("scancel:", "").trim();
+  const qCur = await readGhJson(env, SCHED_PUB_PATH, []);
+  const queue = Array.isArray(qCur.data) ? qCur.data : [];
+  const nextQ = queue.filter(x => !(x && x.id === targetId && x.status === "pending"));
+  await writeGhJson(env, SCHED_PUB_PATH, nextQ, qCur.sha, `cancel scheduled ${targetId}`);
+  if (msgId) await tgApi(env, "editMessageText", { chat_id: chatId, message_id: msgId, text: "🗑️ Scheduled video queue se hata di gayi. (/schedule se updated list dekhein)" });
+}
+
+async function runScheduledPublishes(env) {
+  try {
+    const qCur = await readGhJson(env, SCHED_PUB_PATH, []);
+    const queue = Array.isArray(qCur.data) ? qCur.data : [];
+    const nowMs = Date.now();
+    const dueIdx = queue.findIndex(x => x && x.status === "pending" && Number(x.slot_utc_ms || 0) <= nowMs + 2 * 60 * 1000);
+    if (dueIdx < 0) return;
+    const item = queue[dueIdx];
+    const isLong = String(item.mode || "SHORT").toUpperCase() === "LONG";
+    let ytVideoUrl = item.video_url
+      ? (item.tg_file_id ? `${item.video_url}#vg_tg=${item.tg_file_id}` : item.video_url)
+      : (item.tg_file_id ? `tgfile://${item.tg_file_id}` : "");
+    if (item.cover_tg_file_id) ytVideoUrl += `#vg_th_tg=${item.cover_tg_file_id}`;
+    if (item.cover_url) ytVideoUrl += `#vg_th_url=${encodeURIComponent(item.cover_url)}`;
+
+    const ytTask = dispatchGH(env, "publish_video.yml", {
+      video_url: ytVideoUrl, title: item.title, description: item.description,
+      tags: item.tags, mode: item.mode, category: item.category, privacy: "scheduled",
+    });
+    const fbTask = publishFacebookPage(env, item);
+    const igTask = !isLong ? publishInstagramReelAndStory(env, item) : Promise.resolve({ ok: true, msg: "ℹ️ Long video: IG skip" });
+    const [ytOk, fbRes, igRes] = await Promise.all([ytTask, fbTask, igTask]);
+
+    queue[dueIdx] = { ...item, status: "done", done_at: Date.now() };
+    await writeGhJson(env, SCHED_PUB_PATH, queue, qCur.sha, `published scheduled ${item.id}`);
+
+    const chatId = String(env.ALLOWED_CHAT_ID || env.TG_CHAT_ID || "").trim();
+    if (chatId) {
+      const msg =
+        `⏰ Scheduled Auto-Publish Triggered!\n` +
+        `🎬 ${item.title}\n` +
+        `🗓️ Slot: ${item.slot_ist}\n` +
+        `▶️ YouTube: ${ytOk ? "25m Auto-Public shuru ✓" : "fail"}\n` +
+        `${fbRes ? fbRes.msg : ""}\n` +
+        `${igRes ? igRes.msg : ""}`.trim();
+      await tgReply(env.TG_TOKEN, chatId, msg, true);
+    }
+  } catch (e) {
+    console.log("runScheduledPublishes err:", e);
+  }
 }
