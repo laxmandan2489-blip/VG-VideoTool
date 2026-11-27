@@ -1,8 +1,8 @@
 {
  "items": [
   {
-   "id": "gn_8c4ucr",
-   "title": "How Vijay's Win Set Off Chain Reaction That May Change India's Poll Map Forever",
+   "id": "gn_bqxg58",
+   "title": "Jefferies Names 10 Stocks To Buy As India Defies A 20-Year Earnings Trend",
    "channel": "NDTV Trending",
    "handle": "@ViralNews",
    "catKey": "socialnews",
@@ -13,11 +13,11 @@
    "outlierMult": 4,
    "viralRating": 9,
    "score": 1000,
-   "url": "https://www.ndtv.com/india-news/how-thalapathy-vijay-set-off-chain-reaction-that-could-alter-india-electoral-map-with-delimitation-bill-at-special-parliament-session-12383338"
+   "url": "https://www.ndtvprofit.com/markets/icici-bank-kotak-mahindra-bank-ril-sbi-indian-hotels-jefferies-names-10-stocks-to-buy-as-india-defies-a-20-year-earnings-trend-sensex-today-autos-12382795"
   },
   {
-   "id": "gn_r8dhbc",
-   "title": "Hanuman Ansh OTT Release: When Will Telugu, Malayalam, Tamil And Gujarati Versions Stream?",
+   "id": "gn_fqrlxd",
+   "title": "Is Raj Thackeray-Led MNS Opposing Diljit Dosanjh's Mumbai Concert?",
    "channel": "NDTV Trending",
    "handle": "@ViralNews",
    "catKey": "socialnews",
@@ -28,11 +28,11 @@
    "outlierMult": 4,
    "viralRating": 9,
    "score": 1000,
-   "url": "https://www.ndtvprofit.com/entertainment/hanuman-ansh-ott-release-when-will-telugu-malayalam-tamil-kannada-and-gujarati-versions-stream-12383005"
+   "url": "https://www.ndtvprofit.com/india/why-is-raj-thackeray-led-mns-opposing-diljit-dosanjhs-mumbai-concert-12383254"
   },
   {
-   "id": "gn_366k35",
-   "title": "iPhone 17 At Rs 85,100? Check Bank Offers, How To Get Deal In Flipkart Black Friday Sale",
+   "id": "gn_3vcvkt",
+   "title": "Bengali Actor Mimi Chakraborty Marries Marine Engineer In Kolkata, 1st Pic Out",
    "channel": "NDTV Trending",
    "handle": "@ViralNews",
    "catKey": "socialnews",
@@ -43,11 +43,11 @@
    "outlierMult": 4,
    "viralRating": 9,
    "score": 1000,
-   "url": "https://www.ndtvprofit.com/technology/iphone-17-at-rs-85-100-check-bank-offers-and-how-to-get-the-deal-in-flipkart-black-friday-sale-12382848"
+   "url": "https://www.ndtv.com/entertainment/bengali-actor-mimi-chakraborty-marries-engineer-siddhartha-dutta-in-registry-ceremony-traditional-wedding-next-week-12383002"
   },
   {
-   "id": "gn_7hwiw",
-   "title": "Gold, Silver Rates Live Updates, Nov 27: Gold Rebounds From 15-Month Low, Silver Rises",
+   "id": "gn_hmo2wb",
+   "title": "Sudesh Berry On Daughter-In-Law's Claim Of Receiving No Career Support",
    "channel": "NDTV Trending",
    "handle": "@ViralNews",
    "catKey": "socialnews",
@@ -58,11 +58,11 @@
    "outlierMult": 4,
    "viralRating": 9,
    "score": 1000,
-   "url": "https://www.ndtvprofit.com/markets/gold-silver-prices-today-live-updates-22k-24k-mumbai-delhi-chennai-bengaluru-hyderabad-12383256"
+   "url": "https://www.ndtv.com/entertainment/i-cant-help-her-achieve-whats-not-in-her-destiny-sudesh-berry-on-daughter-in-laws-claim-of-receiving-no-career-support-12383347"
   },
   {
-   "id": "gn_i3kt82",
-   "title": "Who Is Siddhartha Dutta, the Man Actor and Former MP Mimi Chakraborty Married?",
+   "id": "gn_5ux2dx",
+   "title": "Ananya Panday Says AI Can Help Filmmaking But Can't Replace Human Emotion",
    "channel": "NDTV Trending",
    "handle": "@ViralNews",
    "catKey": "socialnews",
@@ -73,7 +73,7 @@
    "outlierMult": 4,
    "viralRating": 9,
    "score": 1000,
-   "url": "https://www.ndtvprofit.com/entertainment/who-is-siddhartha-dutta-the-man-actor-and-former-mp-mimi-chakraborty-quietly-married-12383086"
+   "url": "https://www.ndtv.com/entertainment/ananya-panday-says-ai-must-not-be-used-without-consent-after-getting-personality-rights-protection-12383058"
   }
  ],
  "catKey": "socialnews",
@@ -348,8 +348,13 @@
    "gn_r8dhbc",
    "gn_366k35",
    "gn_7hwiw",
-   "gn_i3kt82"
+   "gn_i3kt82",
+   "gn_bqxg58",
+   "gn_fqrlxd",
+   "gn_3vcvkt",
+   "gn_hmo2wb",
+   "gn_5ux2dx"
   ]
  },
- "ts": 1795763076394
+ "ts": 1795763110412
 }
