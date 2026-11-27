@@ -1,3 +1,23 @@
+THE VIRAL GYAAN VIDEOTOOL — v5.0 HYBRID DIRECTOR (ek hi try, free)
+====================================================================
+1. AI mode + Stock mode ab EK system (app/director.py – naya):
+   - Gemini poori script padh ke har ~2 sec beat ka ALAG shot likhta hai (kya dikhe + stock query + AI prompt + kis shabd pe cut).
+   - Stock khoj (YouTube, Pexels, Pixabay, X, Pinterest, Archive.org, Wikimedia, NASA, iNaturalist...) har beat ki apni query se.
+   - Mili HAR clip/photo Gemini Vision dekhta hai (pehle sirf 16). 7/10+ = beat sahi. Video ko thodi preference.
+   - Khaali beat -> us beat ka apna AI prompt + alag seed -> AI photo bhi jaanchi jaati hai -> kamzor ho to sirf USKA ek retry.
+   - Poori video me koi photo/clip (ya lagbhag same dikhne wali) dobara nahi – AI photo bhi is jaanch me.
+   - Telegram pe ASLI score: "Visual match X/100" (Gemini ke number ka average), kamzor lines ke number ke saath.
+2. Ek hi try: purana quality loop / check bot (poori video dobara render) default BAND – GitHub minute bachte hain.
+3. Bug fix: v4.35 Auto Explainer kabhi chalta hi nahi tha (galat function naam render_ai_explainer) – ab chalta hai (Short 1, Long 3).
+4. Bug fix: QC round-2 me har photo "used" maani jaati thi (_USED_IMGS round ke beech reset nahi hota tha).
+5. Bug fix: AI photo repeat-check se bahar thi ("cloud flux" chhoot) – ab nahi.
+6. AI photo: "ZERO text / ZERO Chinese..." wala ulta prompt hataya (FLUX me negative prompt nahi hota), har beat alag seed,
+   steps 8, vertical composition, crop ke baad halka sharpen. Optional: CF_PORTRAIT_MODEL env (width/height wala model).
+7. Photo motion: zoom 4% -> 7% aur zoompan se pehle 2x scale (jhatka/jitter khatam).
+8. Sahi asli video (8/10+) ko news/parallax text card se nahi dhakte.
+Band karna ho (purana tareeka): style.txt me  director = nahi
+
+--- Previous Release Notes ---
 THE VIRAL GYAAN VIDEOTOOL — v4.35 (Cumulative over v4.18)
 ==========================================================
 Included in this single ZIP (v4.19 through v4.35 — 3-Layer Detailed Moving Video Engine + Zero Photo Repeat Lock):

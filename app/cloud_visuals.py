@@ -23,6 +23,7 @@ from common import log
 
 _DEFAULT_CF_ACCOUNT_ID = "79108b20de09ead3bfff43e738f1b8b9"
 _WARNED_ONCE = False
+_DEAD = set()
 
 
 def _sanitize_scene_for_ai(scene_desc, topic=""):
@@ -30,7 +31,9 @@ def _sanitize_scene_for_ai(scene_desc, topic=""):
     s = str(scene_desc or "").strip()
     # Remove internal beat/shot markers, subscribe/comment/UI triggers, and raw percentages/numbers
     s = re.sub(r"\b(?:beat|shot)\s*\d+\b", "", s, flags=re.I)
-    s = re.sub(r"\b(?:subscribe|comment|follow|like|share|bell icon|pie chart|bar chart|graph|infographic|text overlay|headline|signboard|banner|billboard|calculator screen|phone screen|smartphone screen|logo|watermark)\b", "", s, flags=re.I)
+    # v5.0: "like / follow / share" aam shabd hain ("follow the river") – sirf button/UI wale hatao
+    s = re.sub(r"\b(?:subscribe(?: button)?|(?:like|share|comment|follow) button|comment section|bell icon|pie chart|bar chart|"
+               r"infographic|text overlay|headline|signboard|banner|billboard|logo|watermark)\b", "", s, flags=re.I)
     s = re.sub(r"\b\d+(?:\.\d+)?\s*(?:%|(?:percent|crore|lakh|million|billion)\b)", "", s, flags=re.I)
     s = re.sub(r"[₹$€]\s*[\d,.]+", "", s)
     s = re.sub(r"\s+", " ", s).strip(" ,.-—|")
@@ -39,28 +42,28 @@ def _sanitize_scene_for_ai(scene_desc, topic=""):
     return s
 
 
-def _doc_prompt(scene_desc, topic="", W=1080, H=1920):
-    """v4.34: Cohesive 35mm documentary photojournalism prompt — authentic Indian look when Indian topic, ZERO text/charts/Chinese."""
+def _is_indian(text):
+    return bool(re.search(
+        r"(india|indian|bharat|hindi|delhi|mumbai|kashmir|tata|mahindra|railway|rupee|gst|isro|rbi|kirana|modi|"
+        r"bengaluru|chennai|kolkata|pune|jaipur|truck|bihar|punjab|kerala|gujarat|rajasthan|village|desi)",
+        str(text or ""), re.I))
+
+
+def _doc_prompt(scene_desc, topic="", W=1080, H=1920, raw=False):
+    """v5.0: Saaf photoreal prompt. Pehle prompt me "ZERO text, ZERO Chinese, signs, screens..." likha tha –
+    FLUX me negative prompt hota hi nahi, ye shabd likhne se ULTA wahi cheezein aati thi. Ab sirf ye likhte hain ki
+    kya CHAHIYE. raw=True: Director ka beat prompt (pehle se poora scene) – topic jodte nahi."""
     clean = _sanitize_scene_for_ai(scene_desc, topic)
     if not clean:
         return ""
-    orient = "widescreen 16:9 horizontal framing" if W > H else "vertical 9:16 portrait framing"
-    combined = f"{clean} {topic}".lower()
-    is_indian = bool(re.search(
-        r"(india|indian|bharat|hindi|delhi|mumbai|kashmir|tata|mahindra|railway|rupee|gst|isro|rbi|kirana|modi|bengaluru|chennai|kolkata|pune|jaipur|truck)",
-        combined, re.I
-    ))
-    locale_lock = (
-        "Authentic real Indian environment, natural Indian people and real Indian daylight textures, "
-        if is_indian else ""
-    )
-    return (
-        f"Pure candid 35mm documentary photograph of {clean}. {locale_lock}"
-        "Shot on Kodak Portra 400 film with 50mm lens, warm natural ambient daylight, genuine real-life textures, "
-        f"cinematic photojournalism still, sharp focus, subtle organic film grain, {orient}. "
-        "STRICTLY PURE PHOTOGRAPH: ZERO text, ZERO letters, ZERO numbers, ZERO Chinese or foreign characters, "
-        "ZERO signs, ZERO screens, ZERO charts, ZERO logos, ZERO plastic skin, ZERO glossy CGI, ZERO cartoon."
-    )
+    combined = f"{clean} {topic}"
+    loc = "Real Indian location and real Indian people, natural skin texture. " if _is_indian(combined) else ""
+    frame = ("Vertical 9:16 composition with the main subject large and centered in the middle of the frame. "
+             if H > W else "Wide cinematic composition. ")
+    ctx = "" if raw or not topic or topic.lower() in clean.lower() else f" Context: {topic}."
+    return (f"Candid documentary photograph: {clean}.{ctx} {loc}{frame}"
+            "Shot on a full-frame camera, natural light, realistic colors, sharp focus on the subject, "
+            "shallow depth of field, photojournalism, true-to-life detail.")
 
 
 def _save_resized(img_bytes, out_path, W, H, trim_watermark=False):
@@ -84,20 +87,36 @@ def _save_resized(img_bytes, out_path, W, H, trim_watermark=False):
             nh = int(iw / target_ar)
             y0 = (ih - nh) // 2
             im = im.crop((0, y0, iw, y0 + nh))
+        up = W / float(im.width)
         im = im.resize((W, H), Image.LANCZOS)
+        if up > 1.25:                                   # v5.0: chhoti (crop ki hui) photo badi -> halka sharpen
+            from PIL import ImageFilter
+            im = im.filter(ImageFilter.UnsharpMask(radius=1.6, percent=70, threshold=2))
         im.save(out_path, format="JPEG", quality=93)
     return str(out_path)
 
 
-def _try_cloudflare_direct(prompt, out_path, cf_token, cf_account, W=1080, H=1920, timeout=45):
+def _try_cloudflare_direct(prompt, out_path, cf_token, cf_account, W=1080, H=1920, timeout=45, seed=None):
     """v4.32: 100% FREE Cloudflare Workers AI — FLUX.1-schnell (exact valid schema: prompt + steps ONLY) + SDXL-Lightning fallback."""
     import requests
     acc = (cf_account or _DEFAULT_CF_ACCOUNT_ID).strip()
     hdrs = {"Authorization": f"Bearer {cf_token}", "Content-Type": "application/json"}
     # Model 1: FLUX.1-schnell (ONLY accepts prompt + steps 4..8; passing width/height causes HTTP 400!)
     # Model 2: SDXL-Lightning (instant FREE backup on the same token if FLUX filters or hiccups)
-    models = [
-        ("@cf/black-forest-labs/flux-1-schnell", {"prompt": prompt[:1800], "steps": 6}),
+    _fx = {"prompt": prompt[:1800], "steps": 8}          # v5.0: 8 = schnell ki max quality
+    if seed is not None:
+        _fx["seed"] = int(seed) % 2147483647                # v5.0: har beat ka alag seed -> alag photo
+    models = []
+    _pm = os.environ.get("CF_PORTRAIT_MODEL", "").strip()  # optional: width/height wala model (jaise @cf/leonardo/lucid-origin)
+    if _pm and _pm not in _DEAD:
+        gw, gh = (1024, 576) if W > H else (720, 1280)
+        models.append((_pm, {"prompt": prompt[:1500], "width": gw, "height": gh,
+                             **({"seed": _fx["seed"]} if "seed" in _fx else {})}))
+    models += [
+        ("@cf/black-forest-labs/flux-1-schnell", _fx),
+        ("@cf/black-forest-labs/flux-1-schnell", {"prompt": prompt[:1800], "steps": 8}),
+        ("@cf/bytedance/stable-diffusion-xl-lightning", {"prompt": prompt[:1000],
+                                                         "width": 768 if H > W else 1024, "height": 1344 if H > W else 576}),
         ("@cf/bytedance/stable-diffusion-xl-lightning", {"prompt": prompt[:1000]}),
     ]
     last_err = ""
@@ -107,6 +126,8 @@ def _try_cloudflare_direct(prompt, out_path, cf_token, cf_account, W=1080, H=192
             r = requests.post(url, headers=hdrs, json=payload, timeout=timeout)
             if r.status_code != 200:
                 last_err = f"{mdl} HTTP {r.status_code}: {r.text[:110]}"
+                if mdl == _pm and r.status_code in (400, 404):
+                    _DEAD.add(mdl)
                 continue
             ct = r.headers.get("content-type", "").lower()
             if ct.startswith("image/") and len(r.content) > 8000:
@@ -233,19 +254,21 @@ def _try_huggingface(prompt, out_path, hf_token, W=1080, H=1920, timeout=60):
     raise RuntimeError(f"HF HTTP {r.status_code}")
 
 
-def generate_scene_image(scene_desc, out_dir, topic="", W=1080, H=1920, keys=None, variation=0):
-    """Generate a 100% realistic 35mm documentary AI photograph (zero GPU, zero card)."""
+def generate_scene_image(scene_desc, out_dir, topic="", W=1080, H=1920, keys=None, variation=0, raw=False):
+    """Generate a realistic documentary AI photograph (zero GPU, zero card).
+    v5.0: raw=True (Director) -> prompt me framing pehle se hai, doosra (takrata hua) framing shabd nahi judta;
+    variation -> alag seed."""
     global _WARNED_ONCE
     keys = keys or {}
-    prompt = _doc_prompt(scene_desc, topic, W, H)
+    prompt = _doc_prompt(scene_desc, topic, W, H, raw=raw)
     if not prompt:
         return None
 
     out_dir = Path(out_dir)
     out_dir.mkdir(parents=True, exist_ok=True)
-    _var_tag = ("wide establishing documentary frame", "medium candid action frame", "close-up natural detail frame", "over-the-shoulder real-life perspective")[int(variation or 0) % 4]
-    if variation:
-        prompt = f"{_var_tag}, {prompt}"
+    if variation and not raw:
+        _var_tag = ("wide establishing shot", "medium action shot", "close-up detail shot", "over-the-shoulder shot")[int(variation or 0) % 4]
+        prompt = f"{_var_tag}. {prompt}"
     h = hashlib.sha1(f"{prompt}|{W}x{H}|v{int(variation or 0)}".encode("utf-8")).hexdigest()[:12]
     out_path = out_dir / f"ai_doc_{h}.jpg"
     if out_path.exists() and out_path.stat().st_size > 8000:
@@ -260,7 +283,8 @@ def generate_scene_image(scene_desc, out_dir, topic="", W=1080, H=1920, keys=Non
               or os.environ.get("CF_ACCOUNT_ID") or os.environ.get("CLOUDFLARE_ACCOUNT_ID") or _DEFAULT_CF_ACCOUNT_ID).strip()
     if cf_tok:
         try:
-            res = _try_cloudflare_direct(prompt, out_path, cf_tok, cf_acc, W=W, H=H)
+            res = _try_cloudflare_direct(prompt, out_path, cf_tok, cf_acc, W=W, H=H,
+                                         seed=(int(hashlib.md5(prompt.encode("utf-8")).hexdigest()[:6], 16) + int(variation or 0) * 7919))
             if res:
                 log(f"   🎨 Cloudflare FLUX 35mm visual ready ✓ ({out_path.name})", show=False)
                 return res

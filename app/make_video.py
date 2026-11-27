@@ -793,6 +793,23 @@ def main():
         _max_c = max(4, int(num(style, "line_max_clips", 1, 6))) if not LONG else int(num(style, "line_max_clips", 1, 6))
         spans.append((st, en, min(k, _max_c)))
 
+    # v5.0 HYBRID DIRECTOR: AI mode + Stock mode ab ek hi system. Har ~2 sec beat ka ALAG shot plan (Gemini),
+    # stock khoj har beat ki query se, phir har mili clip Gemini Vision se jaanch, khaali beat -> beat ka apna AI prompt.
+    DIRECTOR_ON = yes(style.get("director", "haan"))
+    DIRECTOR_REP = {}
+    if DIRECTOR_ON:
+        try:
+            import director as _dir
+            _dir_main = (LOCK or {}).get("main_subject") or (" ".join(topic_kw) if topic_kw else "")
+            _dir.plan(sents, eng, spans, keys, main=_dir_main, long_mode=LONG)
+            try:
+                import visual_brain as _vb_dir
+                _dir.inject(_vb_dir)
+            except Exception:
+                pass
+        except Exception as _de:
+            DIRECTOR_ON = False; log(f"   (director plan skip: {str(_de)[:100]})")
+
     # v2: 4 lines ek saath dhoondhta hai (pehle se ~3-4 guna tez)
     sources.PHOTO_MODE["v"] = style.get("photo", "kam")
     from concurrent.futures import ThreadPoolExecutor
@@ -885,6 +902,14 @@ def main():
                 pass
         if AIPLAN.get(i, {}).get("queries"):                # v3.16: aapke AI app ka plan SABSE pehle
             extra = list(dict.fromkeys(AIPLAN[i]["queries"] + list(extra or [])))[:7]
+        if DIRECTOR_ON:                                     # v5.0: har beat ki apni query (director plan)
+            try:
+                import director as _dq
+                _dqs = _dq.queries(i)
+                if _dqs:
+                    extra = list(dict.fromkeys(_dqs[:4] + list(extra or [])))[:8]
+            except Exception:
+                pass
         if USER_HINT.get(i):                                # v3.18: script ka '/' ya '||' hint – sabse pehle, AI se bhi pehle
             try:
                 import visual_pick as _vh
@@ -999,7 +1024,7 @@ def main():
         r = fx_line(i)
         if r:
             return r
-        if VMODE_AI:
+        if VMODE_AI or DIRECTOR_ON:
             # v4.31 UNLOCKED AI CINEMATIC DOCUMENTARY MODE (Default ON):
             # - ONLY named real celebrities/people (face_lines or explicit person in RAW_PLAN) use real Wikimedia portraits.
             # - EVERY other line (including real:true factual lines!) generates ultra-realistic 35mm AI beats every ~2.0s!
@@ -1018,8 +1043,10 @@ def main():
                     _real_vids = []
                     # Layer 2 (v4.35): Auto 30fps Detailed Moving Hindi/Hinglish Explainer on key rule/law/process/comparison lines!
                     _exp_cap = 5 if LONG else 2
-                    _exp_cnt = getattr(main, "_auto_exp_cnt", 0)
-                    _exp_last = getattr(main, "_auto_exp_last", -9)
+                    _exp_cap = 3 if LONG else 1          # v5.0: Short me 1 (zyada cards = slideshow feel)
+                    with _fx_map_lock:
+                        _exp_cnt = getattr(main, "_auto_exp_cnt", 0)
+                        _exp_last = getattr(main, "_auto_exp_last", -9)
                     _is_explain_worthy = (
                         not _is_cta_line and not USER_AI_HINT.get(i)
                         and _exp_cnt < _exp_cap and (i - _exp_last) >= 3
@@ -1032,14 +1059,29 @@ def main():
                             _ex_dur = max(2.2, float(sents[i]["end"]) - float(sents[i]["start"])) if i < len(sents) else 4.0
                             _ex_out = work / "shots" / f"auto_explain_{i:02d}.mp4"
                             _ex_desc = str(_rp_m.get("action") or _rp_m.get("subject") or (eng[i] if i < len(eng) else _line_hi_raw))
-                            if _aie.render_ai_explainer(_ex_desc, _line_hi_raw, _ex_dur, _ex_out, W, H, style, keys, fps=render.FPS):
-                                main._auto_exp_cnt = _exp_cnt + 1
+                            if DIRECTOR_ON:
+                                try:
+                                    import director as _dex
+                                    _bt = _dex.beat_texts(i)
+                                    if _bt:
+                                        _ex_desc = f"{eng[i] if i < len(eng) else ''} | visuals: " + "; ".join(_bt)
+                                except Exception:
+                                    pass
+                            with _fx_map_lock:             # v5.0: doosra thread same samay pe counter na tode
+                                if getattr(main, "_auto_exp_cnt", 0) >= _exp_cap:
+                                    raise RuntimeError("explainer limit")
+                                main._auto_exp_cnt = getattr(main, "_auto_exp_cnt", 0) + 1
                                 main._auto_exp_last = i
+                            # v5.0 FIX: pehle "render_ai_explainer" bulaya jaata tha – ye function hai hi nahi (asli naam
+                            # render_explainer) -> v4.35 ka Auto Explainer kabhi chala hi nahi, error chhupa rehta tha.
+                            if _aie.render_explainer(_ex_desc, _line_hi_raw, _ex_dur, _ex_out, W, H, style, keys, fps=render.FPS):
                                 log(f"   ✨ line {i+1}: Auto 30fps Detailed Moving Explainer ready ✓")
                                 return ([{"kind": "video", "path": _ex_out, "credit": "", "src": "ai explainer", "whole": True, "ss": 0.0}], [])
                         except Exception as _aee:
                             log(f"   (auto explainer skip line {i+1}: {str(_aee)[:60]})", show=False)
 
+                    if DIRECTOR_ON:
+                        return job(i)        # v5.0: Director baad me har beat jaanch ke stock / AI tay karega
                     # Layer 1 (v4.35): Check strong relevant REAL MOVING HD VIDEO on EVERY line (videos first, images only when no strong video!)
                     if not USER_AI_HINT.get(i):
                         try:
@@ -1136,7 +1178,9 @@ def main():
                 VMODE_AI = not bool(_sd.get("vmode_stock"))
     except Exception:
         VMODE_AI = True
-    if VMODE_AI:
+    if DIRECTOR_ON:
+        log("   🎬 Visual Mode: v5.0 HYBRID DIRECTOR (asli video + AI – har beat Gemini Vision se jaancha hua, ek hi try)")
+    elif VMODE_AI:
         log("   🎬 Visual Mode: AI Cinematic Documentary (v4.30 Default ON — 100% Script-Matched 35mm AI + Fast Cuts!)")
     else:
         log("   🔎 Visual Mode: Purana Stock Search (/vmode stock active)")
@@ -1262,6 +1306,27 @@ def main():
                 if _pc: found[i_] = ([_pc], kw_)
     except Exception as _fe:
         log(f"   (topic fill skip: {_fe})", show=False)
+    _DIR_DONE = False
+    if DIRECTOR_ON:
+        try:                                           # v5.0 HYBRID DIRECTOR: har beat ki asli jaanch + AI fill (ek hi try)
+            import director as _dir2
+            _skip = set(user_assign) | set(face_lines)
+            for i_ in range(len(sents)):
+                _t_ = str(sents[i_].get("script") or sents[i_]["text"] or "").lower()
+                if i_ == len(sents) - 1 and i_ > 0 and re.search(r"(फॉलो|फोलो|सब्सक्राइब|subscribe|follow)", _t_):
+                    _skip.add(i_)
+                if LOCK and i_ < len(LOCK["scenes"]) and LOCK["scenes"][i_].get("cta"):
+                    _skip.add(i_)
+            _dtopic = (LOCK or {}).get("main_subject") or (" ".join(topic_kw) if topic_kw else _clean_title(title, ""))
+            DIRECTOR_REP = _dir2.judge_and_fill(found, sents, eng, keys, work, W, H, topic=_dtopic, skip_lines=_skip,
+                                                user_ai=dict(USER_AI_HINT), face_lines=face_lines, style=style,
+                                                time_budget_s=float(num(style, "director_time_s", 60, 1800))
+                                                if style.get("director_time_s") else (900 if LONG else 420))
+            _DIR_DONE = bool(DIRECTOR_REP and DIRECTOR_REP.get("beats"))
+        except Exception as _dje:
+            log(f"   (director jaanch skip: {str(_dje)[:120]})")
+            with open(LOG_FILE, "a", encoding="utf-8") as f:
+                import traceback; f.write(traceback.format_exc())
     # v3.1: jin lines ki sahi footage nahi mili -> (local AI video) -> Blender 3D -> animated kinetic card
     # (pehle seedha static text card lagta tha jo "atka hua frame" jaisa dikhta tha)
     FALLBACK_SRC = {}
@@ -1272,7 +1337,7 @@ def main():
     except Exception as e:
         log(f"   (fallback visuals skip: {e})", show=False)
     VREP = {}
-    if LOCK and yes(style.get("visual_gate", "haan")):
+    if LOCK and yes(style.get("visual_gate", "haan")) and not _DIR_DONE:   # v5.0: Director ne jaanch kar li to dobara nahi
         try:                                           # v3.2: PRE-RENDER VISUAL GATE (verify -> reject -> replace)
             import visual_verify
             log("   🎯 visual jaanch: har scene kahani + lock se mila raha hoon...")
@@ -1295,13 +1360,14 @@ def main():
     if yes(style.get("jaldi", "nahi")):                # v3.6: sabse tez mode
         style["check_bot"] = "nahi"; style["visual_gate_round"] = "1"
         log("   ⚡ jaldi mode: Gemini poori-video review + dobara render band")
-    qc_rounds = int(num(style, "check_bot_round", 0, 3)) if yes(style.get("check_bot", "haan")) else 0
+    # v5.0 ONE-SHOT: Director pehle hi har shot jaanch leta hai -> poori video dobara render (GitHub minute khaane wala) default band
+    qc_rounds = int(num(style, "check_bot_round", 0, 3)) if yes(style.get("check_bot", "nahi" if DIRECTOR_ON else "haan")) else 0
     # v3.84 SPEED + QUALITY LOOP: Shorts me default 1 targeted fix round (target 82, budget 12 min)
     # taaki GitHub Actions 38 min na khaye (~6-8 min me ready). style.txt se kabhi bhi badha sakte hain.
     _def_qtarget = 85.0 if LONG else 80.0  # v3.86: Shorts me 80+ pe turant deliver; <80 pe hi 1 fix round
     _def_qrounds = 2 if LONG else 1
     _def_qmin = 25 if LONG else 12
-    QL = {"on": yes(style.get("quality_loop", "haan")),
+    QL = {"on": yes(style.get("quality_loop", "nahi" if DIRECTOR_ON else "haan")),
           "target": float(num(style, "quality_target", 50, 100)) if style.get("quality_target") else _def_qtarget,
           "budget": float(os.environ.get("VG_TIME_BUDGET_MIN") or style.get("quality_time_min") or _def_qmin) * 60,
           "hist": [], "t_round": time.time(), "best": {}, "stuck": set()}
@@ -1350,6 +1416,7 @@ def main():
         NAME_T = []                                    # v3.17: naam patti kab dikhi (keyword se takraav nahi)
         prev_items = []
         IMG_USED = {}                                  # v3.13: photo path -> kitni baar lagi (repeat NAHI)
+        _UG = None; _USED_IMGS = set(); _DOC_BEATS = None   # v5.0 FIX: har round naya (pehle round-2 me sab "used" lagta tha)
         def _ukey(x): return str(x.get("path"))
         for i, s in enumerate(sents):
             st, en, k = spans[i]
@@ -1440,6 +1507,8 @@ def main():
                 if k_new < k:
                     log(f"   line {i+1}: {_nd} alag visual – {k} ki jagah {k_new} shot (jump cut nahi)", show=False)
                     k = k_new
+            if items and all(x.get("dir") for x in items):
+                k = len(items)                            # v5.0: Director ne har beat ka verified shot diya – utne hi cut
             seg = d / k
             pts = [st + q * seg for q in range(k + 1)]
             try:
@@ -1456,12 +1525,10 @@ def main():
                 for q in range(1, k):
                     near = [b for b in BEATS if abs(b - pts[q]) <= 0.3 and b - pts[q - 1] >= 1.0 and pts[q + 1] - b >= 1.0]
                     if near: pts[q] = min(near, key=lambda b: abs(b - pts[q]))
-            if "_UG" not in locals():
+            if _UG is None:
                 from unique_guard import UniqueAssetGuard
                 _UG = UniqueAssetGuard()
-            if "_USED_IMGS" not in locals():
-                _USED_IMGS = set()
-            if "_DOC_BEATS" not in locals():
+            if _DOC_BEATS is None:
                 _DOC_BEATS = {"stat": 0, "year": 0, "news": 0, "parallax": 0, "fullform": 0, "last_line": -9}
             for j in range(k):
                 # v4.29 VIRAL DOCUMENTARY DIRECTOR (Shorts + Longs): high-impact proof beats
@@ -1518,6 +1585,9 @@ def main():
                         _is_action_line = bool(re.search(r"(लॉन्च|उड़ान|क्रैश|हमला|विस्फोट|launch|liftoff|crash|explosion|blast|attack)", _ltxt, re.I))
                         _news_cap = 3 if LONG else (0 if (_is_action_line and items) else 1)
                         _px_cap = 2 if LONG else 1
+                        if items and items[0].get("dir") and items[0].get("kind") == "video" and \
+                                float(items[0].get("vscore") or 0) >= 8:
+                            _news_cap = 0; _px_cap = 0   # v5.0: sahi asli video ko text/parallax card se nahi dhakna
                         _stat_pat = r"(?:[₹$€]\s*\d[\d,.]*\s*(?:करोड़|लाख|अरब|हजार|Cr|Crore|Lakh|Million|Billion|K|M|B)?|\d[\d,.]*\s*(?:%|प्रतिशत|लाख|करोड़|अरब|मिलियन|बिलियन|हजार|फीट|किलोमीटर|°C|डिग्री|Cr\b|Crore|Lakh|Million|Billion))"
                         _yr_m = re.search(r"\b(19[4-9]\d|20[0-2]\d)\b", _ltxt)
                         # Beat A: Big number / money / percent -> StatCounterProCard
@@ -1609,7 +1679,9 @@ def main():
                 elif j < len(items):
                     cand_it = items[j]
                     # v4.30 UNIVERSAL NO-REPEAT GUARD (BOTH videos AND photos!): never repeat the same photo/clip across scenes!
-                    if cand_it.get("kind") in ("video", "image") and not str(cand_it.get("src", "")).startswith(("kinetic", "map", "blender", "cloud flux")):
+                    if cand_it.get("dir"):
+                        pass                              # v5.0: Director ne pehle hi jaanch + repeat-check kar liya
+                    elif cand_it.get("kind") in ("video", "image") and not str(cand_it.get("src", "")).startswith(("kinetic", "map", "blender")):
                         if _UG.is_duplicate(cand_it):
                             alt_unused = [x for x in items[j + 1:] if not _UG.is_duplicate(x)]
                             if alt_unused:
@@ -1653,7 +1725,7 @@ def main():
                     _weak_stock = (it is not None and it.get("score") is not None and float(it.get("score") or 1.0) < 0.30)
                     # v3.66 FIX (sabse badi wajah "visual match nahi"): pehle score < 0.30 pe ASLI clip bhi AI photo se
                     # badal jaati thi (CLIP me sahi clip bhi 0.22-0.30 hoti hai). Ab visual_brain tay karta hai.
-                    _ai_ok = (_needs_ai or _weak_stock)
+                    _ai_ok = (_needs_ai or _weak_stock) and not (it is not None and it.get("dir"))
                     if _ai_ok and it is not None:
                         try:
                             import visual_brain as _vbr
@@ -1689,7 +1761,7 @@ def main():
                     if it is not None:
                         if it.get("kind") == "image":
                             _ip_str = str(it.get("path") or "")
-                            if _ip_str in _USED_IMGS and not (i in face_lines):
+                            if _ip_str in _USED_IMGS and not (i in face_lines) and not it.get("dir"):
                                 try:
                                     import cloud_visuals as _cv_unq
                                     _q_u = str(sources.SHOW.get(i) or (eng[i] if i < len(eng) and eng[i] else s.get("script") or s["text"]))
@@ -2397,6 +2469,13 @@ def main():
     except Exception as e:
         log(f"   (quality gate skip: {e})", show=False)
     VREPORT = {}
+    try:                                               # v5.0: Director ka beat-wise report (artifact me upload hota hai)
+        import director as _dmd
+        _dm = _dmd.report_md()
+        if _dm:
+            Path(str(Path(out).with_suffix("")) + "_DIRECTOR_VISUAL_REPORT.md").write_text(_dm, encoding="utf-8")
+    except Exception:
+        pass
     try:                                               # v3.66: VISUAL REPORT – har line: samjha kya, chuna kya, kyun
         import visual_brain as _vbw, visual_pick as _vpw
         if _vbw.PLAN:
@@ -2525,6 +2604,8 @@ def main():
             "ig_story": str(ig_story_p) if ig_story_p else None,
             "category": style.get("category") or "general",
             "review": {k: REVIEW.get(k) for k in ("score", "verdict", "issues", "not_done")} if REVIEW else {},
+            "director": {k: (DIRECTOR_REP or {}).get(k) for k in ("score", "judge", "beats", "weak_lines", "ai_shots",
+                                                                   "video_shots")} if DIRECTOR_REP else {},
             "timing": (lambda tp: f"⏱ {tp[0]/60:.1f} min: " + ", ".join(f"{n_} {t_/60:.1f}" for n_, t_ in tp[1][:4] if t_ >= 5))(stage_report()),
             "voice_cache": {"wav": str(jd / "voice.wav"), "sents": str(jd / "sents.json")},
             "note": "\n".join(x for x in ((FB["note"] if FB else ""), GEM_NOTE,

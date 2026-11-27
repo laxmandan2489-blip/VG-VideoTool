@@ -479,7 +479,8 @@ def main():
     env["PYTHONIOENCODING"] = "utf-8"
     env["PYTHONUNBUFFERED"] = "1"
     # v3.86 SPEED: GPU-less cloud runner par blender_doc_stage=nahi (fast 2.5D parallax, 8-12 min bachat, 0% visual loss)
-    _sty = {"remotion_beats": "haan", "blender_doc_stage": "nahi", "ek_saath_shots": "2", "edit_kit": "nahi"}
+    _sty = {"remotion_beats": "haan", "blender_doc_stage": "nahi", "ek_saath_shots": "2", "edit_kit": "nahi",
+            "director": "haan", "quality_loop": "nahi", "check_bot": "nahi"}   # v5.0: Hybrid Director, ek hi try
     if voice_path:                                    # v3.79: aapki recording -> voice = meri (Whisper se timing)
         _sty["voice"] = "meri"; env["VG_VOICE"] = str(voice_path)
     env["VG_STYLE_JSON"] = json.dumps(_sty)
@@ -620,7 +621,7 @@ def main():
     print("make_video.py exit code:", rc)
 
     out_mp4 = None
-    vrep_md = None; vrep_sum = None; review_sc = None
+    vrep_md = None; vrep_sum = None; review_sc = None; dir_rep = {}
     vid_meta = {}; reel_cover_p = None; ig_story_p = None; vid_cat = "general"
     if res.exists():
         try:
@@ -628,6 +629,7 @@ def main():
             cand = data.get("video") or data.get("out") or data.get("path")
             vrep_md = data.get("visual_report"); vrep_sum = data.get("visual_summary")
             review_sc = (data.get("review") or {}).get("score")
+            dir_rep = data.get("director") or {}
             vid_meta = data.get("meta") or {}
             reel_cover_p = data.get("reel_cover")
             ig_story_p = data.get("ig_story")
@@ -661,7 +663,15 @@ def main():
         _gh_rid = os.environ.get("GITHUB_RUN_ID", "").strip()
         _gh_url = f"{_gh_srv}/{_gh_repo}/actions/runs/{_gh_rid}" if (_gh_repo and _gh_rid) else ""
         cap = f"✅ Cloud Video Ready ({size_mb:.1f} MB • {_fmt_elapsed(time.time() - t0)})\n{first_line}"
-        if review_sc is not None:
+        if dir_rep.get("score") is not None:          # v5.0: asli score – Gemini ne har shot dekh ke diya
+            _ds = float(dir_rep["score"])
+            _jt = {"gemini": "Gemini ne har shot dekha", "clip": "Gemini nahi chala – CLIP ka andaza",
+                   "gemini+clip": "Gemini + CLIP"}.get(str(dir_rep.get("judge")), str(dir_rep.get("judge")))
+            cap += (f"\n🎯 Visual match: {_ds:.0f}/100" + (" ✅" if _ds >= 80 else " ⚠️") + f" ({_jt}, {dir_rep.get('beats')} shot)"
+                    f"\n🎞 {dir_rep.get('video_shots', 0)} asli video + {dir_rep.get('ai_shots', 0)} AI shot")
+            if dir_rep.get("weak_lines"):
+                cap += f"\n🔎 kamzor lines: {', '.join(str(x) for x in dir_rep['weak_lines'][:8])}"
+        elif review_sc is not None:
             cap += f"\n🎯 Visual score: {review_sc}/100" + (" ✅" if float(review_sc) >= 80 else " (80 se kam – report dekho)")
         if drive_info:
             cap += f"\n📁 Drive HD: {drive_info}"

@@ -470,7 +470,7 @@ def render_shot(item, dur, out, style, idx, effect=None, trans=None):
     tmp = Path(out).with_suffix(".jpg"); im.save(tmp, quality=93)
     cx = "iw/2-(iw/zoom/2)"; cy = "ih/2-(ih/zoom/2)"
     # v3.13 FIX ("chehra bahut zoom / poori photo nahi"): photo pe zoom 16% -> 6%, punch 1.32 -> 1.15
-    zz = 0.04 if yes(style.get("photo_poora", "haan")) else 0.08  # v4.32: gentle zoom-out/settle, zero over-zoom
+    zz = 0.07 if yes(style.get("photo_poora", "haan")) else 0.10  # v5.0: 4% me photo ruki hui lagti thi (slideshow)
     if effect == "punch":
         z = f"if(lt(on,6),1.15-0.022*on,1.02+0.04*(on-6)/{frames})"; x = cx; y = cy
     elif yes(style.get("zoom")):
@@ -482,7 +482,8 @@ def render_shot(item, dur, out, style, idx, effect=None, trans=None):
         z = "1"; x = cx; y = cy
     if idx == 0 and yes(style.get("punch_shuru", "haan")) and effect != "punch":
         z = f"max(1.0,1.10-0.008*on)+({z})-1"
-    vf = f"zoompan=z='{z}':x='{x}':y='{y}':d={frames}:s={W}x{H}:fps={FPS},setsar=1{grade_vf(style)}{post}"
+    # v5.0: zoompan se pehle 2x bada -> pixel-rounding wala jhatka (jitter) khatam, move smooth
+    vf = f"scale=iw*2:ih*2:flags=lanczos,zoompan=z='{z}':x='{x}':y='{y}':d={frames}:s={W}x{H}:fps={FPS},setsar=1{grade_vf(style)}{post}"
     cmd = ["ffmpeg", "-y", "-v", "error", "-loop", "1", "-i", tmp, "-vf", vf,
            "-frames:v", str(frames), "-an"] + enc_args(style) + [out]
     try:
